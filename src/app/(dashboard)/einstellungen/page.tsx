@@ -231,7 +231,7 @@ export default async function SettingsPage({
                 <tr key={user.id}>
                   <Td className="font-medium">
                     {user.name}
-                    {user.id === me.id && <span className="ml-2 text-xs text-ink-400">(Sie)</span>}
+                    {user.id === me.id && <span className="ml-2 text-xs text-ink-500">(Sie)</span>}
                   </Td>
                   <Td className="text-ink-600">{user.email}</Td>
                   <Td className="text-ink-600">

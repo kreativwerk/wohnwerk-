@@ -186,7 +186,7 @@ export default async function StatementsPage({
                   <tr key={statement.id} className="hover:bg-ink-50">
                     <Td className="text-ink-600">
                       {formatDateTime(statement.importedAt)}
-                      <p className="max-w-56 truncate text-xs text-ink-400">{statement.fileName}</p>
+                      <p className="max-w-56 truncate text-xs text-ink-500">{statement.fileName}</p>
                     </Td>
                     <Td className="text-ink-600">{statement.bankAccount.name}</Td>
                     <Td className="text-ink-600">

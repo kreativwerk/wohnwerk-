@@ -152,7 +152,7 @@ export default async function DocumentsPage({
                     <tr key={document.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap text-ink-600">
                         {formatDate(document.documentDate ?? document.uploadedAt)}
-                        <p className="text-xs text-ink-400">
+                        <p className="text-xs text-ink-500">
                           {DOCUMENT_KIND_LABEL[document.kind] ?? document.kind}
                         </p>
                       </Td>
@@ -282,7 +282,7 @@ export default async function DocumentsPage({
                           </p>
                         )}
                         {!document.property && !document.tenant && !document.bankTransaction && (
-                          <span className="text-ink-400">–</span>
+                          <span className="text-ink-500">–</span>
                         )}
                       </Td>
                       <Td align="right" className="tabular-nums">

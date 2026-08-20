@@ -339,7 +339,7 @@ export default async function DashboardPage() {
                       </Td>
                       <Td className="text-ink-600">
                         {charge.tenancy.bed.room.property.name}
-                        <span className="text-ink-400"> · {charge.tenancy.bed.room.name}</span>
+                        <span className="text-ink-500"> · {charge.tenancy.bed.room.name}</span>
                       </Td>
                       <Td>{formatMonth(charge.periodYear, charge.periodMonth)}</Td>
                       <Td className="text-ink-600">{formatDate(charge.dueDate)}</Td>

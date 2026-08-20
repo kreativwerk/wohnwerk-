@@ -45,7 +45,7 @@ export function ContractView({ data }: { data: ContractData }) {
       <Section title="1. Vertragsparteien">
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-400">Vermieter</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">Vermieter</p>
             <dl>
               <Row label="Name" value={data.landlordName} />
               <Row
@@ -63,7 +63,7 @@ export function ContractView({ data }: { data: ContractData }) {
             </dl>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-400">Mieter</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">Mieter</p>
             <dl>
               <Row label="Name" value={data.tenantName} />
               <Row label="Geburtsdatum" value={data.tenantBirthDate} />

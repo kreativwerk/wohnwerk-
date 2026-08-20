@@ -1,30 +1,105 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Farbwelt der Marke Wohnwerk.
+
+   Zwei Werte stammen unveraendert aus den Logo-Dateien und sind der Ursprung
+   des ganzen Systems:
+
+     Orange  #EE5627   die W-Marke        -> accent-500
+     Mint    #C9DDDC   der Schriftzug     -> brand-200
+
+   Alles Uebrige ist um diese beiden Toene herum aufgebaut: Petrol als ruhige
+   Markenfarbe, Orange allein fuer Handlungen, und ein Grau, das leicht ins
+   Petrol gezogen ist, damit es zur Marke gehoert statt neutral daneben zu
+   stehen.
+--------------------------------------------------------------------------- */
+
 @theme {
-  --color-brand-50: #ecfdf5;
-  --color-brand-100: #d1fae5;
-  --color-brand-200: #a7f3d0;
-  --color-brand-300: #6ee7b7;
-  --color-brand-400: #34d399;
-  --color-brand-500: #10b981;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
-  --color-brand-900: #134e4a;
+  /* Petrol - die Markenfarbe. Traegt Navigation, Hervorhebungen, Belegung. */
+  --color-brand-50:  #f1f7f7;
+  --color-brand-100: #dfeded;
+  --color-brand-200: #c9dddc;
+  --color-brand-300: #a2c5c3;
+  --color-brand-400: #71a29f;
+  --color-brand-500: #4a8380;
+  --color-brand-600: #356b68;
+  --color-brand-700: #2a5654;
+  --color-brand-800: #234544;
+  --color-brand-900: #1b3736;
+  --color-brand-950: #142726;
 
-  --color-ink-50: #f8fafc;
-  --color-ink-100: #f1f5f9;
-  --color-ink-200: #e2e8f0;
-  --color-ink-300: #cbd5e1;
-  --color-ink-400: #94a3b8;
-  --color-ink-500: #64748b;
-  --color-ink-600: #475569;
-  --color-ink-700: #334155;
-  --color-ink-800: #1e293b;
-  --color-ink-900: #0f172a;
+  /* Orange - ausschliesslich fuer das, was der Nutzer tun soll. */
+  --color-accent-50:  #fef4f0;
+  --color-accent-100: #fde5dc;
+  --color-accent-200: #fac7b5;
+  --color-accent-300: #f6a184;
+  --color-accent-400: #f27953;
+  --color-accent-500: #ee5627;
+  --color-accent-600: #d8431a;
+  --color-accent-700: #b33415;
+  --color-accent-800: #8f2a14;
+  --color-accent-900: #742514;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+  /* Grau mit einem Hauch Petrol. */
+  --color-ink-50:  #f7f9f8;
+  --color-ink-100: #f0f3f2;
+  --color-ink-200: #e3e8e7;
+  --color-ink-300: #cdd5d4;
+  --color-ink-400: #9aa5a4;
+  --color-ink-500: #616c6b;
+  --color-ink-600: #55605f;
+  --color-ink-700: #3f4948;
+  --color-ink-800: #2b3433;
+  --color-ink-900: #16201f;
+
+  /* Signalfarben. Tailwinds Vorgaben sind fuer diese Oberflaeche zu grell:
+     neben dem gedeckten Petrol wirkt ein reines Rose-500 wie ein Fremdkoerper.
+     Diese Toene sind entsaettigt und auf die Marke abgestimmt - Gruen etwas
+     waermer als das Petrol, damit beide unterscheidbar bleiben, und Rot ins
+     Kuehle gezogen, damit es nicht mit dem Orange verwechselt wird. */
+  --color-emerald-50:  #eff7f2;
+  --color-emerald-200: #bcdccb;
+  --color-emerald-500: #3f9068;
+  --color-emerald-600: #2f7a55;
+  --color-emerald-700: #276445;
+  --color-emerald-800: #22523a;
+
+  --color-rose-50:  #fdf2f3;
+  --color-rose-200: #f0c7cc;
+  --color-rose-400: #c95d6b;
+  --color-rose-500: #b83d4c;
+  --color-rose-600: #a02f3d;
+  --color-rose-700: #862833;
+  --color-rose-800: #6d222b;
+
+  --color-amber-50:  #fdf6ec;
+  --color-amber-200: #f2ddb4;
+  --color-amber-300: #e8c98a;
+  --color-amber-500: #c98a2b;
+  --color-amber-600: #99671d;
+  --color-amber-700: #8a5d1b;
+  --color-amber-800: #6f4b17;
+  --color-amber-900: #5a3d14;
+
+  --color-sky-50:  #eff5fa;
+  --color-sky-200: #c2d8e8;
+  --color-sky-500: #3d7fa8;
+  --color-sky-600: #31698d;
+  --color-sky-700: #2a5674;
+  --color-sky-800: #24475f;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Runde Ecken in wenigen, klar unterscheidbaren Stufen. */
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+
+  /* Schatten liegen tief und weich - sichtbar, aber nie als Kante. */
+  --shadow-soft: 0 1px 2px rgb(22 32 31 / 0.04), 0 1px 3px rgb(22 32 31 / 0.03);
+  --shadow-lift: 0 2px 4px rgb(22 32 31 / 0.04), 0 8px 20px -6px rgb(22 32 31 / 0.10);
+  --shadow-pop: 0 4px 8px rgb(22 32 31 / 0.05), 0 16px 36px -10px rgb(22 32 31 / 0.16);
 }
 
 @layer base {
@@ -37,9 +112,26 @@
     color: var(--color-ink-900);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Formularelemente bekommen ueberall dieselbe Grundform. */
+  /* Grosse Ueberschriften ziehen leicht zusammen, kleine bleiben offen -
+     dadurch wirkt die Groessenstaffelung als eine Schrift, nicht als drei. */
+  h1 {
+    letter-spacing: -0.021em;
+  }
+  h2,
+  h3 {
+    letter-spacing: -0.013em;
+  }
+
+  /* Zahlen stehen ueberall untereinander, auch ausserhalb von Tabellen. */
+  .tabular-nums,
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+
   input[type="text"],
   input[type="email"],
   input[type="password"],
@@ -50,22 +142,27 @@
   select,
   textarea {
     width: 100%;
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
     border: 1px solid var(--color-ink-300);
     background-color: #fff;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.875rem;
-    line-height: 1.35rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.4rem;
     color: var(--color-ink-900);
     outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-ink-500);
   }
 
   input:focus,
   select:focus,
   textarea:focus {
     border-color: var(--color-brand-500);
-    box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15);
+    box-shadow: 0 0 0 3.5px rgb(74 131 128 / 0.18);
   }
 
   input:disabled,
@@ -73,19 +170,31 @@
   textarea:disabled {
     background-color: var(--color-ink-100);
     color: var(--color-ink-500);
+    cursor: not-allowed;
   }
 
   label {
     display: block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--color-ink-600);
-    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 550;
+    color: var(--color-ink-700);
+    margin-bottom: 0.35rem;
   }
 
   table {
     width: 100%;
     border-collapse: collapse;
+  }
+
+  /* Tastaturbedienung bleibt ueberall sichtbar. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-900);
   }
 }
 
@@ -95,47 +204,68 @@
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    line-height: 1.25rem;
+    border-radius: 0.625rem;
+    padding: 0.5rem 0.95rem;
+    font-size: 0.875rem;
+    font-weight: 550;
+    line-height: 1.3rem;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
     white-space: nowrap;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease,
+      box-shadow 140ms ease, transform 90ms ease;
+  }
+
+  /* Ein kaum merkliches Nachgeben beim Druecken - der Klick fuehlt sich an,
+     als haette er etwas beruehrt. */
+  .btn:active:not(:disabled) {
+    transform: scale(0.978);
   }
 
   .btn:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
+  /* Das Orange der Marke bleibt unveraendert. Weisse Schrift darauf kommt nur
+     auf 3.5:1 und faellt damit durch die Lesbarkeitspruefung, dunkle Schrift
+     erreicht 4.8:1 - deshalb dunkel auf Orange statt hell. */
   .btn-primary {
-    background-color: var(--color-brand-600);
-    color: #fff;
+    background-color: var(--color-accent-500);
+    color: var(--color-ink-900);
+    box-shadow: 0 1px 2px rgb(238 86 39 / 0.3);
   }
   .btn-primary:hover:not(:disabled) {
-    background-color: var(--color-brand-700);
+    background-color: var(--color-accent-400);
   }
 
   .btn-secondary {
     background-color: #fff;
     border-color: var(--color-ink-300);
-    color: var(--color-ink-700);
+    color: var(--color-ink-800);
+    box-shadow: var(--shadow-soft);
   }
   .btn-secondary:hover:not(:disabled) {
     background-color: var(--color-ink-50);
     border-color: var(--color-ink-400);
   }
 
+  .btn-brand {
+    background-color: var(--color-brand-700);
+    color: #fff;
+  }
+  .btn-brand:hover:not(:disabled) {
+    background-color: var(--color-brand-800);
+  }
+
   .btn-danger {
     background-color: #fff;
-    border-color: #fecaca;
-    color: #b91c1c;
+    border-color: #f3c9c4;
+    color: #a3311f;
+    box-shadow: var(--shadow-soft);
   }
   .btn-danger:hover:not(:disabled) {
-    background-color: #fef2f2;
+    background-color: #fdf3f1;
   }
 
   .btn-ghost {
@@ -144,19 +274,61 @@
   }
   .btn-ghost:hover:not(:disabled) {
     background-color: var(--color-ink-200);
+    color: var(--color-ink-900);
+  }
+
+  .btn-sm {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+    border-radius: 0.5rem;
   }
 
   .card {
     background-color: #fff;
     border: 1px solid var(--color-ink-200);
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Karten, die anklickbar sind, heben sich beim Ueberfahren leicht an. */
+  .card-link {
+    transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
+  }
+  .card-link:hover {
+    box-shadow: var(--shadow-lift);
+    border-color: var(--color-ink-300);
+    transform: translateY(-1px);
   }
 
   .field-hint {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--color-ink-500);
-    margin-top: 0.25rem;
+    margin-top: 0.3rem;
+  }
+
+  /* Leiste, die beim Scrollen stehen bleibt und den Inhalt durchscheinen laesst. */
+  .glass {
+    background-color: rgb(255 255 255 / 0.78);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .glass-dark {
+    background-color: rgb(20 39 38 / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
   }
 }
 

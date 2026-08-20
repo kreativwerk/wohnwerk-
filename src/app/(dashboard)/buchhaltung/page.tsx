@@ -190,7 +190,7 @@ export default async function AccountingPage({
                     <tr key={tx.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap text-ink-600">
                         {formatDate(tx.bookingDate)}
-                        <p className="text-xs text-ink-400">{tx.bankAccount.name}</p>
+                        <p className="text-xs text-ink-500">{tx.bankAccount.name}</p>
                       </Td>
                       <Td>
                         <p className="font-medium text-ink-900">{tx.counterpartyName ?? "–"}</p>
@@ -337,7 +337,7 @@ export default async function AccountingPage({
                         </div>
                       </Td>
                       <Td className="text-ink-600">
-                        {tx.category ?? <span className="text-ink-400">–</span>}
+                        {tx.category ?? <span className="text-ink-500">–</span>}
                         {tx.property && <p className="text-xs text-ink-500">{tx.property.name}</p>}
                       </Td>
                       <Td>
@@ -345,7 +345,7 @@ export default async function AccountingPage({
                           tx.direction === "DEBIT" ? (
                             <span className="text-xs font-semibold text-amber-600">fehlt</span>
                           ) : (
-                            <span className="text-ink-400">–</span>
+                            <span className="text-ink-500">–</span>
                           )
                         ) : (
                           <ul className="space-y-0.5">

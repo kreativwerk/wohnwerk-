@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSession, getSessionUser, login } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Alert } from "@/components/ui";
+import { LogoNavbar } from "@/components/logo";
 
 export const metadata = { title: "Anmelden" };
 export const dynamic = "force-dynamic";
@@ -31,16 +32,11 @@ export default async function LoginPage({
   const userCount = await prisma.user.count().catch(() => -1);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-ink-900 px-4 py-12">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-brand-950 px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500 text-lg font-bold text-white">
-            W
-          </span>
-          <div>
-            <p className="text-lg font-semibold text-white">Wohnwerk</p>
-            <p className="text-xs text-ink-400">Verwaltung für Monteurunterkünfte</p>
-          </div>
+        <div className="mb-7">
+          <LogoNavbar className="h-8 w-auto" />
+          <p className="mt-3 text-[0.8rem] text-brand-300">Verwaltung für Monteurunterkünfte</p>
         </div>
 
         <div className="card p-6">

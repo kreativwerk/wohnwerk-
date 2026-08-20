@@ -193,7 +193,7 @@ export default async function OpenItemsPage({
                                   <input type="hidden" name="back" value={BACK} />
                                   <button
                                     type="submit"
-                                    className="text-ink-400 hover:text-rose-600"
+                                    className="text-ink-500 hover:text-rose-600"
                                     title="Zuordnung aufheben"
                                   >
                                     ×

@@ -368,7 +368,7 @@ export default async function TenantDetailPage({
                           Öffnen
                         </a>
                       ) : (
-                        <span className="text-ink-400">–</span>
+                        <span className="text-ink-500">–</span>
                       )}
                     </Td>
                   </tr>

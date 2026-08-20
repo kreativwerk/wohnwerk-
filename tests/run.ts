@@ -10,6 +10,9 @@ import assert from "node:assert/strict";
 import { parseAmountToCents, formatCents, centsToInput } from "../src/lib/money";
 import { parseBankDate, monthsBetween, fromDateInput } from "../src/lib/dates";
 import { parseCsv, parseMt940, parseCamt053, parseStatement, dedupeHash, decodeBuffer } from "../src/lib/bank";
+import { contrastRatio, readTokens } from "../src/lib/contrast";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 let failed = 0;
 let passed = 0;
@@ -236,6 +239,57 @@ async function main() {
       dedupeHash("DE02120300000000202051", a.transactions[0]),
       dedupeHash("DE02120300000000202051", a.transactions[1]),
     );
+  });
+
+  console.log("\nLesbarkeit der Farben");
+
+  const css = readFileSync(join(__dirname, "..", "src", "app", "globals.css"), "utf8");
+  const t = readTokens(css);
+  const WEISS = "#ffffff";
+
+  // Jedes Paar, das in der Oberflaeche wirklich vorkommt, mit der Schwelle,
+  // die WCAG 2.1 AA dafuer verlangt: 4.5 fuer Text, 3.0 fuer Flaechen und
+  // grosse Schrift.
+  const PAARE: Array<[string, string, string, number]> = [
+    ["Fließtext auf Weiß", t["ink-900"], WEISS, 4.5],
+    ["Nebentext auf Weiß", t["ink-500"], WEISS, 4.5],
+    ["Nebentext auf Seitenhintergrund", t["ink-500"], t["ink-100"], 4.5],
+    ["Beschriftung auf Weiß", t["ink-700"], WEISS, 4.5],
+    ["Verweis auf Weiß", t["brand-700"], WEISS, 4.5],
+    ["Primärknopf", t["ink-900"], t["accent-500"], 4.5],
+    ["Primärknopf beim Überfahren", t["ink-900"], t["accent-400"], 4.5],
+    ["Markenknopf", WEISS, t["brand-700"], 4.5],
+    ["Badge Marke", t["brand-800"], t["brand-100"], 4.5],
+    ["Badge Akzent", t["accent-700"], t["accent-50"], 4.5],
+    ["Seitenleiste: Eintrag", t["brand-200"], t["brand-950"], 4.5],
+    ["Seitenleiste: Gruppentitel", t["brand-400"], t["brand-950"], 4.5],
+    ["Seitenleiste: aktives Symbol", t["accent-400"], t["brand-950"], 3.0],
+    ["Trennlinie auf Weiß", t["ink-200"], WEISS, 1.0],
+    ["Kennzahl gut", t["emerald-600"], WEISS, 4.5],
+    ["Kennzahl kritisch", t["rose-600"], WEISS, 4.5],
+    ["Kennzahl offen", t["amber-600"], WEISS, 4.5],
+    ["Kennzahl neutral", t["sky-600"], WEISS, 4.5],
+    ["Hinweis grün", t["emerald-800"], t["emerald-50"], 4.5],
+    ["Hinweis rot", t["rose-800"], t["rose-50"], 4.5],
+    ["Hinweis gelb", t["amber-900"], t["amber-50"], 4.5],
+    ["Hinweis blau", t["sky-800"], t["sky-50"], 4.5],
+  ];
+
+  for (const [name, vorne, hinten, schwelle] of PAARE) {
+    await test(`${name} (mindestens ${schwelle}:1)`, () => {
+      assert.ok(vorne, `Token fehlt für "${name}"`);
+      assert.ok(hinten, `Token fehlt für "${name}"`);
+      const wert = contrastRatio(vorne, hinten);
+      assert.ok(
+        wert >= schwelle,
+        `${vorne} auf ${hinten} erreicht nur ${wert.toFixed(2)}:1`,
+      );
+    });
+  }
+
+  await test("Markenfarben stammen unverändert aus den Logo-Dateien", () => {
+    assert.equal(t["accent-500"].toLowerCase(), "#ee5627", "Orange der W-Marke");
+    assert.equal(t["brand-200"].toLowerCase(), "#c9dddc", "Mint des Schriftzugs");
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

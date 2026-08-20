@@ -127,7 +127,7 @@ export function SignaturePad({
           aria-label="Unterschriftenfeld"
         />
         {!hasSignature && (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-ink-400">
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-ink-500">
             Hier mit Maus oder Finger unterschreiben
           </p>
         )}

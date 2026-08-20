@@ -2,37 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: string }> }> = [
+import {
+  Bell,
+  Buildings,
+  CalendarBlank,
+  CurrencyEur,
+  Gear,
+  List,
+  PencilSimpleLine,
+  Receipt,
+  SquaresFour,
+  TrayArrowDown,
+  TrayArrowUp,
+  User,
+  X,
+} from "@phosphor-icons/react/dist/ssr";
+import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
+
+import { LogoMark, LogoNavbar } from "./logo";
+
+const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: PhosphorIcon }> }> = [
   {
     group: "Übersicht",
     items: [
-      { href: "/", label: "Dashboard", icon: "▦" },
-      { href: "/belegung", label: "Belegungsplan", icon: "▤" },
+      { href: "/", label: "Dashboard", icon: SquaresFour },
+      { href: "/belegung", label: "Belegungsplan", icon: CalendarBlank },
     ],
   },
   {
     group: "Vermietung",
     items: [
-      { href: "/objekte", label: "Objekte", icon: "▣" },
-      { href: "/mieter", label: "Mieter", icon: "☺" },
-      { href: "/vertraege", label: "Mietverträge", icon: "✎" },
+      { href: "/objekte", label: "Objekte", icon: Buildings },
+      { href: "/mieter", label: "Mieter", icon: User },
+      { href: "/vertraege", label: "Mietverträge", icon: PencilSimpleLine },
     ],
   },
   {
     group: "Buchhaltung",
     items: [
-      { href: "/buchhaltung", label: "Buchungen", icon: "€" },
-      { href: "/buchhaltung/kontoauszuege", label: "Kontoauszüge", icon: "↥" },
-      { href: "/buchhaltung/belege", label: "Belege", icon: "▢" },
-      { href: "/buchhaltung/offene-posten", label: "Offene Posten", icon: "!" },
-      { href: "/buchhaltung/export", label: "Steuerberater", icon: "↧" },
+      { href: "/buchhaltung", label: "Buchungen", icon: CurrencyEur },
+      { href: "/buchhaltung/kontoauszuege", label: "Kontoauszüge", icon: TrayArrowUp },
+      { href: "/buchhaltung/belege", label: "Belege", icon: Receipt },
+      { href: "/buchhaltung/offene-posten", label: "Offene Posten", icon: Bell },
+      { href: "/buchhaltung/export", label: "Steuerberater", icon: TrayArrowDown },
     ],
   },
   {
     group: "System",
-    items: [{ href: "/einstellungen", label: "Einstellungen", icon: "⚙" }],
+    items: [{ href: "/einstellungen", label: "Einstellungen", icon: Gear }],
   },
 ];
 
@@ -46,22 +65,22 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Beim Seitenwechsel schliesst sich das mobile Menue von selbst.
+  useEffect(() => setOpen(false), [pathname]);
+
   const nav = (
     <nav className="flex h-full flex-col">
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-base font-bold text-white">
-          W
-        </span>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-white">Wohnwerk</p>
-          <p className="text-[0.7rem] text-ink-400">Monteurunterkünfte</p>
-        </div>
+      <div className="px-5 pb-6 pt-6">
+        <Link href="/" aria-label="Zum Dashboard">
+          <LogoNavbar className="h-7 w-auto" />
+        </Link>
+        <p className="mt-2.5 text-[0.7rem] tracking-wide text-brand-300">Monteurunterkünfte</p>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
+      <div className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
         {NAV.map((section) => (
           <div key={section.group}>
-            <p className="px-2 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-ink-500">
+            <p className="px-3 pb-2 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-brand-400">
               {section.group}
             </p>
             <ul className="space-y-0.5">
@@ -71,14 +90,26 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${
+                      aria-current={active ? "page" : undefined}
+                      className={`group relative flex items-center gap-3 rounded-[0.6rem] px-3 py-2 text-[0.875rem] transition-colors duration-150 ${
                         active
-                          ? "bg-brand-600 font-semibold text-white"
-                          : "text-ink-300 hover:bg-ink-800 hover:text-white"
+                          ? "bg-white/[0.09] font-medium text-white"
+                          : "text-brand-200/80 hover:bg-white/[0.05] hover:text-white"
                       }`}
                     >
-                      <span className="w-4 text-center text-xs opacity-80">{item.icon}</span>
+                      {/* Der orange Strich markiert die aktive Seite, ohne
+                          eine zweite Flaeche einzufuehren. */}
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-accent-500 transition-opacity duration-150 ${
+                          active ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      <item.icon
+                        size={19}
+                        weight={active ? "fill" : "regular"}
+                        className={active ? "text-accent-400" : "text-brand-400 group-hover:text-brand-200"}
+                      />
                       {item.label}
                     </Link>
                   </li>
@@ -89,11 +120,14 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
         ))}
       </div>
 
-      <div className="border-t border-ink-800 px-4 py-3">
-        <p className="truncate text-xs font-semibold text-white">{user.name}</p>
-        <p className="truncate text-[0.7rem] text-ink-400">{user.email}</p>
-        <form action="/api/auth/logout" method="post" className="mt-2">
-          <button type="submit" className="text-xs font-semibold text-ink-400 hover:text-white">
+      <div className="border-t border-white/[0.08] px-5 py-4">
+        <p className="truncate text-[0.82rem] font-medium text-white">{user.name}</p>
+        <p className="truncate text-[0.72rem] text-brand-400">{user.email}</p>
+        <form action="/api/auth/logout" method="post" className="mt-2.5">
+          <button
+            type="submit"
+            className="text-[0.76rem] font-medium text-brand-300 transition-colors hover:text-white"
+          >
             Abmelden
           </button>
         </form>
@@ -103,30 +137,26 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
 
   return (
     <>
-      {/* Mobil: Kopfzeile mit Schalter */}
-      <div className="flex items-center justify-between border-b border-ink-200 bg-white px-4 py-3 lg:hidden">
-        <span className="flex items-center gap-2 text-sm font-semibold">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500 text-xs font-bold text-white">
-            W
-          </span>
-          Wohnwerk
-        </span>
+      {/* Mobil: Kopfzeile, die beim Scrollen stehen bleibt. */}
+      <div className="glass-dark sticky top-0 z-30 flex items-center justify-between px-4 py-3 lg:hidden">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Zum Dashboard">
+          <LogoMark className="h-6 w-auto" />
+          <span className="text-sm font-semibold tracking-tight text-white">Wohnwerk</span>
+        </Link>
         <button
           type="button"
-          className="btn btn-secondary"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-label="Menü umschalten"
+          className="flex h-9 w-9 items-center justify-center rounded-[0.6rem] text-brand-200 transition-colors hover:bg-white/10 hover:text-white"
         >
-          {open ? "Schließen" : "Menü"}
+          {open ? <X size={20} /> : <List size={20} />}
         </button>
       </div>
 
-      {open && (
-        <div className="border-b border-ink-800 bg-ink-900 lg:hidden">{nav}</div>
-      )}
+      {open && <div className="bg-brand-950 lg:hidden">{nav}</div>}
 
-      <aside className="hidden w-60 shrink-0 bg-ink-900 lg:block">
+      <aside className="hidden w-[15.5rem] shrink-0 bg-brand-950 lg:block">
         <div className="sticky top-0 h-screen">{nav}</div>
       </aside>
     </>

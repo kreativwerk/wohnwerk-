@@ -145,7 +145,7 @@ export default async function TenantsPage({
                           </p>
                         </>
                       ) : (
-                        <span className="text-ink-400">nicht zugewiesen</span>
+                        <span className="text-ink-500">nicht zugewiesen</span>
                       )}
                     </Td>
                     <Td className="text-ink-600">
@@ -164,7 +164,7 @@ export default async function TenantsPage({
                       {current ? formatCents(current.monthlyRentCents) : "–"}
                     </Td>
                     <Td align="right">
-                      {current ? <TenancyBadge status={current.status} /> : <span className="text-ink-400">–</span>}
+                      {current ? <TenancyBadge status={current.status} /> : <span className="text-ink-500">–</span>}
                     </Td>
                   </tr>
                 );

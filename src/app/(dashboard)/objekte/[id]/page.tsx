@@ -157,7 +157,7 @@ export default async function PropertyDetailPage({
                                 {state.tenancy.endDate ? ` bis ${formatDate(state.tenancy.endDate)}` : ""}
                               </p>
                             ) : (
-                              <p className="mt-2 text-xs text-ink-400">Kein Mietverhältnis</p>
+                              <p className="mt-2 text-xs text-ink-500">Kein Mietverhältnis</p>
                             )}
 
                             {bed.notes && <p className="mt-2 text-xs text-ink-500">{bed.notes}</p>}

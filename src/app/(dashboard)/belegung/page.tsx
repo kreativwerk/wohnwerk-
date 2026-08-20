@@ -166,14 +166,14 @@ export default async function OccupancyPage({
                       <div key={room.id}>
                         <p className="mt-3 mb-1 text-xs font-semibold text-ink-700">
                           {room.name}
-                          {room.floor ? <span className="text-ink-400"> · {room.floor}</span> : null}
+                          {room.floor ? <span className="text-ink-500"> · {room.floor}</span> : null}
                         </p>
 
                         {room.beds.map((bed) => (
                           <div key={bed.id} className="flex items-center py-1">
                             <div className="flex w-52 shrink-0 items-center gap-2 pr-3">
                               <span className="truncate text-sm text-ink-700">{bed.label}</span>
-                              <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-400">
+                              <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-500">
                                 {formatCents(bed.monthlyRentCents)}
                               </span>
                             </div>

@@ -82,7 +82,7 @@ export default async function PropertiesPage({
                         {property.name}
                       </Link>
                       {!property.active && (
-                        <span className="ml-2 text-xs text-ink-400">(inaktiv)</span>
+                        <span className="ml-2 text-xs text-ink-500">(inaktiv)</span>
                       )}
                       {property.shortCode && (
                         <p className="text-xs text-ink-500">Kürzel {property.shortCode}</p>
