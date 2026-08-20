@@ -126,7 +126,8 @@ dann selbst; bei externen Anbietern die **gepoolte** Verbindungs-URL eintragen.
 
 **2. Repository verbinden.**
 In Vercel *New Project* → dieses Repository auswählen. Framework wird als
-Next.js erkannt, der Build-Befehl `npm run build` erzeugt den Prisma-Client mit.
+Next.js erkannt. Gebaut wird über das Skript `vercel-build`, das den
+Prisma-Client erzeugt und die Migrationen einspielt – ohne Zutun.
 
 **3. Umgebungsvariablen setzen** (Project Settings → Environment Variables):
 
@@ -140,14 +141,19 @@ Next.js erkannt, der Build-Befehl `npm run build` erzeugt den Prisma-Client mit.
 | `GOOGLE_DRIVE_ROOT_FOLDER_ID` | für Drive | Ziel-Ordner in Drive                        |
 | `RESEND_API_KEY`, `MAIL_FROM` | optional | Automatischer Versand der Vertragslinks      |
 
-**4. Datenbankschema aufspielen.**
-Einmalig lokal gegen die Produktionsdatenbank:
+**4. Datenbankschema.**
+Nichts zu tun. Vercel verwendet den Befehl `vercel-build`, der bei jedem
+Deployment `prisma migrate deploy` mitlaufen lässt und das Schema anlegt bzw.
+aktualisiert. Schlägt die Verbindung fehl, bricht das Deployment sichtbar ab,
+statt mit halber Datenbank online zu gehen.
 
-```bash
-DATABASE_URL="…produktions-url…" npx prisma migrate deploy
-```
+**5. Google Drive einrichten.**
+Auf Vercel ist das Dateisystem schreibgeschuetzt, eine lokale Ablage gibt es
+dort nicht. Ohne eingerichtetes Drive weist die Anwendung Uploads mit einer
+klaren Meldung ab, statt Belege ins Leere zu schreiben. Die Einrichtung steht
+weiter unten unter *Google Drive verbinden*.
 
-**5. Domain verbinden.**
+**6. Domain verbinden.**
 In Vercel unter *Settings → Domains* die Domain eintragen und die angezeigten
 DNS-Einträge beim Anbieter setzen. Danach dieselbe Adresse in `APP_URL` und
 unter *Einstellungen → Adresse der Anwendung* eintragen – daraus werden die

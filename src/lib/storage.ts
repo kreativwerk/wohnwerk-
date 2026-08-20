@@ -214,19 +214,30 @@ export async function uploadFile(params: {
       };
     } catch (error) {
       console.error("[storage] Drive-Upload fehlgeschlagen, nutze lokale Ablage:", error);
+      return writeLocal(fileName, params.data, params.folderSegments, "drive-fehler");
     }
   }
 
-  return writeLocal(fileName, params.data, params.folderSegments);
+  return writeLocal(fileName, params.data, params.folderSegments, "nicht-eingerichtet");
 }
 
+/**
+ * Rueckfallebene ohne Drive. Auf Vercel und aehnlichen Umgebungen ist das
+ * Dateisystem schreibgeschuetzt und ueberlebt das naechste Deployment nicht --
+ * dort darf ein Beleg nicht stillschweigend im Nirgendwo landen.
+ */
 async function writeLocal(
   fileName: string,
   data: Buffer,
   folderSegments: string[],
+  reason: "nicht-eingerichtet" | "drive-fehler",
 ): Promise<StoredFile> {
   const dir = path.join(LOCAL_ROOT, ...folderSegments.map(safeName));
-  await fs.mkdir(dir, { recursive: true });
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch (error) {
+    throw new Error(localFallbackMessage(reason), { cause: error });
+  }
 
   // Kollisionen vermeiden, ohne bestehende Dateien zu ueberschreiben
   const ext = path.extname(fileName);
@@ -243,7 +254,12 @@ async function writeLocal(
     }
   }
 
-  await fs.writeFile(target, data);
+  try {
+    await fs.writeFile(target, data);
+  } catch (error) {
+    throw new Error(localFallbackMessage(reason), { cause: error });
+  }
+
   const relative = path.relative(LOCAL_ROOT, target).split(path.sep).join("/");
   return {
     backend: "local",
@@ -252,6 +268,19 @@ async function writeLocal(
     folder: folderSegments.join("/"),
     localPath: relative,
   };
+}
+
+function localFallbackMessage(reason: "nicht-eingerichtet" | "drive-fehler"): string {
+  const ursache =
+    reason === "nicht-eingerichtet"
+      ? "Google Drive ist noch nicht eingerichtet"
+      : "der Upload zu Google Drive ist fehlgeschlagen";
+  return (
+    `Die Datei konnte nicht gespeichert werden: ${ursache}, und die lokale ` +
+    "Ablage steht auf diesem Server nicht zur Verfügung. Bitte unter " +
+    "Einstellungen → Google Drive die Verbindung einrichten und prüfen. " +
+    "Solange keine Ablage erreichbar ist, werden keine Dokumente angenommen."
+  );
 }
 
 /** Liest eine lokal abgelegte Datei; verhindert Pfad-Ausbrueche. */
