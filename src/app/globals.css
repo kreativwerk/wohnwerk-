@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  --color-ink-50: #f8fafc;
+  --color-ink-100: #f1f5f9;
+  --color-ink-200: #e2e8f0;
+  --color-ink-300: #cbd5e1;
+  --color-ink-400: #94a3b8;
+  --color-ink-500: #64748b;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #0f172a;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink-100);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Formularelemente bekommen ueberall dieselbe Grundform. */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="tel"],
+  input[type="search"],
+  select,
+  textarea {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-ink-300);
+    background-color: #fff;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.875rem;
+    line-height: 1.35rem;
+    color: var(--color-ink-900);
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15);
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    background-color: var(--color-ink-100);
+    color: var(--color-ink-500);
+  }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-ink-600);
+    margin-bottom: 0.3rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+    white-space: nowrap;
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--color-brand-600);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-brand-700);
+  }
+
+  .btn-secondary {
+    background-color: #fff;
+    border-color: var(--color-ink-300);
+    color: var(--color-ink-700);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-ink-50);
+    border-color: var(--color-ink-400);
+  }
+
+  .btn-danger {
+    background-color: #fff;
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+  .btn-danger:hover:not(:disabled) {
+    background-color: #fef2f2;
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-ink-600);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-ink-200);
+  }
+
+  .card {
+    background-color: #fff;
+    border: 1px solid var(--color-ink-200);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+
+  .field-hint {
+    font-size: 0.72rem;
+    color: var(--color-ink-500);
+    margin-top: 0.25rem;
+  }
+}
+
+/* Druckansicht des Vertrags: nur der Inhalt, keine Bedienelemente. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}

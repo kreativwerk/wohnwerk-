@@ -1,0 +1,412 @@
+// Wohnwerk – Datenmodell
+//
+// Datenbank: PostgreSQL (Vercel Postgres / Neon / Supabase - eine URL genuegt).
+// DATABASE_URL in .env setzen, dann `npm run db:migrate`.
+//
+// Statuswerte sind bewusst Strings statt Prisma-Enums: das haelt Migrationen
+// einfach (kein ALTER TYPE) und die Beschriftung liegt zentral in src/lib/enums.ts.
+//
+// Geldbetraege werden konsequent als Ganzzahl in Cent gespeichert (amountCents),
+// damit es keine Rundungsfehler gibt und das Modell portabel bleibt.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Objekte / Zimmer / Betten
+// ---------------------------------------------------------------------------
+
+model Property {
+  id        String  @id @default(cuid())
+  name      String
+  street    String
+  zip       String
+  city      String
+  country   String  @default("Deutschland")
+  shortCode String? // z.B. "HB-01" fuer Vertragsnummern
+  notes     String?
+
+  // Kaufmaennische Stammdaten
+  ownerName     String?
+  managerName   String?
+  managerPhone  String?
+  managerEmail  String?
+  wifiSsid      String?
+  wifiPassword  String?
+  houseRulesUrl String?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rooms        Room[]
+  documents    Document[]
+  transactions BankTransaction[]
+
+  @@index([active])
+}
+
+model Room {
+  id         String  @id @default(cuid())
+  propertyId String
+  name       String // z.B. "Zimmer 1" oder "1.OG links"
+  floor      String?
+  sizeSqm    Float?
+  notes      String?
+
+  // Vorgabewert fuer neue Betten in diesem Zimmer
+  defaultBedRentCents Int @default(35000)
+
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  beds     Bed[]
+
+  @@index([propertyId])
+}
+
+model Bed {
+  id     String @id @default(cuid())
+  roomId String
+  label  String // z.B. "Bett A"
+
+  monthlyRentCents Int       @default(35000)
+  status           String    @default("FREE") // FREE | BLOCKED
+  notes            String?
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  tenancies Tenancy[]
+
+  @@index([roomId])
+}
+
+// ---------------------------------------------------------------------------
+// Mieter
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  // Auftraggeber / Entsendefirma des Monteurs
+  company       String?
+  companyVatId  String?
+  companyStreet String?
+  companyZip    String?
+  companyCity   String?
+
+  birthDate   DateTime?
+  nationality String?
+  idType      String? // Personalausweis / Reisepass
+  idNumber    String?
+
+  street  String?
+  zip     String?
+  city    String?
+  country String? @default("Deutschland")
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenancies Tenancy[]
+  documents Document[]
+
+  @@index([lastName])
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Mietverhaeltnis + Vertrag
+// ---------------------------------------------------------------------------
+
+model Tenancy {
+  id       String @id @default(cuid())
+  tenantId String
+  bedId    String
+
+  startDate DateTime
+  endDate   DateTime?
+
+  monthlyRentCents Int
+  depositCents     Int @default(0)
+  // Nebenkosten-Pauschale, im Mietpreis enthalten oder zusaetzlich
+  utilitiesCents   Int @default(0)
+
+  billingDay Int    @default(1) // Faelligkeit im Monat
+  reference  String @unique // Verwendungszweck-Kennung, z.B. "WW-2026-0042"
+
+  status String @default("DRAFT") // DRAFT | SENT | ACTIVE | ENDED | CANCELLED
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bed      Bed          @relation(fields: [bedId], references: [id], onDelete: Restrict)
+  contract Contract?
+  charges  RentCharge[]
+
+  @@index([bedId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model Contract {
+  id        String @id @default(cuid())
+  tenancyId String @unique
+
+  contractNumber String         @unique
+  status         String @default("DRAFT") // DRAFT | SENT | VIEWED | SIGNED | CANCELLED
+
+  // Einmal-Link fuer den Mieter
+  token          String    @unique
+  tokenExpiresAt DateTime?
+
+  sentAt   DateTime?
+  viewedAt DateTime?
+  signedAt DateTime?
+
+  signerName      String?
+  signerIp        String?
+  signerUserAgent String?
+  signatureData   String? // PNG als Data-URL
+
+  // Snapshot der Vertragsdaten zum Zeitpunkt der Erstellung (rechtssicher)
+  snapshot String? // JSON
+
+  pdfFileId  String? // Google-Drive-Datei-ID
+  pdfUrl     String?
+  pdfPath    String? // lokaler Pfad im Fallback-Storage
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenancy   Tenancy    @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Buchhaltung: Bankkonten, Kontoauszuege, Buchungen
+// ---------------------------------------------------------------------------
+
+model BankAccount {
+  id       String  @id @default(cuid())
+  name     String
+  iban     String  @unique
+  bic      String?
+  currency String  @default("EUR")
+
+  openingBalanceCents Int      @default(0)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  statements   BankStatement[]
+  transactions BankTransaction[]
+}
+
+model BankStatement {
+  id            String  @id @default(cuid())
+  bankAccountId String
+
+  fileName     String
+  sourceFormat String // csv | camt053 | mt940
+  periodStart  DateTime?
+  periodEnd    DateTime?
+
+  // Verhindert, dass dieselbe Datei zweimal in der Ablage landet
+  contentHash  String?
+
+  importedAt      DateTime @default(now())
+  rowsTotal       Int      @default(0)
+  rowsImported    Int      @default(0)
+  rowsDuplicate   Int      @default(0)
+  closingBalanceCents Int?
+
+  driveFileId String?
+  driveUrl    String?
+
+  bankAccount  BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@unique([bankAccountId, contentHash])
+  @@index([bankAccountId])
+}
+
+model BankTransaction {
+  id            String  @id @default(cuid())
+  bankAccountId String
+  statementId   String?
+
+  bookingDate DateTime
+  valueDate   DateTime?
+
+  amountCents Int // vorzeichenbehaftet: negativ = Ausgang
+  currency    String      @default("EUR")
+  direction   String // CREDIT | DEBIT
+
+  counterpartyName String?
+  counterpartyIban String?
+  purpose          String?
+  endToEndId       String?
+  bankTxCode       String?
+
+  category String? // z.B. "Miete", "Nebenkosten", "Reinigung"
+  reviewStatus String @default("OPEN") // OPEN | MATCHED | BOOKED | IGNORED
+  notes    String?
+
+  propertyId String?
+
+  // Deduplizierung ueber fachlichen Hash
+  dedupeHash String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bankAccount BankAccount     @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  statement   BankStatement?  @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  property    Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  allocations Allocation[]
+  documents   Document[]
+
+  @@index([bankAccountId, bookingDate])
+  @@index([reviewStatus])
+  @@index([direction])
+}
+
+// ---------------------------------------------------------------------------
+// Offene Posten: monatliche Mietforderungen und deren Zahlungszuordnung
+// ---------------------------------------------------------------------------
+
+model RentCharge {
+  id        String @id @default(cuid())
+  tenancyId String
+
+  periodYear  Int
+  periodMonth Int // 1-12
+  dueDate     DateTime
+
+  amountCents Int
+  status      String @default("OPEN") // OPEN | PARTIAL | PAID | WAIVED
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenancy     Tenancy      @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  allocations Allocation[]
+
+  @@unique([tenancyId, periodYear, periodMonth])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Allocation {
+  id                String @id @default(cuid())
+  rentChargeId      String
+  bankTransactionId String
+
+  amountCents Int
+  createdAt   DateTime @default(now())
+
+  rentCharge      RentCharge      @relation(fields: [rentChargeId], references: [id], onDelete: Cascade)
+  bankTransaction BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+
+  @@unique([rentChargeId, bankTransactionId])
+}
+
+// ---------------------------------------------------------------------------
+// Belege / Dokumente (Google Drive)
+// ---------------------------------------------------------------------------
+
+model Document {
+  id    String       @id @default(cuid())
+  kind  String @default("RECEIPT") // RECEIPT | INVOICE | CONTRACT | STATEMENT | OTHER
+  title String
+
+  fileName String
+  mimeType String
+  sizeBytes Int     @default(0)
+
+  // Google Drive
+  driveFileId  String?
+  driveUrl     String?
+  driveFolder  String?
+  // Lokaler Fallback, wenn Drive nicht konfiguriert ist
+  localPath    String?
+
+  // Belegdaten fuer die Buchhaltung
+  documentDate DateTime?
+  amountCents  Int?
+  vatRatePct   Float?
+  supplier     String?
+  category     String?
+  notes        String?
+
+  bankTransactionId String?
+  propertyId        String?
+  tenantId          String?
+  contractId        String?
+
+  uploadedAt DateTime @default(now())
+
+  bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id], onDelete: SetNull)
+  property        Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@index([kind])
+  @@index([bankTransactionId])
+  @@index([documentDate])
+}
+
+// ---------------------------------------------------------------------------
+// Einstellungen (Key/Value) + Benutzer + Audit
+// ---------------------------------------------------------------------------
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("admin")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  lastLoginAt  DateTime?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

@@ -1,0 +1,282 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+/** Kleine, wiederverwendbare Bausteine – bewusst ohne eigene Zustandslogik. */
+
+export function PageHeader({
+  title,
+  description,
+  actions,
+  breadcrumb,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  breadcrumb?: Array<{ label: string; href?: string }>;
+}) {
+  return (
+    <div className="mb-6">
+      {breadcrumb && breadcrumb.length > 0 && (
+        <nav className="mb-2 flex flex-wrap items-center gap-1 text-xs text-ink-500">
+          {breadcrumb.map((crumb, index) => (
+            <span key={`${crumb.label}-${index}`} className="flex items-center gap-1">
+              {index > 0 && <span className="text-ink-300">/</span>}
+              {crumb.href ? (
+                <Link href={crumb.href} className="hover:text-brand-700 hover:underline">
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span>{crumb.label}</span>
+              )}
+            </span>
+          ))}
+        </nav>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">{title}</h1>
+          {description && <p className="mt-1 max-w-2xl text-sm text-ink-500">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      </div>
+    </div>
+  );
+}
+
+export function Card({
+  title,
+  description,
+  actions,
+  children,
+  className = "",
+  padded = true,
+}: {
+  title?: string;
+  description?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  padded?: boolean;
+}) {
+  return (
+    <section className={`card ${className}`}>
+      {(title || actions) && (
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 px-5 py-4">
+          <div>
+            {title && <h2 className="text-sm font-semibold text-ink-900">{title}</h2>}
+            {description && <p className="mt-0.5 text-xs text-ink-500">{description}</p>}
+          </div>
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        </header>
+      )}
+      <div className={padded ? "p-5" : ""}>{children}</div>
+    </section>
+  );
+}
+
+const TONES = {
+  neutral: "bg-ink-100 text-ink-700 ring-ink-200",
+  success: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  warning: "bg-amber-50 text-amber-700 ring-amber-200",
+  danger: "bg-rose-50 text-rose-700 ring-rose-200",
+  info: "bg-sky-50 text-sky-700 ring-sky-200",
+  brand: "bg-brand-50 text-brand-800 ring-brand-200",
+} as const;
+
+export type Tone = keyof typeof TONES;
+
+export function Badge({
+  children,
+  tone = "neutral",
+  className = "",
+}: {
+  children: ReactNode;
+  tone?: Tone;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ring-1 ring-inset ${TONES[tone]} ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  tone = "neutral",
+  href,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: Tone;
+  href?: string;
+}) {
+  const accent: Record<Tone, string> = {
+    neutral: "text-ink-900",
+    success: "text-emerald-600",
+    warning: "text-amber-600",
+    danger: "text-rose-600",
+    info: "text-sky-600",
+    brand: "text-brand-700",
+  };
+
+  const body = (
+    <div className="card h-full px-5 py-4 transition hover:border-ink-300">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</p>
+      <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${accent[tone]}`}>{value}</p>
+      {hint && <p className="mt-1 text-xs text-ink-500">{hint}</p>}
+    </div>
+  );
+
+  return href ? (
+    <Link href={href} className="block">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
+}
+
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ink-300 bg-ink-50 px-6 py-12 text-center">
+      <p className="text-sm font-semibold text-ink-700">{title}</p>
+      {description && <p className="mt-1 max-w-md text-sm text-ink-500">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function Table({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`overflow-x-auto ${className}`}>
+      <table className="min-w-full text-sm">{children}</table>
+    </div>
+  );
+}
+
+// Tailwind erkennt nur literale Klassennamen, deshalb feste Zuordnung.
+const ALIGN = { left: "text-left", right: "text-right", center: "text-center" } as const;
+
+export function Th({
+  children,
+  align = "left",
+  className = "",
+}: {
+  children?: ReactNode;
+  align?: keyof typeof ALIGN;
+  className?: string;
+}) {
+  return (
+    <th
+      className={`border-b border-ink-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-500 ${ALIGN[align]} ${className}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+export function Td({
+  children,
+  align = "left",
+  className = "",
+}: {
+  children?: ReactNode;
+  align?: keyof typeof ALIGN;
+  className?: string;
+}) {
+  return (
+    <td className={`border-b border-ink-100 px-4 py-2.5 align-middle ${ALIGN[align]} ${className}`}>
+      {children}
+    </td>
+  );
+}
+
+export function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+  className = "",
+}: {
+  label: string;
+  htmlFor?: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+      {hint && <p className="field-hint">{hint}</p>}
+    </div>
+  );
+}
+
+/** Fortschrittsbalken, z. B. fuer die Auslastung eines Objekts. */
+export function Meter({ value, tone = "brand" }: { value: number; tone?: Tone }) {
+  const percent = Math.max(0, Math.min(100, Math.round(value * 100)));
+  const colors: Record<Tone, string> = {
+    neutral: "bg-ink-400",
+    success: "bg-emerald-500",
+    warning: "bg-amber-500",
+    danger: "bg-rose-500",
+    info: "bg-sky-500",
+    brand: "bg-brand-500",
+  };
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-ink-200">
+      <div className={`h-full rounded-full ${colors[tone]}`} style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
+export function Alert({
+  tone = "info",
+  title,
+  children,
+}: {
+  tone?: Tone;
+  title?: string;
+  children?: ReactNode;
+}) {
+  const styles: Record<Tone, string> = {
+    neutral: "border-ink-200 bg-ink-50 text-ink-700",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    warning: "border-amber-200 bg-amber-50 text-amber-800",
+    danger: "border-rose-200 bg-rose-50 text-rose-800",
+    info: "border-sky-200 bg-sky-50 text-sky-800",
+    brand: "border-brand-200 bg-brand-50 text-brand-800",
+  };
+  return (
+    <div className={`rounded-lg border px-4 py-3 text-sm ${styles[tone]}`}>
+      {title && <p className="font-semibold">{title}</p>}
+      {children && <div className={title ? "mt-0.5" : ""}>{children}</div>}
+    </div>
+  );
+}
+
+/** Statusbanner aus den Suchparametern (`?ok=` / `?fehler=`). */
+export function Flash({ ok, fehler }: { ok?: string; fehler?: string }) {
+  if (!ok && !fehler) return null;
+  return (
+    <div className="mb-5 space-y-2">
+      {ok && <Alert tone="success">{ok}</Alert>}
+      {fehler && <Alert tone="danger">{fehler}</Alert>}
+    </div>
+  );
+}
