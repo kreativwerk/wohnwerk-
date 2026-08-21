@@ -227,16 +227,20 @@
     cursor: not-allowed;
   }
 
-  /* Das Orange der Marke bleibt unveraendert. Weisse Schrift darauf kommt nur
-     auf 3.5:1 und faellt damit durch die Lesbarkeitspruefung, dunkle Schrift
-     erreicht 4.8:1 - deshalb dunkel auf Orange statt hell. */
+  /* Weisse Schrift auf dem Marken-Orange, wie auf wohnwerkbau.de.
+     Das Paar kommt auf 3.5:1 und liegt damit unter den 4.5:1, die WCAG AA
+     fuer normalen Text verlangt - eine bewusste Entscheidung der Marke.
+     Abgefedert wird sie an zwei Stellen: die Beschriftung steht etwas
+     kraeftiger, und beim Ueberfahren dunkelt die Flaeche nach, statt
+     aufzuhellen. Beides hebt den Kontrast, wo der Nutzer gerade hinsieht. */
   .btn-primary {
     background-color: var(--color-accent-500);
-    color: var(--color-ink-900);
+    color: #fff;
+    font-weight: 600;
     box-shadow: 0 1px 2px rgb(238 86 39 / 0.3);
   }
   .btn-primary:hover:not(:disabled) {
-    background-color: var(--color-accent-400);
+    background-color: var(--color-accent-600);
   }
 
   .btn-secondary {
