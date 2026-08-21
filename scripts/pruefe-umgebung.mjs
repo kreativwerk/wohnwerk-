@@ -35,8 +35,10 @@ const fehlend = PFLICHT.filter(({ name }) => !process.env[name]?.trim());
 
 if (fehlend.length > 0) {
   const linie = "─".repeat(72);
+  const namen = fehlend.map((f) => f.name).join(", ");
+
   console.error(`\n${linie}`);
-  console.error("  Der Build kann nicht starten: Umgebungsvariablen fehlen");
+  console.error(`  Der Build kann nicht starten. Es fehlt: ${namen}`);
   console.error(linie);
 
   for (const { name, zweck, hilfe } of fehlend) {
@@ -45,8 +47,14 @@ if (fehlend.length > 0) {
     for (const zeile of hilfe) console.error(zeile ? `      ${zeile}` : "");
   }
 
+  // Die letzten Zeilen wiederholen die Namen: im Log ist meist nur das Ende
+  // zu sehen, und dort muss stehen, was zu tun ist.
   console.error(`\n${linie}`);
-  console.error("  Nach dem Eintragen in Vercel auf Redeploy drücken.");
+  console.error("  Settings → Environment Variables, alle drei Umgebungen");
+  console.error("  ankreuzen (Production, Preview, Development), speichern,");
+  console.error("  danach Redeploy drücken.");
+  console.error("");
+  console.error(`  Es fehlt: ${namen}`);
   console.error(`${linie}\n`);
   process.exit(1);
 }
