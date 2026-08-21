@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Card, EmptyState, Flash, Meter, PageHeader, Table, Td, Th } from "@/components/ui";
+import { Badge, Card, EmptyState, Flash, Meter, PageHeader, Table, Td, Th } from "@/components/ui";
+import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { prisma } from "@/lib/db";
 import { occupancySummary } from "@/lib/tenancy";
 import { formatCents } from "@/lib/money";
@@ -16,7 +17,10 @@ export default async function PropertiesPage({
   const params = await searchParams;
 
   const properties = await prisma.property.findMany({
-    include: { rooms: { include: { beds: { select: { id: true } } } } },
+    include: {
+      rooms: { include: { beds: { select: { id: true } } } },
+      templates: { select: { kind: true } },
+    },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
 
@@ -86,6 +90,11 @@ export default async function PropertiesPage({
                       )}
                       {property.shortCode && (
                         <p className="text-xs text-ink-500">Kürzel {property.shortCode}</p>
+                      )}
+                      {!property.templates.some((t) => coversLandlordConfirmation(t.kind)) && (
+                        <p className="mt-1">
+                          <Badge tone="warning">Wohnungsgeberbestätigung fehlt</Badge>
+                        </p>
                       )}
                     </Td>
                     <Td className="text-ink-600">

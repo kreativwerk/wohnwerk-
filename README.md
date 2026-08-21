@@ -46,6 +46,39 @@ Diesen Ordner gibt man dem Steuerberater mit einem Klick frei.
 
 ---
 
+## Vordrucke der Objekte
+
+Die Wohnungsgeberbestätigung nach § 19 BMG gibt **jede Kommune in eigener
+Gestaltung** heraus. Ein Nachbau wäre bei der nächsten Änderung des Amts
+falsch. Wohnwerk baut sie deshalb nicht nach.
+
+Stattdessen hinterlegen Sie beim Objekt die PDF Ihres Meldeamts. Beim
+Unterschreiben wird genau diese Datei geladen, ihre Formularfelder werden
+gefüllt und anschließend festgeschrieben. Alles außerhalb der Felder bleibt
+Byte für Byte unberührt: Behördenadresse, Rechtstexte, Ihr Stempel.
+
+Beim Hochladen liest Wohnwerk die Formularfelder aus und schlägt vor, welcher
+Wert in welches Feld gehört (`Vorname` → Vorname des Mieters, `Startdatum der
+Miete` → Mietbeginn). Sie prüfen das einmal je Objekt, danach läuft es.
+
+Drei Arten stehen zur Wahl:
+
+| Art | Wofür |
+| --- | --- |
+| Mietvertrag mit Wohnungsgeberbestätigung | Eine Datei, die beides enthält |
+| Nur Wohnungsgeberbestätigung | Der reine Behördenvordruck |
+| Nur Mietvertrag | Ihr eigener Vertrag ohne Meldeformular |
+
+Enthält die PDF kein Feld für die Unterschrift, hängt Wohnwerk ein Blatt mit
+Zeitpunkt, Name, IP-Adresse und dem Bild der Unterschrift an. Der Nachweis geht
+nicht verloren.
+
+Ist bei einem Objekt keine Wohnungsgeberbestätigung hinterlegt, wird das in der
+Objektliste und auf der Objektseite angezeigt. Ohne sie kann sich ein Mieter
+nicht anmelden.
+
+---
+
 ## Warum Postgres *und* Google Drive
 
 Der Wunsch war, „Google Drive als Datenbank“ zu nutzen, damit alles an den

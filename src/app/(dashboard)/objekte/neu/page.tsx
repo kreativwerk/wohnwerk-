@@ -22,7 +22,7 @@ export default async function NewPropertyPage({
 
       <Flash fehler={params.fehler} />
 
-      <form action={createProperty} className="space-y-6">
+      <form action={createProperty} encType="multipart/form-data" className="space-y-6">
         <Card title="Stammdaten">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -82,6 +82,46 @@ export default async function NewPropertyPage({
             <div className="sm:col-span-2">
               <label htmlFor="notes">Notizen</label>
               <textarea id="notes" name="notes" rows={3} />
+            </div>
+          </div>
+        </Card>
+
+        <Card
+          title="Wohnungsgeberbestätigung"
+          description="Der Vordruck nach § 19 BMG, mit dem sich Ihre Mieter beim Meldeamt anmelden."
+        >
+          <div className="rounded-xl border border-brand-300/60 bg-brand-50 px-4 py-3 text-[0.875rem] leading-relaxed text-brand-800">
+            <p>
+              Jede Kommune gibt ein eigenes Formular heraus. Wohnwerk baut es deshalb nicht nach,
+              sondern füllt genau die Datei aus, die Sie hier hinterlegen – am Layout ändert sich
+              dabei nichts.
+            </p>
+            <p className="mt-1.5">
+              Enthält die PDF Formularfelder, trägt Wohnwerk Name, Vorname und Einzugsdatum des
+              Mieters automatisch ein. Sie prüfen die Zuordnung anschließend einmalig.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="templateKind">Art des Vordrucks</label>
+              <select id="templateKind" name="templateKind" defaultValue="COMBINED">
+                <option value="COMBINED">Mietvertrag mit Wohnungsgeberbestätigung</option>
+                <option value="LANDLORD_CONFIRMATION">Nur Wohnungsgeberbestätigung</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="templateFile">PDF-Datei</label>
+              <input
+                id="templateFile"
+                name="templateFile"
+                type="file"
+                accept="application/pdf"
+                required
+              />
+              <p className="field-hint">
+                Höchstens 12 MB. Lässt sich später jederzeit austauschen.
+              </p>
             </div>
           </div>
         </Card>

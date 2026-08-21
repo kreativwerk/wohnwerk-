@@ -48,8 +48,43 @@ model Property {
   rooms        Room[]
   documents    Document[]
   transactions BankTransaction[]
+  templates    PropertyTemplate[]
 
   @@index([active])
+}
+
+/// Vordruck eines Objekts: Mietvertrag und Wohnungsgeberbestaetigung.
+///
+/// Die Wohnungsgeberbestaetigung sieht in jeder Kommune anders aus, deshalb
+/// wird sie nicht nachgebaut. Die hochgeladene PDF bleibt Byte fuer Byte
+/// erhalten; gefuellt werden ausschliesslich ihre Formularfelder. Damit ist
+/// das Ergebnis zwangslaeufig identisch mit dem Vordruck der Behoerde.
+model PropertyTemplate {
+  id         String @id @default(cuid())
+  propertyId String
+
+  /// CONTRACT | LANDLORD_CONFIRMATION | COMBINED
+  kind  String
+  title String
+
+  fileName  String
+  sizeBytes Int    @default(0)
+  /// Die unveraenderte Originaldatei.
+  data      Bytes
+
+  pageCount  Int    @default(0)
+  /// Erkannte Formularfelder als JSON-Liste.
+  fieldNames String @default("[]")
+  /// Zuordnung Formularfeld -> Platzhalter, als JSON-Objekt.
+  fieldMap   String @default("{}")
+
+  active     Boolean  @default(true)
+  uploadedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, kind])
 }
 
 model Room {
@@ -79,8 +114,8 @@ model Bed {
   roomId String
   label  String // z.B. "Bett A"
 
-  monthlyRentCents Int       @default(35000)
-  status           String    @default("FREE") // FREE | BLOCKED
+  monthlyRentCents Int     @default(35000)
+  status           String  @default("FREE") // FREE | BLOCKED
   notes            String?
 
   sortOrder Int      @default(0)
@@ -152,7 +187,7 @@ model Tenancy {
   billingDay Int    @default(1) // Faelligkeit im Monat
   reference  String @unique // Verwendungszweck-Kennung, z.B. "WW-2026-0042"
 
-  status String @default("DRAFT") // DRAFT | SENT | ACTIVE | ENDED | CANCELLED
+  status String  @default("DRAFT") // DRAFT | SENT | ACTIVE | ENDED | CANCELLED
   notes  String?
 
   createdAt DateTime @default(now())
@@ -172,7 +207,7 @@ model Contract {
   id        String @id @default(cuid())
   tenancyId String @unique
 
-  contractNumber String         @unique
+  contractNumber String @unique
   status         String @default("DRAFT") // DRAFT | SENT | VIEWED | SIGNED | CANCELLED
 
   // Einmal-Link fuer den Mieter
@@ -191,9 +226,9 @@ model Contract {
   // Snapshot der Vertragsdaten zum Zeitpunkt der Erstellung (rechtssicher)
   snapshot String? // JSON
 
-  pdfFileId  String? // Google-Drive-Datei-ID
-  pdfUrl     String?
-  pdfPath    String? // lokaler Pfad im Fallback-Storage
+  pdfFileId String? // Google-Drive-Datei-ID
+  pdfUrl    String?
+  pdfPath   String? // lokaler Pfad im Fallback-Storage
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,7 +259,7 @@ model BankAccount {
 }
 
 model BankStatement {
-  id            String  @id @default(cuid())
+  id            String @id @default(cuid())
   bankAccountId String
 
   fileName     String
@@ -233,12 +268,12 @@ model BankStatement {
   periodEnd    DateTime?
 
   // Verhindert, dass dieselbe Datei zweimal in der Ablage landet
-  contentHash  String?
+  contentHash String?
 
-  importedAt      DateTime @default(now())
-  rowsTotal       Int      @default(0)
-  rowsImported    Int      @default(0)
-  rowsDuplicate   Int      @default(0)
+  importedAt          DateTime @default(now())
+  rowsTotal           Int      @default(0)
+  rowsImported        Int      @default(0)
+  rowsDuplicate       Int      @default(0)
   closingBalanceCents Int?
 
   driveFileId String?
@@ -260,7 +295,7 @@ model BankTransaction {
   valueDate   DateTime?
 
   amountCents Int // vorzeichenbehaftet: negativ = Ausgang
-  currency    String      @default("EUR")
+  currency    String @default("EUR")
   direction   String // CREDIT | DEBIT
 
   counterpartyName String?
@@ -269,9 +304,9 @@ model BankTransaction {
   endToEndId       String?
   bankTxCode       String?
 
-  category String? // z.B. "Miete", "Nebenkosten", "Reinigung"
-  reviewStatus String @default("OPEN") // OPEN | MATCHED | BOOKED | IGNORED
-  notes    String?
+  category     String? // z.B. "Miete", "Nebenkosten", "Reinigung"
+  reviewStatus String  @default("OPEN") // OPEN | MATCHED | BOOKED | IGNORED
+  notes        String?
 
   propertyId String?
 
@@ -281,9 +316,9 @@ model BankTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bankAccount BankAccount     @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  statement   BankStatement?  @relation(fields: [statementId], references: [id], onDelete: SetNull)
-  property    Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  bankAccount BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  statement   BankStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  property    Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   allocations Allocation[]
   documents   Document[]
 
@@ -305,7 +340,7 @@ model RentCharge {
   dueDate     DateTime
 
   amountCents Int
-  status      String @default("OPEN") // OPEN | PARTIAL | PAID | WAIVED
+  status      String  @default("OPEN") // OPEN | PARTIAL | PAID | WAIVED
   notes       String?
 
   createdAt DateTime @default(now())
@@ -338,20 +373,20 @@ model Allocation {
 // ---------------------------------------------------------------------------
 
 model Document {
-  id    String       @id @default(cuid())
+  id    String @id @default(cuid())
   kind  String @default("RECEIPT") // RECEIPT | INVOICE | CONTRACT | STATEMENT | OTHER
   title String
 
-  fileName String
-  mimeType String
-  sizeBytes Int     @default(0)
+  fileName  String
+  mimeType  String
+  sizeBytes Int    @default(0)
 
   // Google Drive
-  driveFileId  String?
-  driveUrl     String?
-  driveFolder  String?
+  driveFileId String?
+  driveUrl    String?
+  driveFolder String?
   // Lokaler Fallback, wenn Drive nicht konfiguriert ist
-  localPath    String?
+  localPath   String?
 
   // Belegdaten fuer die Buchhaltung
   documentDate DateTime?
@@ -389,13 +424,13 @@ model Setting {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         String   @default("admin")
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  role         String    @default("admin")
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
 }
 

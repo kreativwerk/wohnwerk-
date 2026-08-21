@@ -14,6 +14,7 @@ import {
 import { BedBadge } from "@/components/status";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Card, EmptyState, Flash, Meter, PageHeader, StatCard } from "@/components/ui";
+import { PropertyTemplates } from "@/components/template-card";
 import { prisma } from "@/lib/db";
 import { bedOccupancy, occupancySummary } from "@/lib/tenancy";
 import { centsToInput, formatCents } from "@/lib/money";
@@ -43,6 +44,20 @@ export default async function PropertyDetailPage({
       rooms: {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: { beds: { orderBy: [{ sortOrder: "asc" }, { label: "asc" }] } },
+      },
+      templates: {
+        orderBy: { uploadedAt: "asc" },
+        // Ohne `data`: die PDF selbst hat auf der Seite nichts verloren.
+        select: {
+          id: true,
+          kind: true,
+          fileName: true,
+          sizeBytes: true,
+          pageCount: true,
+          fieldNames: true,
+          fieldMap: true,
+          uploadedAt: true,
+        },
       },
     },
   });
@@ -367,6 +382,11 @@ export default async function PropertyDetailPage({
             </div>
           </form>
         </Card>
+      </div>
+
+      {/* --- Vordrucke ------------------------------------------------------ */}
+      <div className="mt-6">
+        <PropertyTemplates propertyId={property.id} templates={property.templates} />
       </div>
 
       {/* --- Objektstammdaten ---------------------------------------------- */}

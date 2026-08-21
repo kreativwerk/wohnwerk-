@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { flash, str } from "@/lib/form";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { renderContractPdf } from "@/lib/contract-pdf";
+import { buildDocumentsFromTemplates } from "@/lib/property-documents";
 import { contractInviteMail, sendMail } from "@/lib/mail";
 import { getAppUrl, getSettings } from "@/lib/settings";
 import { FOLDER, randomToken, uploadFile } from "@/lib/storage";
@@ -217,40 +218,67 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
   if (!contract) return;
 
   const data = await buildContractData(contract, { includeSignature: true });
-  const pdf = await renderContractPdf(data);
   const year = contract.tenancy.startDate.getUTCFullYear();
-  const fileName = `${contract.contractNumber} ${data.tenantName}.pdf`;
+  const propertyId = contract.tenancy.bed.room.propertyId;
 
-  const stored = await uploadFile({
-    fileName,
-    mimeType: "application/pdf",
-    data: pdf,
-    folderSegments: FOLDER.contracts(year),
-  });
+  // Hat das Objekt Vordrucke, entstehen die Dokumente daraus. Nur wenn keiner
+  // hinterlegt ist, greift der selbst gesetzte Mietvertrag.
+  const ausVordruck = await buildDocumentsFromTemplates(contract);
 
-  await prisma.contract.update({
-    where: { id: contractId },
-    data: { pdfFileId: stored.fileId, pdfUrl: stored.url, pdfPath: stored.localPath },
-  });
+  const dokumente =
+    ausVordruck.length > 0
+      ? ausVordruck
+      : [
+          {
+            kind: "CONTRACT",
+            title: `Mietvertrag ${contract.contractNumber} – ${data.tenantName}`,
+            fileName: `${contract.contractNumber} ${data.tenantName}.pdf`,
+            pdf: await renderContractPdf(data),
+            istMietvertrag: true,
+            istWohnungsgeberbestaetigung: false,
+          },
+        ];
 
-  await prisma.document.create({
-    data: {
-      kind: "CONTRACT",
-      title: `Mietvertrag ${contract.contractNumber} – ${data.tenantName}`,
-      fileName,
+  for (const dokument of dokumente) {
+    const stored = await uploadFile({
+      fileName: dokument.fileName,
       mimeType: "application/pdf",
-      sizeBytes: pdf.byteLength,
-      driveFileId: stored.fileId,
-      driveUrl: stored.url,
-      driveFolder: stored.folder,
-      localPath: stored.localPath,
-      documentDate: contract.signedAt ?? new Date(),
-      contractId,
-      tenantId: contract.tenancy.tenantId,
-      propertyId: contract.tenancy.bed.room.propertyId,
-      category: "Mietvertrag",
-    },
-  });
+      data: dokument.pdf,
+      folderSegments: FOLDER.contracts(year),
+    });
+
+    // Der Mietvertrag ist das Dokument, das am Vertrag selbst haengt.
+    if (dokument.istMietvertrag) {
+      await prisma.contract.update({
+        where: { id: contractId },
+        data: { pdfFileId: stored.fileId, pdfUrl: stored.url, pdfPath: stored.localPath },
+      });
+    }
+
+    await prisma.document.create({
+      data: {
+        kind: "CONTRACT",
+        title: dokument.title,
+        fileName: dokument.fileName,
+        mimeType: "application/pdf",
+        sizeBytes: dokument.pdf.byteLength,
+        driveFileId: stored.fileId,
+        driveUrl: stored.url,
+        driveFolder: stored.folder,
+        localPath: stored.localPath,
+        documentDate: contract.signedAt ?? new Date(),
+        contractId,
+        tenantId: contract.tenancy.tenantId,
+        propertyId,
+        category:
+          dokument.istMietvertrag && dokument.istWohnungsgeberbestaetigung
+            ? "Mietvertrag mit Wohnungsgeberbestätigung"
+            : dokument.istWohnungsgeberbestaetigung
+              ? "Wohnungsgeberbestätigung"
+              : "Mietvertrag",
+      },
+    });
+  }
 
   await ensureRentCharges({ tenancyId: contract.tenancyId });
 }

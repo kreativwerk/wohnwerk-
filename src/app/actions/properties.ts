@@ -7,6 +7,15 @@ import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { bool, cents, flash, float, int, optionalStr, str } from "@/lib/form";
+import {
+  TEMPLATE_KIND,
+  TEMPLATE_KIND_LABEL,
+  autoMap,
+  coversContract,
+  coversLandlordConfirmation,
+  inspectTemplate,
+  isPlaceholder,
+} from "@/lib/pdf-template";
 
 function refresh(propertyId?: string) {
   revalidatePath("/objekte");
@@ -48,8 +57,20 @@ export async function createProperty(formData: FormData) {
   });
 
   await audit(user.email, "create", "Property", property.id, property.name);
+
+  // Der Vordruck fuer die Meldebehoerde gehoert zum Objekt: ohne ihn kann sich
+  // spaeter kein Mieter anmelden. Scheitert das Einlesen, bleibt das Objekt
+  // trotzdem bestehen - es nachtraeglich zu ergaenzen ist ein Klick.
+  const hinweis = await attachTemplateOnCreate(formData, property.id);
+
   refresh(property.id);
-  redirect(flash(`/objekte/${property.id}`, "ok", `Objekt „${property.name}“ wurde angelegt.`));
+  redirect(
+    flash(
+      `/objekte/${property.id}`,
+      hinweis ? "fehler" : "ok",
+      hinweis ?? `Objekt „${property.name}“ wurde angelegt.`,
+    ),
+  );
 }
 
 export async function updateProperty(formData: FormData) {
@@ -273,4 +294,170 @@ export async function deleteBed(formData: FormData) {
   await audit(user.email, "delete", "Bed", id);
   refresh(propertyId);
   redirect(flash(`/objekte/${propertyId}`, "ok", "Bett wurde gelöscht."));
+}
+
+// --- Vordrucke des Objekts -------------------------------------------------
+//
+// Die Wohnungsgeberbestaetigung nach § 19 BMG gibt jede Kommune anders heraus.
+// Wohnwerk baut sie deshalb nicht nach, sondern haelt je Objekt den Vordruck
+// der zustaendigen Behoerde vor und fuellt nur dessen Formularfelder.
+
+const MAX_TEMPLATE_BYTES = 12 * 1024 * 1024;
+
+/**
+ * Nimmt eine hochgeladene Vorlage an, liest ihre Formularfelder und schlaegt
+ * eine Zuordnung vor. Eine bereits vorhandene Vorlage derselben Art wird
+ * ersetzt, damit nie zwei gleichartige Vordrucke im Umlauf sind.
+ */
+export async function uploadPropertyTemplate(formData: FormData) {
+  const user = await requireUser();
+  const propertyId = str(formData, "propertyId");
+  const kind = str(formData, "kind");
+  const ziel = `/objekte/${propertyId}`;
+
+  if (!coversContract(kind) && !coversLandlordConfirmation(kind)) {
+    redirect(flash(ziel, "fehler", "Unbekannte Art des Vordrucks."));
+  }
+
+  const datei = formData.get("file");
+  if (!(datei instanceof File) || datei.size === 0) {
+    redirect(flash(ziel, "fehler", "Bitte eine PDF-Datei auswählen."));
+  }
+  if (datei.type && datei.type !== "application/pdf") {
+    redirect(flash(ziel, "fehler", "Der Vordruck muss eine PDF-Datei sein."));
+  }
+  if (datei.size > MAX_TEMPLATE_BYTES) {
+    redirect(flash(ziel, "fehler", "Die Datei ist größer als 12 MB."));
+  }
+
+  const bytes = Buffer.from(await datei.arrayBuffer());
+
+  let info;
+  try {
+    info = await inspectTemplate(bytes);
+  } catch {
+    redirect(flash(ziel, "fehler", "Die Datei konnte nicht als PDF gelesen werden."));
+  }
+
+  const namen = info.fields.filter((f) => f.type !== "sonstiges").map((f) => f.name);
+
+  await prisma.$transaction([
+    prisma.propertyTemplate.deleteMany({ where: { propertyId, kind } }),
+    prisma.propertyTemplate.create({
+      data: {
+        propertyId,
+        kind,
+        title: TEMPLATE_KIND_LABEL[kind] ?? kind,
+        fileName: datei.name,
+        sizeBytes: bytes.byteLength,
+        data: bytes,
+        pageCount: info.pageCount,
+        fieldNames: JSON.stringify(info.fields),
+        fieldMap: JSON.stringify(autoMap(namen)),
+      },
+    }),
+  ]);
+
+  await audit(user.email, "upload-template", "Property", propertyId, `${kind}: ${datei.name}`);
+  refresh(propertyId);
+
+  const hinweis =
+    namen.length === 0
+      ? "Vordruck gespeichert. Er enthält keine Formularfelder – Wohnwerk kann ihn deshalb nicht automatisch ausfüllen."
+      : `Vordruck gespeichert. ${namen.length} Formularfeld(er) erkannt und vorbelegt – bitte die Zuordnung prüfen.`;
+  redirect(flash(ziel, namen.length === 0 ? "fehler" : "ok", hinweis));
+}
+
+/** Speichert die vom Anwender geprüfte Zuordnung der Formularfelder. */
+export async function savePropertyTemplateMapping(formData: FormData) {
+  const user = await requireUser();
+  const id = str(formData, "id");
+
+  const template = await prisma.propertyTemplate.findUnique({ where: { id } });
+  if (!template) redirect(flash("/objekte", "fehler", "Vordruck nicht gefunden."));
+
+  const felder = JSON.parse(template.fieldNames) as Array<{ name: string }>;
+  const map: Record<string, string> = {};
+  for (const feld of felder) {
+    const wert = String(formData.get(`feld:${feld.name}`) ?? "");
+    if (wert && isPlaceholder(wert)) map[feld.name] = wert;
+  }
+
+  await prisma.propertyTemplate.update({
+    where: { id },
+    data: { fieldMap: JSON.stringify(map) },
+  });
+
+  await audit(user.email, "map-template", "Property", template.propertyId, template.kind);
+  refresh(template.propertyId);
+  redirect(
+    flash(`/objekte/${template.propertyId}`, "ok", "Zuordnung der Formularfelder gespeichert."),
+  );
+}
+
+/** Entfernt einen Vordruck wieder. */
+export async function deletePropertyTemplate(formData: FormData) {
+  const user = await requireUser();
+  const id = str(formData, "id");
+
+  const template = await prisma.propertyTemplate.findUnique({ where: { id } });
+  if (!template) redirect(flash("/objekte", "fehler", "Vordruck nicht gefunden."));
+
+  await prisma.propertyTemplate.delete({ where: { id } });
+  await audit(user.email, "delete-template", "Property", template.propertyId, template.kind);
+  refresh(template.propertyId);
+  redirect(flash(`/objekte/${template.propertyId}`, "ok", "Vordruck wurde entfernt."));
+}
+
+
+/**
+ * Nimmt den beim Anlegen mitgeschickten Vordruck entgegen.
+ * Gibt eine Meldung zurueck, wenn etwas nicht gestimmt hat, sonst null.
+ */
+async function attachTemplateOnCreate(
+  formData: FormData,
+  propertyId: string,
+): Promise<string | null> {
+  const datei = formData.get("templateFile");
+  if (!(datei instanceof File) || datei.size === 0) {
+    return "Objekt wurde angelegt, aber ohne Wohnungsgeberbestätigung. Bitte den Vordruck unter „Vordrucke“ nachtragen.";
+  }
+  if (datei.size > MAX_TEMPLATE_BYTES) {
+    return "Objekt wurde angelegt. Der Vordruck war größer als 12 MB und wurde nicht übernommen.";
+  }
+
+  const kindRoh = String(formData.get("templateKind") ?? TEMPLATE_KIND.COMBINED);
+  const kind = coversLandlordConfirmation(kindRoh) || coversContract(kindRoh)
+    ? kindRoh
+    : TEMPLATE_KIND.COMBINED;
+
+  const bytes = Buffer.from(await datei.arrayBuffer());
+
+  let info;
+  try {
+    info = await inspectTemplate(bytes);
+  } catch {
+    return "Objekt wurde angelegt. Die hochgeladene Datei ließ sich nicht als PDF lesen und wurde nicht übernommen.";
+  }
+
+  const namen = info.fields.filter((f) => f.type !== "sonstiges").map((f) => f.name);
+
+  await prisma.propertyTemplate.create({
+    data: {
+      propertyId,
+      kind,
+      title: TEMPLATE_KIND_LABEL[kind] ?? kind,
+      fileName: datei.name,
+      sizeBytes: bytes.byteLength,
+      data: bytes,
+      pageCount: info.pageCount,
+      fieldNames: JSON.stringify(info.fields),
+      fieldMap: JSON.stringify(autoMap(namen)),
+    },
+  });
+
+  if (namen.length === 0) {
+    return "Objekt und Vordruck wurden gespeichert. Die PDF enthält allerdings keine Formularfelder, Wohnwerk kann sie deshalb nicht automatisch ausfüllen.";
+  }
+  return null;
 }

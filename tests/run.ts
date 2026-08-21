@@ -241,6 +241,69 @@ async function main() {
     );
   });
 
+  console.log("\nVordrucke der Objekte");
+
+  const { inspectTemplate, autoMap, fillTemplate, parseFieldMap } = await import("../src/lib/pdf-template");
+  const vorlage = readFileSync(join(__dirname, "dateien", "vorlage-sankt-michael.pdf"));
+
+  await test("Formularfelder werden erkannt", async () => {
+    const info = await inspectTemplate(vorlage);
+    assert.equal(info.pageCount, 3);
+    const namen = info.fields.map((f) => f.name).sort();
+    assert.deepEqual(namen, [
+      "Name", "Ort Datum", "PLZ Ort", "Startdatum der Miete", "Strasse Hausnr", "Vorname",
+    ]);
+  });
+
+  await test("Ein Feld auf mehreren Seiten wird als eines gefuehrt", async () => {
+    const info = await inspectTemplate(vorlage);
+    const ortDatum = info.fields.find((f) => f.name === "Ort Datum");
+    assert.deepEqual(ortDatum?.pages, [1, 2, 3]);
+  });
+
+  await test("Zuordnung wird richtig geraten", async () => {
+    const info = await inspectTemplate(vorlage);
+    const map = autoMap(info.fields.map((f) => f.name));
+    assert.equal(map["Vorname"], "mieter.vorname");
+    assert.equal(map["Name"], "mieter.nachname");
+    assert.equal(map["Strasse Hausnr"], "mieter.strasse");
+    assert.equal(map["PLZ Ort"], "mieter.plzOrt");
+    assert.equal(map["Startdatum der Miete"], "mietbeginn");
+    assert.equal(map["Ort Datum"], "ortDatum");
+  });
+
+  await test("Gefuellte Vorlage behaelt Seitenzahl und traegt die Werte", async () => {
+    const info = await inspectTemplate(vorlage);
+    const map = autoMap(info.fields.map((f) => f.name));
+    const gefuellt = await fillTemplate(vorlage, map, {
+      "mieter.vorname": "Tomasz",
+      "mieter.nachname": "Kowalski",
+      "mieter.strasse": "Noetherstraße 61",
+      "mieter.plzOrt": "91058 Erlangen",
+      mietbeginn: "01.09.2026",
+      ortDatum: "Erlangen, 21.08.2026",
+    });
+    const danach = await inspectTemplate(gefuellt);
+    assert.equal(danach.pageCount, 3, "Seitenzahl bleibt gleich");
+    assert.equal(danach.fields.length, 0, "Felder sind festgeschrieben");
+    assert.ok(gefuellt.byteLength > 1000, "PDF ist nicht leer");
+  });
+
+  await test("Unbekannte Felder brechen das Fuellen nicht ab", async () => {
+    const gefuellt = await fillTemplate(
+      vorlage,
+      { "Gibt Es Nicht": "mieter.name", Vorname: "mieter.vorname" },
+      { "mieter.vorname": "Ana", "mieter.name": "Ana Marin" },
+    );
+    assert.ok(gefuellt.byteLength > 1000);
+  });
+
+  await test("Beschaedigte Zuordnung faellt auf leer zurueck", () => {
+    assert.deepEqual(parseFieldMap("kein json"), {});
+    assert.deepEqual(parseFieldMap('{"A":"gibt.es.nicht"}'), {});
+    assert.deepEqual(parseFieldMap('{"A":"mieter.vorname"}'), { A: "mieter.vorname" });
+  });
+
   console.log("\nLesbarkeit der Farben");
 
   const css = readFileSync(join(__dirname, "..", "src", "app", "globals.css"), "utf8");
