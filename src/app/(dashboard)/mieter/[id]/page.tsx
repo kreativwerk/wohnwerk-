@@ -206,6 +206,7 @@ export default async function TenantDetailPage({
                             inputMode="decimal"
                             defaultValue={centsToInput(tenancy.depositCents)}
                           />
+                          <p className="field-hint">0,00 = keine Kaution; eine offene Kautionsforderung wird dann entfernt</p>
                         </div>
                         <div className="sm:col-span-3">
                           <label htmlFor={`tnotes-${tenancy.id}`}>Notiz</label>
@@ -329,7 +330,8 @@ export default async function TenantDetailPage({
                 </div>
                 <div>
                   <label htmlFor="newDeposit">Kaution</label>
-                  <input id="newDeposit" name="depositCents" inputMode="decimal" defaultValue="0,00" />
+                  <input id="newDeposit" name="depositCents" inputMode="decimal" defaultValue="200,00" />
+                  <p className="field-hint">0,00 eintragen = keine Kaution</p>
                 </div>
               </div>
               <button type="submit" className="btn btn-primary">

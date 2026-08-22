@@ -266,6 +266,16 @@ export async function updateTenancy(formData: FormData) {
     },
   });
 
+  // Kaution auf 0 gesetzt: die noch unbezahlte Kautionsforderung verschwindet
+  // mit. Eine bereits bezahlte bleibt stehen - Geld, das geflossen ist,
+  // verschwindet nicht durch eine Formularänderung.
+  const neueKaution = cents(formData, "depositCents", tenancy.depositCents);
+  if (neueKaution === 0) {
+    await prisma.rentCharge.deleteMany({
+      where: { tenancyId: id, kind: "DEPOSIT", status: { in: ["OPEN", "PARTIAL"] } },
+    });
+  }
+
   await ensureRentCharges({ tenancyId: id });
   await audit(user.email, "update", "Tenancy", id);
   refresh(tenancy.tenantId);

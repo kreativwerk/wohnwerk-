@@ -165,7 +165,8 @@ export default async function NewTenantPage({
             </div>
             <div>
               <label htmlFor="depositCents">Kaution</label>
-              <input id="depositCents" name="depositCents" inputMode="decimal" defaultValue="0,00" />
+              <input id="depositCents" name="depositCents" inputMode="decimal" defaultValue="200,00" />
+              <p className="field-hint">0,00 eintragen = keine Kaution</p>
             </div>
           </div>
 
