@@ -388,17 +388,20 @@ export default async function TenantDetailPage({
             <input type="hidden" name="id" value={tenant.id} />
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
+                Person
+              </p>
               <div>
                 <label htmlFor="firstName">Vorname</label>
                 <input id="firstName" name="firstName" defaultValue={tenant.firstName} required />
               </div>
               <div>
                 <label htmlFor="lastName">Nachname</label>
-                <input id="lastName" name="lastName" defaultValue={tenant.lastName} required />
+                <input id="lastName" name="lastName" defaultValue={tenant.lastName} />
               </div>
               <div>
                 <label htmlFor="email">E-Mail</label>
-                <input id="email" name="email" type="email" defaultValue={tenant.email} required />
+                <input id="email" name="email" type="email" defaultValue={tenant.email} />
               </div>
               <div>
                 <label htmlFor="phone">Telefon</label>
@@ -417,6 +420,9 @@ export default async function TenantDetailPage({
                 <label htmlFor="nationality">Staatsangehörigkeit</label>
                 <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
               </div>
+              <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
+                Ausweis und Meldeanschrift
+              </p>
               <div>
                 <label htmlFor="idType">Ausweisart</label>
                 <select id="idType" name="idType" defaultValue={tenant.idType ?? ""}>
@@ -446,6 +452,9 @@ export default async function TenantDetailPage({
                 <label htmlFor="country">Land</label>
                 <input id="country" name="country" defaultValue={tenant.country ?? "Deutschland"} />
               </div>
+              <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
+                Auftraggeber / Entsendefirma
+              </p>
               <div>
                 <label htmlFor="company">Firma</label>
                 <input id="company" name="company" defaultValue={tenant.company ?? ""} />
@@ -466,6 +475,9 @@ export default async function TenantDetailPage({
                 <label htmlFor="companyCity">Firmenort</label>
                 <input id="companyCity" name="companyCity" defaultValue={tenant.companyCity ?? ""} />
               </div>
+              <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
+                Sonstiges
+              </p>
               <div className="sm:col-span-2">
                 <label htmlFor="notes">Notizen</label>
                 <textarea id="notes" name="notes" rows={3} defaultValue={tenant.notes ?? ""} />

@@ -50,11 +50,11 @@ export default async function NewTenantPage({
             </div>
             <div>
               <label htmlFor="lastName">Nachname *</label>
-              <input id="lastName" name="lastName" required />
+              <input id="lastName" name="lastName" />
             </div>
             <div>
               <label htmlFor="email">E-Mail *</label>
-              <input id="email" name="email" type="email" required />
+              <input id="email" name="email" type="email" />
               <p className="field-hint">An diese Adresse geht der Vertragslink.</p>
             </div>
             <div>

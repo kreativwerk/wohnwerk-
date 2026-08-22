@@ -35,7 +35,7 @@ export default async function LoginPage({
     <div className="flex min-h-[100dvh] items-center justify-center bg-brand-950 px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-7">
-          <LogoNavbar className="h-8 w-auto" />
+          <LogoNavbar className="h-10 w-auto" />
           <p className="mt-3 text-[0.8rem] text-brand-300">Verwaltung für Monteurunterkünfte</p>
         </div>
 

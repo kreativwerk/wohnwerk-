@@ -53,8 +53,12 @@ export async function createTenant(formData: FormData) {
   const user = await requireAdmin();
   const data = tenantData(formData);
 
-  if (!data.firstName || !data.lastName || !data.email) {
-    redirect(flash("/mieter/neu", "fehler", "Vorname, Nachname und E-Mail sind Pflichtfelder."));
+  // E-Mail ist keine Pflicht: viele Monteure haben keine oder nennen sie
+  // erst spaeter. Ohne Adresse wird der Vertragslink zum Kopieren angezeigt
+  // statt versendet. Nachname darf fehlen, solange ein Vorname da ist -
+  // manche stehen nur mit Rufnamen in den Unterlagen.
+  if (!data.firstName) {
+    redirect(flash("/mieter/neu", "fehler", "Mindestens der Vorname muss angegeben werden."));
   }
 
   const bedId = str(formData, "bedId");

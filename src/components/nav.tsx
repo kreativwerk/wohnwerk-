@@ -79,7 +79,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
     <nav className="flex h-full flex-col">
       <div className="px-5 pb-6 pt-6">
         <Link href="/" aria-label="Zum Dashboard">
-          <LogoNavbar className="h-7 w-auto" />
+          <LogoNavbar className="h-9 w-auto" />
         </Link>
         <p className="mt-2.5 text-[0.7rem] tracking-wide text-brand-300">Monteurunterkünfte</p>
       </div>
