@@ -297,6 +297,54 @@ async function main() {
     assert.equal(r.transactions[2].amountCents, 47000);
   });
 
+  await test("PDF-Text: VR-Bank-Layout mit Retoure und Sammelüberweisung", () => {
+    const vr = [
+      "Kontokorrent",
+      "EUR-Konto Kontonummer 1234567",
+      "Kontoauszug Nr. 1/2026 Blatt 1 von 2",
+      "IBAN: DE19 7606 9559 0001 2345 67 BIC: GENODEF1XXX",
+      "Bu-Tag Wert Vorgang",
+      "alter Kontostand vom 30.12.2025 2.000,00 H",
+      "05.01. 05.01. Retoure PN:931 10.115,00 H",
+      "Beispiel Holding GmbH",
+      "Retoure SEPA Ueberweisung vom 02.01.2026 SVWZ: RETURN",
+      "14.01. 14.01. Echtzeit-Gutschrift PN:931 470,00 H",
+      "Max Muster",
+      "Miete 01/26",
+      "14.01. 14.01. Sepa-Überweisung PN:804 9.758,00 S",
+      "SEPA Sammel-Ueberweisung mit 2 Ueberweisungen",
+      "neuer Kontostand vom 30.01.2026 2.827,00 H",
+    ].join("\n");
+    const r = parsePdfText(vr);
+    assert.equal(r.transactions.length, 3);
+    const summe = r.transactions.reduce((a, t) => a + t.amountCents, 0);
+    assert.equal(summe, 1011500 + 47000 - 975800);
+    assert.equal(r.iban, "DE19760695590001234567");
+  });
+
+  await test("PDF-Text: Qonto-Layout mit Punkt-Dezimalen", () => {
+    const qonto = [
+      "Kontoauszüge",
+      "Vom 01/05/2026 bis zum 31/05/2026",
+      "IBAN: DE62100101234597563524",
+      "Kontostand am 01/05 + 0.00 EUR",
+      "Abrechnungstag Transaktionen Belastung Gutschrift",
+      "29/05 Qonto SA - French entity + 500.00 EUR",
+      "Qonto Aufladung",
+      "29/05 Qonto - 7.25 EUR",
+      "Abonnement / Zusatzgebühren",
+      "29/05 Max Muster + 1000.00 EUR",
+      "Privateinlage",
+      "Kontostand am 31/05 + 1492.75 EUR",
+    ].join("\n");
+    const r = parsePdfText(qonto);
+    assert.equal(r.transactions.length, 3);
+    const summe = r.transactions.reduce((a, t) => a + t.amountCents, 0);
+    assert.equal(summe, 50000 - 725 + 100000, "auch 1000.00 ohne Tausendertrenner");
+    assert.equal(r.transactions[0].bookingDate.toISOString().slice(0, 10), "2026-05-29");
+    assert.equal(r.iban, "DE62100101234597563524");
+  });
+
   console.log("\nVordrucke der Objekte");
 
   const { inspectTemplate, autoMap, fillTemplate, parseFieldMap } = await import("../src/lib/pdf-template");

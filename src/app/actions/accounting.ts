@@ -572,3 +572,64 @@ export async function saveDatevSettings(formData: FormData) {
   revalidatePath(back);
   redirect(flash(back, "ok", "DATEV-Einstellungen gespeichert."));
 }
+
+/**
+ * Mieteingang von Hand bestätigen - fuer den Blick ins Online-Banking,
+ * bevor der Kontoauszug da ist. Wer bestaetigt hat, steht in der Notiz;
+ * die spaetere Zuordnung der echten Kontobewegung bleibt moeglich.
+ */
+export async function markChargePaid(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = str(formData, "back") || "/buchhaltung/offene-posten";
+
+  const charge = await prisma.rentCharge.findUnique({ where: { id } });
+  if (!charge) redirect(flash(back, "fehler", "Forderung nicht gefunden."));
+  if (charge.status === "PAID") redirect(flash(back, "ok", "Bereits als bezahlt vermerkt."));
+
+  const heute = formatDate(new Date());
+  await prisma.rentCharge.update({
+    where: { id },
+    data: {
+      status: "PAID",
+      notes: [charge.notes, `Manuell bestätigt durch ${user.name} am ${heute}`]
+        .filter(Boolean)
+        .join(" · "),
+    },
+  });
+  await audit(user.email, "mark-paid", "RentCharge", id);
+  revalidatePath(back);
+  revalidatePath("/");
+  redirect(flash(back, "ok", "Als bezahlt vermerkt."));
+}
+
+/** Handbestätigung zurücknehmen - nur solange keine Kontobewegung zugeordnet ist. */
+export async function reopenCharge(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = str(formData, "back") || "/buchhaltung/offene-posten";
+
+  const charge = await prisma.rentCharge.findUnique({
+    where: { id },
+    include: { allocations: { select: { id: true } } },
+  });
+  if (!charge) redirect(flash(back, "fehler", "Forderung nicht gefunden."));
+  if (charge.allocations.length > 0) {
+    redirect(
+      flash(back, "fehler", "Dieser Forderung sind Kontobewegungen zugeordnet – bitte dort lösen."),
+    );
+  }
+
+  await prisma.rentCharge.update({
+    where: { id },
+    data: {
+      status: "OPEN",
+      notes: [charge.notes, `Bestätigung zurückgenommen durch ${user.name} am ${formatDate(new Date())}`]
+        .filter(Boolean)
+        .join(" · "),
+    },
+  });
+  await audit(user.email, "reopen", "RentCharge", id);
+  revalidatePath(back);
+  redirect(flash(back, "ok", "Forderung ist wieder offen."));
+}

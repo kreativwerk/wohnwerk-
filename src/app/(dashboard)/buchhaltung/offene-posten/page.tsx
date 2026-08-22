@@ -3,7 +3,9 @@ import Link from "next/link";
 import {
   allocatePayment,
   generateCharges,
+  markChargePaid,
   removeAllocation,
+  reopenCharge,
   runAutoMatch,
   waiveCharge,
 } from "@/app/actions/accounting";
@@ -293,6 +295,34 @@ export default async function OpenItemsPage({
                       </Td>
                       <Td align="right">
                         <ChargeBadge status={charge.status} />
+                        <AdminOnly>
+                          {charge.status !== "PAID" && charge.status !== "WAIVED" && (
+                            <form action={markChargePaid} className="mt-1.5">
+                              <input type="hidden" name="id" value={charge.id} />
+                              <input type="hidden" name="back" value={BACK} />
+                              <button
+                                type="submit"
+                                className="btn btn-secondary btn-sm"
+                                title="Eingang im Online-Banking gesehen – als bezahlt vermerken"
+                              >
+                                ✓ Bezahlt
+                              </button>
+                            </form>
+                          )}
+                          {charge.status === "PAID" && charge.allocations.length === 0 && (
+                            <form action={reopenCharge} className="mt-1.5">
+                              <input type="hidden" name="id" value={charge.id} />
+                              <input type="hidden" name="back" value={BACK} />
+                              <button
+                                type="submit"
+                                className="btn btn-ghost btn-sm"
+                                title="Handbestätigung zurücknehmen"
+                              >
+                                Rückgängig
+                              </button>
+                            </form>
+                          )}
+                        </AdminOnly>
                       </Td>
                     </tr>
                   );

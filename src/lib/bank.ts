@@ -696,6 +696,15 @@ const SALDO_MUSTER =
 
 /** Aus dem PDF extrahierter Text -> Buchungen. Getrennt testbar. */
 export function parsePdfText(text: string): ParseResult {
+  // Qonto setzt seine Auszuege englisch: Datum TT/MM, Betrag "+ 1500.00 EUR".
+  if (/[+-]\s?\d[\d,]*\.\d{2}\s*EUR/.test(text) && /\d{2}\/\d{2}\/(20\d{2})/.test(text)) {
+    return parseQontoText(text);
+  }
+  return parseGermanPdfText(text);
+}
+
+/** Klassischer deutscher Bankauszug: VR-Bank, Sparkasse und Verwandte. */
+function parseGermanPdfText(text: string): ParseResult {
   const zeilen = text.split(/\r?\n/);
   const warnings: string[] = [];
 
@@ -832,6 +841,94 @@ export function parsePdfText(text: string): ParseResult {
     periodEnd: new Date(Math.max(...daten)),
     // PDF-Auszuege drucken Salden als Text zwischen den Buchungen; ein
     // verlaesslicher Schlusssaldo laesst sich daraus nicht ableiten.
+    closingBalanceCents: null,
+    transactions,
+    warnings,
+  };
+}
+
+/**
+ * Qonto-Auszug: "29/05 Gegenpartei + 500.00 EUR", Folgezeile ist der
+ * Verwendungszweck. Jahr und Zeitraum stehen im Kopf ("Vom 01/05/2026 bis
+ * zum 31/05/2026"), Betraege mit Punkt als Dezimaltrenner.
+ */
+function parseQontoText(text: string): ParseResult {
+  const zeilen = text.split(/\r?\n/);
+  const warnings: string[] = [];
+
+  const ibanTreffer = text.replace(/\s+/g, " ").match(/\bDE\d{2}(?: ?\d{4}){4}(?: ?\d{1,2})?\b/);
+  const iban = ibanTreffer ? ibanTreffer[0].replace(/\s+/g, "") : null;
+
+  const jahrTreffer = text.match(/\d{2}\/\d{2}\/(20\d{2})/);
+  const jahr = jahrTreffer ? Number(jahrTreffer[1]) : new Date().getUTCFullYear();
+
+  const START = /^\s*(\d{2})\/(\d{2})\s+(.*)$/;
+  const BETRAG = /([+-])\s?((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*EUR\s*$/;
+  const KOPFZEILE = /kontostand am|abrechnungstag|eingänge|ausgänge|vom \d{2}\/\d{2}/i;
+
+  type Roh = { tag: number; monat: number; partei: string; cents: number; zweck: string[] };
+  const buchungen: Roh[] = [];
+  let aktuelle: Roh | null = null;
+
+  for (const roh of zeilen) {
+    const zeile = roh.trim();
+    if (!zeile) continue;
+    if (KOPFZEILE.test(zeile) && !START.test(zeile)) continue;
+
+    const start = zeile.match(START);
+    if (start) {
+      const rest = start[3];
+      const betrag = rest.match(BETRAG);
+      if (betrag) {
+        const cents = Math.round(Number(betrag[2].split(",").join("")) * 100);
+        aktuelle = {
+          tag: Number(start[1]),
+          monat: Number(start[2]),
+          partei: rest.slice(0, rest.length - betrag[0].length).trim(),
+          cents: betrag[1] === "-" ? -cents : cents,
+          zweck: [],
+        };
+        buchungen.push(aktuelle);
+        continue;
+      }
+      aktuelle = null;
+      continue;
+    }
+
+    // Fusszeilen des Anbieters beenden den Buchungsteil.
+    if (/qonto sa mit einem kapital|apple pay|google pay/i.test(zeile)) {
+      aktuelle = null;
+      continue;
+    }
+    if (aktuelle && aktuelle.zweck.length < 3) {
+      aktuelle.zweck.push(zeile);
+    }
+  }
+
+  if (buchungen.length === 0) {
+    throw new Error(
+      "In der Qonto-PDF wurden keine Buchungszeilen erkannt. Bitte eine Beispieldatei bereitstellen, dann wird der Leser darauf eingerichtet.",
+    );
+  }
+
+  const transactions: ParsedTransaction[] = buchungen.map((b) => ({
+    bookingDate: new Date(Date.UTC(jahr, b.monat - 1, b.tag)),
+    valueDate: null,
+    amountCents: b.cents,
+    currency: "EUR",
+    counterpartyName: b.partei || null,
+    counterpartyIban: null,
+    purpose: [b.partei, ...b.zweck].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || null,
+    endToEndId: null,
+    bankTxCode: null,
+  }));
+
+  const daten = transactions.map((t) => t.bookingDate.getTime());
+  return {
+    format: "pdf",
+    iban,
+    periodStart: new Date(Math.min(...daten)),
+    periodEnd: new Date(Math.max(...daten)),
     closingBalanceCents: null,
     transactions,
     warnings,
