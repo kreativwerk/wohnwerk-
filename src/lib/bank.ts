@@ -634,19 +634,55 @@ export async function parseStatement(fileName: string, buffer: Buffer): Promise<
  * gelesen wurden - lieber sichtbar auslassen als still falsch buchen.
  */
 export async function parsePdf(buffer: Buffer): Promise<ParseResult> {
-  const { default: pdfParse } = (await import("pdf-parse/lib/pdf-parse.js")) as {
-    default: (data: Buffer) => Promise<{ text: string }>;
-  };
+  const { getDocumentProxy } = await import("unpdf");
+
   let text: string;
   try {
-    const ergebnis = await pdfParse(buffer);
-    text = ergebnis.text;
+    const doc = await getDocumentProxy(new Uint8Array(buffer));
+    const seiten: string[] = [];
+
+    for (let nr = 1; nr <= doc.numPages; nr += 1) {
+      const seite = await doc.getPage(nr);
+      const inhalt = await seite.getTextContent();
+
+      // PDF kennt keine Zeilen, nur positionierte Textstuecke. Die Zeilen
+      // entstehen hier neu: Stuecke mit (fast) gleicher Hoehe gehoeren
+      // zusammen, innerhalb der Zeile ordnet die X-Position.
+      type Stueck = { x: number; y: number; text: string };
+      const stuecke: Stueck[] = [];
+      for (const item of inhalt.items) {
+        if (!("str" in item) || !item.str.trim()) continue;
+        stuecke.push({ x: item.transform[4], y: item.transform[5], text: item.str });
+      }
+
+      const zeilen: Stueck[][] = [];
+      for (const stueck of stuecke.sort((a, b) => b.y - a.y || a.x - b.x)) {
+        const letzte = zeilen[zeilen.length - 1];
+        if (letzte && Math.abs(letzte[0].y - stueck.y) < 2.5) letzte.push(stueck);
+        else zeilen.push([stueck]);
+      }
+
+      seiten.push(
+        zeilen
+          .map((zeile) =>
+            zeile
+              .sort((a, b) => a.x - b.x)
+              .map((st) => st.text)
+              .join(" "),
+          )
+          .join("\n"),
+      );
+    }
+
+    text = seiten.join("\n");
   } catch (error) {
+    console.error("[pdf] Lesen fehlgeschlagen:", error);
     throw new Error(
-      "Die PDF-Datei konnte nicht gelesen werden. Ist sie passwortgeschützt oder nur ein Scan ohne Textebene?",
+      "Die PDF-Datei konnte nicht gelesen werden. Ist sie passwortgeschützt oder beschädigt?",
       { cause: error },
     );
   }
+
   if (!text.trim()) {
     throw new Error(
       "Die PDF enthält keinen lesbaren Text – vermutlich ein eingescanntes Bild. Bitte den Original-Auszug aus dem Online-Banking verwenden.",
