@@ -28,8 +28,9 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
       startDate: true,
       endDate: true,
       monthlyRentCents: true,
+      depositCents: true,
       billingDay: true,
-      charges: { select: { periodYear: true, periodMonth: true } },
+      charges: { select: { periodYear: true, periodMonth: true, kind: true } },
     },
   });
 
@@ -39,6 +40,8 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
     periodMonth: number;
     dueDate: Date;
     amountCents: number;
+    kind: string;
+    notes: string | null;
   }> = [];
 
   for (const tenancy of tenancies) {
@@ -49,21 +52,70 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
     const to = rawEnd.getTime() < horizon.getTime() ? rawEnd : horizon;
     if (to.getTime() < from.getTime()) continue;
 
-    const existing = new Set(tenancy.charges.map((c) => `${c.periodYear}-${c.periodMonth}`));
+    const existing = new Set(
+      tenancy.charges.map((c) => `${c.kind}:${c.periodYear}-${c.periodMonth}`),
+    );
+
+    // Kaution: einmalig, faellig zum Einzug.
+    const startYear = tenancy.startDate.getUTCFullYear();
+    const startMonth = tenancy.startDate.getUTCMonth() + 1;
+    if (
+      tenancy.depositCents > 0 &&
+      !tenancy.charges.some((c) => c.kind === "DEPOSIT")
+    ) {
+      rows.push({
+        tenancyId: tenancy.id,
+        periodYear: startYear,
+        periodMonth: startMonth,
+        dueDate: tenancy.startDate,
+        amountCents: tenancy.depositCents,
+        kind: "DEPOSIT",
+        notes: "Kaution zum Einzug",
+      });
+    }
+
+    // Tagespauschale: Monatsmiete geteilt durch 30, kaufmaennisch auf den
+    // Cent gerundet. Bei 470 Euro sind das die vertraglichen 15,67 pro Tag.
+    const daily = Math.round(tenancy.monthlyRentCents / 30);
 
     for (const period of monthsBetween(from, to)) {
-      if (existing.has(`${period.year}-${period.month}`)) continue;
+      if (existing.has(`RENT:${period.year}-${period.month}`)) continue;
 
-      // Faelligkeitstag auf die Monatslaenge begrenzen (z.B. 31. im Februar)
       const daysInMonth = new Date(Date.UTC(period.year, period.month, 0)).getUTCDate();
       const day = Math.min(Math.max(tenancy.billingDay, 1), daysInMonth);
+
+      // Erster und letzter Monat werden tageweise berechnet, wenn der Ein-
+      // oder Auszug nicht auf Monatsgrenzen faellt. Nie mehr als eine volle
+      // Monatsmiete.
+      let firstDay = 1;
+      let lastDay = daysInMonth;
+      if (period.year === startYear && period.month === startMonth) {
+        firstDay = tenancy.startDate.getUTCDate();
+      }
+      if (
+        tenancy.endDate &&
+        period.year === tenancy.endDate.getUTCFullYear() &&
+        period.month === tenancy.endDate.getUTCMonth() + 1
+      ) {
+        lastDay = tenancy.endDate.getUTCDate();
+      }
+
+      const billedDays = lastDay - firstDay + 1;
+      const partial = firstDay !== 1 || lastDay !== daysInMonth;
+      const amountCents = partial
+        ? Math.min(tenancy.monthlyRentCents, billedDays * daily)
+        : tenancy.monthlyRentCents;
 
       rows.push({
         tenancyId: tenancy.id,
         periodYear: period.year,
         periodMonth: period.month,
         dueDate: new Date(Date.UTC(period.year, period.month - 1, day)),
-        amountCents: tenancy.monthlyRentCents,
+        amountCents,
+        kind: "RENT",
+        notes: partial
+          ? `Anteilig: ${billedDays} Tag(e) × ${(daily / 100).toFixed(2).replace(".", ",")} €`
+          : null,
       });
     }
   }

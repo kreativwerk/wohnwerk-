@@ -37,6 +37,8 @@ model Property {
   notes     String?
 
   // Kaufmaennische Stammdaten
+  /// ANGEMIETET = fremdes Objekt (ownerName = Vermieter), EIGENTUM = gehoert Wohnwerk
+  tenure        String  @default("ANGEMIETET")
   ownerName     String?
   managerName   String?
   managerPhone  String?
@@ -343,6 +345,9 @@ model RentCharge {
   periodMonth Int // 1-12
   dueDate     DateTime
 
+  /// RENT = Monatsmiete, DEPOSIT = einmalige Kaution zum Einzug
+  kind String @default("RENT")
+
   amountCents Int
   status      String  @default("OPEN") // OPEN | PARTIAL | PAID | WAIVED
   notes       String?
@@ -353,7 +358,7 @@ model RentCharge {
   tenancy     Tenancy      @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
   allocations Allocation[]
 
-  @@unique([tenancyId, periodYear, periodMonth])
+  @@unique([tenancyId, periodYear, periodMonth, kind])
   @@index([status])
   @@index([dueDate])
 }

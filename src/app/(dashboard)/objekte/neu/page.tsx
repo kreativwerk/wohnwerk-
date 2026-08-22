@@ -58,8 +58,15 @@ export default async function NewPropertyPage({
         <Card title="Ansprechpartner und Hinweise" description="Alles optional, hilft aber im Alltag.">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="ownerName">Eigentümer</label>
-              <input id="ownerName" name="ownerName" />
+              <label htmlFor="tenure">Eigentumsverhältnis</label>
+              <select id="tenure" name="tenure" defaultValue="ANGEMIETET">
+                <option value="ANGEMIETET">Angemietet – wir sind Zwischenmieter</option>
+                <option value="EIGENTUM">Eigentum von Wohnwerk</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="ownerName">Vermieter / Eigentümer</label>
+              <input id="ownerName" name="ownerName" placeholder="Bei angemieteten Objekten: unser Vermieter" />
             </div>
             <div>
               <label htmlFor="managerName">Hausmeister / Betreuung</label>

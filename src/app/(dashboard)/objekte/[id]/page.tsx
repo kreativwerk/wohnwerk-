@@ -422,7 +422,14 @@ export default async function PropertyDetailPage({
                 <input id="shortCode" name="shortCode" defaultValue={property.shortCode ?? ""} />
               </div>
               <div>
-                <label htmlFor="ownerName">Eigentümer</label>
+                <label htmlFor="tenure">Eigentumsverhältnis</label>
+                <select id="tenure" name="tenure" defaultValue={property.tenure}>
+                  <option value="ANGEMIETET">Angemietet – wir sind Zwischenmieter</option>
+                  <option value="EIGENTUM">Eigentum von Wohnwerk</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="ownerName">Vermieter / Eigentümer</label>
                 <input id="ownerName" name="ownerName" defaultValue={property.ownerName ?? ""} />
               </div>
               <div>

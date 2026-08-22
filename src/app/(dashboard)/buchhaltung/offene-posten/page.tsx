@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/accounting";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge } from "@/components/status";
-import { Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate, formatMonth } from "@/lib/dates";
@@ -177,6 +177,11 @@ export default async function OpenItemsPage({
                     <tr key={charge.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap">
                         {formatMonth(charge.periodYear, charge.periodMonth)}
+                        {charge.kind === "DEPOSIT" && (
+                          <span className="ml-2">
+                            <Badge tone="brand">Kaution</Badge>
+                          </span>
+                        )}
                       </Td>
                       <Td>
                         <Link
