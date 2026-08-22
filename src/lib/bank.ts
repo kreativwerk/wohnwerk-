@@ -25,7 +25,7 @@ export type ParsedTransaction = {
 };
 
 export type ParseResult = {
-  format: "csv" | "camt053" | "mt940";
+  format: "csv" | "camt053" | "mt940" | "pdf";
   iban: string | null;
   periodStart: Date | null;
   periodEnd: Date | null;
@@ -600,8 +600,14 @@ export function parseMt940(text: string): ParseResult {
 // --- Einstieg --------------------------------------------------------------
 
 export async function parseStatement(fileName: string, buffer: Buffer): Promise<ParseResult> {
-  const text = decodeBuffer(buffer);
   const lower = fileName.toLowerCase();
+
+  // PDF zuerst: die Magic Bytes stehen fest, bevor irgendetwas dekodiert wird.
+  if (lower.endsWith(".pdf") || buffer.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
+    return parsePdf(buffer);
+  }
+
+  const text = decodeBuffer(buffer);
 
   if (lower.endsWith(".xml") || text.trimStart().startsWith("<?xml") || text.includes("<Document")) {
     return parseCamt053(text);
@@ -610,6 +616,190 @@ export async function parseStatement(fileName: string, buffer: Buffer): Promise<
     return parseMt940(text);
   }
   return parseCsv(text);
+}
+
+// ---------------------------------------------------------------------------
+// PDF-Kontoauszuege
+// ---------------------------------------------------------------------------
+
+/**
+ * Liest einen PDF-Kontoauszug. PDFs sind fuer Menschen gesetzt, nicht fuer
+ * Maschinen - deshalb arbeitet der Parser mit den Mustern, die deutsche
+ * Banken (VR-Bank, Sparkasse und Verwandte) im Auszug drucken: Buchungszeilen
+ * beginnen mit ein oder zwei Daten im Format TT.MM., der Betrag steht am
+ * Zeilenende mit S/H oder Minus/Plus, Folgezeilen gehoeren zum
+ * Verwendungszweck. Salden- und Uebertragszeilen werden uebersprungen.
+ *
+ * Wo das PDF vom Muster abweicht, sagen die Warnungen welche Zeilen nicht
+ * gelesen wurden - lieber sichtbar auslassen als still falsch buchen.
+ */
+export async function parsePdf(buffer: Buffer): Promise<ParseResult> {
+  const { default: pdfParse } = (await import("pdf-parse/lib/pdf-parse.js")) as {
+    default: (data: Buffer) => Promise<{ text: string }>;
+  };
+  let text: string;
+  try {
+    const ergebnis = await pdfParse(buffer);
+    text = ergebnis.text;
+  } catch (error) {
+    throw new Error(
+      "Die PDF-Datei konnte nicht gelesen werden. Ist sie passwortgeschützt oder nur ein Scan ohne Textebene?",
+      { cause: error },
+    );
+  }
+  if (!text.trim()) {
+    throw new Error(
+      "Die PDF enthält keinen lesbaren Text – vermutlich ein eingescanntes Bild. Bitte den Original-Auszug aus dem Online-Banking verwenden.",
+    );
+  }
+  return parsePdfText(text);
+}
+
+const SALDO_MUSTER =
+  /kontostand|zwischensaldo|anfangssaldo|endsaldo|alter saldo|neuer saldo|übertrag|uebertrag|summe umsätze|summe umsaetze|blatt \d|seite \d/i;
+
+/** Aus dem PDF extrahierter Text -> Buchungen. Getrennt testbar. */
+export function parsePdfText(text: string): ParseResult {
+  const zeilen = text.split(/\r?\n/);
+  const warnings: string[] = [];
+
+  // IBAN des Kontos: die erste deutsche IBAN im Kopf.
+  const ibanTreffer = text.replace(/\s+/g, " ").match(/\bDE\d{2}(?: ?\d{4}){4}(?: ?\d{1,2})?\b/);
+  const iban = ibanTreffer ? ibanTreffer[0].replace(/\s+/g, "") : null;
+
+  // Jahr: aus einem vollstaendigen Datum oder einer Jahreszahl im Kopf.
+  const jahrTreffer =
+    text.match(/\b\d{2}\.\d{2}\.(20\d{2})\b/) ?? text.match(/\b(20\d{2})\b/);
+  const jahr = jahrTreffer ? Number(jahrTreffer[1]) : new Date().getUTCFullYear();
+
+  const START =
+    /^\s*(\d{2})\.(\d{2})\.(\d{4})?\s+(?:(\d{2})\.(\d{2})\.(\d{4})?\s+)?(.*)$/;
+  const BETRAG = /(\d{1,3}(?:\.\d{3})*,\d{2})\s*([SH+-])?\s*$/;
+
+  type Roh = {
+    tag: number; monat: number; jahr: number | null;
+    wtag: number | null; wmonat: number | null;
+    kopf: string; betragText: string; zeichen: string | null;
+    zweck: string[];
+  };
+
+  const buchungen: Roh[] = [];
+  let aktuelle: Roh | null = null;
+  let uebersprungen = 0;
+
+  for (const roh of zeilen) {
+    const zeile = roh.replace(/\s+$/g, "");
+    if (!zeile.trim()) continue;
+    if (SALDO_MUSTER.test(zeile)) {
+      aktuelle = null;
+      continue;
+    }
+
+    const start = zeile.match(START);
+    if (start) {
+      const rest = start[7] ?? "";
+      const betrag = rest.match(BETRAG);
+      if (betrag) {
+        aktuelle = {
+          tag: Number(start[1]), monat: Number(start[2]),
+          jahr: start[3] ? Number(start[3]) : null,
+          wtag: start[4] ? Number(start[4]) : null,
+          wmonat: start[5] ? Number(start[5]) : null,
+          kopf: rest.slice(0, rest.length - betrag[0].length).trim(),
+          betragText: betrag[1], zeichen: betrag[2] ?? null,
+          zweck: [],
+        };
+        buchungen.push(aktuelle);
+        continue;
+      }
+      // Datumszeile ohne Betrag: Betrag folgt evtl. auf einer der naechsten
+      // Zeilen (mehrspaltige Layouts). Als offene Buchung vormerken.
+      aktuelle = {
+        tag: Number(start[1]), monat: Number(start[2]),
+        jahr: start[3] ? Number(start[3]) : null,
+        wtag: start[4] ? Number(start[4]) : null,
+        wmonat: start[5] ? Number(start[5]) : null,
+        kopf: rest.trim(), betragText: "", zeichen: null, zweck: [],
+      };
+      buchungen.push(aktuelle);
+      continue;
+    }
+
+    if (aktuelle) {
+      const betrag = zeile.match(BETRAG);
+      if (!aktuelle.betragText && betrag && zeile.trim() === betrag[0].trim()) {
+        aktuelle.betragText = betrag[1];
+        aktuelle.zeichen = betrag[2] ?? null;
+        continue;
+      }
+      aktuelle.zweck.push(zeile.trim());
+      continue;
+    }
+
+    uebersprungen += 1;
+  }
+
+  const transactions: ParsedTransaction[] = [];
+  let ohneZeichen = 0;
+
+  for (const b of buchungen) {
+    if (!b.betragText) {
+      warnings.push(
+        `Buchung vom ${String(b.tag).padStart(2, "0")}.${String(b.monat).padStart(2, "0")}. ohne erkennbaren Betrag übersprungen.`,
+      );
+      continue;
+    }
+    const cents = Math.round(Number(b.betragText.split(".").join("").replace(",", ".")) * 100);
+    if (!Number.isFinite(cents)) continue;
+
+    let vorzeichen = 1;
+    if (b.zeichen === "S" || b.zeichen === "-") vorzeichen = -1;
+    else if (b.zeichen === "H" || b.zeichen === "+") vorzeichen = 1;
+    else ohneZeichen += 1;
+
+    const buchungsJahr = b.jahr ?? jahr;
+    const zweck = [b.kopf, ...b.zweck].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+
+    transactions.push({
+      bookingDate: new Date(Date.UTC(buchungsJahr, b.monat - 1, b.tag)),
+      valueDate:
+        b.wtag && b.wmonat ? new Date(Date.UTC(buchungsJahr, b.wmonat - 1, b.wtag)) : null,
+      amountCents: vorzeichen * cents,
+      currency: "EUR",
+      counterpartyName: b.zweck[0]?.trim() || null,
+      counterpartyIban: null,
+      purpose: zweck || null,
+      endToEndId: null,
+      bankTxCode: null,
+    });
+  }
+
+  if (transactions.length === 0) {
+    throw new Error(
+      "In der PDF wurden keine Buchungszeilen erkannt. Der Auszug weicht vom bekannten Aufbau ab – bitte eine Beispieldatei bereitstellen, dann wird der Leser darauf eingerichtet.",
+    );
+  }
+  if (ohneZeichen > 0) {
+    warnings.push(
+      `${ohneZeichen} Buchung(en) ohne Soll/Haben-Kennzeichen wurden als Eingang gewertet – bitte prüfen.`,
+    );
+  }
+  if (uebersprungen > 5) {
+    warnings.push(`${uebersprungen} Textzeilen außerhalb von Buchungen wurden ignoriert.`);
+  }
+
+  const daten = transactions.map((t) => t.bookingDate.getTime());
+  return {
+    format: "pdf",
+    iban,
+    periodStart: new Date(Math.min(...daten)),
+    periodEnd: new Date(Math.max(...daten)),
+    // PDF-Auszuege drucken Salden als Text zwischen den Buchungen; ein
+    // verlaesslicher Schlusssaldo laesst sich daraus nicht ableiten.
+    closingBalanceCents: null,
+    transactions,
+    warnings,
+  };
 }
 
 /**

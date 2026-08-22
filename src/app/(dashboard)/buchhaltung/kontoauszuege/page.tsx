@@ -79,7 +79,7 @@ export default async function StatementsPage({
                         name="file"
                         type="file"
                         required
-                        accept=".csv,.txt,.xml,.sta,.mt940,.940"
+                        accept=".csv,.txt,.xml,.sta,.mt940,.940,.pdf"
                       />
                     </div>
                   </div>
@@ -89,6 +89,12 @@ export default async function StatementsPage({
                       <li>
                         <strong>CSV</strong> – der übliche Export aus dem Online-Banking (Sparkasse, DKB,
                         ING, Comdirect, Volksbank, Qonto, N26). Spalten werden automatisch erkannt.
+                      </li>
+                      <li>
+                        <strong>PDF</strong> – der gedruckte Kontoauszug (VR-Bank, Sparkasse und
+                        verwandte Layouts). Buchungen werden aus dem Text gelesen; gescannte
+                        Bilder ohne Textebene funktionieren nicht. CSV oder CAMT bleiben die
+                        verlässlichere Wahl, wo das Online-Banking sie anbietet.
                       </li>
                       <li>
                         <strong>CAMT.053</strong> – XML-Auszug, enthält auch den Schlusssaldo.

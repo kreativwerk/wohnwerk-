@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 import { parseAmountToCents, formatCents, centsToInput } from "../src/lib/money";
 import { parseBankDate, monthsBetween, fromDateInput } from "../src/lib/dates";
-import { parseCsv, parseMt940, parseCamt053, parseStatement, dedupeHash, decodeBuffer } from "../src/lib/bank";
+import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedupeHash, decodeBuffer } from "../src/lib/bank";
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -239,6 +239,62 @@ async function main() {
       dedupeHash("DE02120300000000202051", a.transactions[0]),
       dedupeHash("DE02120300000000202051", a.transactions[1]),
     );
+  });
+
+  console.log("\nPDF-Kontoauszüge");
+
+  const pdfText = [
+    "VR Bank Nürnberg",
+    "Kontoauszug Nr. 7/2026",
+    "IBAN: DE19 7606 9559 0002 6789 00",
+    "Kontostand am 30.06.2026, Auszug Nr. 6                          3.512,44 H",
+    "01.07. 01.07. Überweisungsgutschr.                                470,00 H",
+    " Tomasz Kowalski",
+    " WW-IMP-0030 Miete Juli",
+    "03.07. 03.07. Lastschrift                                         180,00 S",
+    " N-ERGIE Abschlag Strom",
+    "15.07. 15.07. Überweisungsgutschr.                                470,00 H",
+    " Gzim Aliti Miete Juli WW-IMP-0038",
+    "Kontostand am 31.07.2026                                        4.272,44 H",
+    "Blatt 1 von 1",
+  ].join("\n");
+
+  await test("PDF-Text: Buchungen, Vorzeichen und IBAN", () => {
+    const r = parsePdfText(pdfText);
+    assert.equal(r.format, "pdf");
+    assert.equal(r.iban, "DE19760695590002678900");
+    assert.equal(r.transactions.length, 3, "Saldozeilen zählen nicht als Buchung");
+    assert.equal(r.transactions[0].amountCents, 47000);
+    assert.equal(r.transactions[1].amountCents, -18000);
+    assert.ok(r.transactions[1].purpose?.includes("N-ERGIE"));
+    assert.equal(r.transactions[0].bookingDate.toISOString().slice(0, 10), "2026-07-01");
+  });
+
+  await test("PDF-Text: Jahreszahl aus dem Kopf, Warnung bei fehlendem Kennzeichen", () => {
+    const r = parsePdfText("Auszug 2025\n05.03. Gutschrift Miete 470,00\n");
+    assert.equal(r.transactions[0].bookingDate.getUTCFullYear(), 2025);
+    assert.ok(r.warnings.some((w) => w.includes("Soll/Haben")));
+  });
+
+  await test("PDF-Text ohne Buchungen schlägt verständlich fehl", () => {
+    assert.throws(() => parsePdfText("Nur ein Anschreiben ohne Umsätze"), /keine Buchungszeilen/);
+  });
+
+  await test("Echte PDF-Datei wird erkannt und gelesen", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    const seite = doc.addPage([595, 842]);
+    const schrift = await doc.embedFont(StandardFonts.Courier);
+    let y = 800;
+    for (const zeile of pdfText.split("\n")) {
+      seite.drawText(zeile, { x: 40, y, size: 9, font: schrift });
+      y -= 14;
+    }
+    const bytes = Buffer.from(await doc.save({ useObjectStreams: false }));
+    const r = await parseStatement("Kontoauszug_2026-07.pdf", bytes);
+    assert.equal(r.format, "pdf");
+    assert.equal(r.transactions.length, 3);
+    assert.equal(r.transactions[2].amountCents, 47000);
   });
 
   console.log("\nVordrucke der Objekte");

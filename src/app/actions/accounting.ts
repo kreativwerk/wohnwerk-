@@ -218,6 +218,22 @@ export async function importStatement(formData: FormData) {
     },
   });
 
+  // Gehoert das Konto genau einem Objekt, tragen die neuen Buchungen dessen
+  // Zuordnung gleich mit. Bei mehreren Objekten am selben Konto bleibt die
+  // Zuordnung offen - raten waere falsch.
+  const kontoObjekte = await prisma.property.findMany({
+    where: { bankAccountId },
+    select: { id: true },
+  });
+  let objektZugeordnet = 0;
+  if (kontoObjekte.length === 1) {
+    const zuordnung = await prisma.bankTransaction.updateMany({
+      where: { statementId: statement.id, propertyId: null },
+      data: { propertyId: kontoObjekte[0].id },
+    });
+    objektZugeordnet = zuordnung.count;
+  }
+
   const match = await autoMatch({ bankAccountId });
   await audit(user.email, "import", "BankStatement", statement.id, `${imported} Buchungen`);
   refresh();
@@ -226,6 +242,7 @@ export async function importStatement(formData: FormData) {
     `${imported} Buchung(en) importiert`,
     duplicates > 0 ? `${duplicates} Duplikat(e) übersprungen` : null,
     match.matched > 0 ? `${match.matched} Zahlung(en) automatisch zugeordnet` : null,
+    objektZugeordnet > 0 ? `${objektZugeordnet} Buchung(en) dem Objekt des Kontos zugewiesen` : null,
     parsed.warnings.length > 0 ? `${parsed.warnings.length} Hinweis(e) beim Einlesen` : null,
   ].filter(Boolean);
 

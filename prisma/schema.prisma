@@ -40,6 +40,10 @@ model Property {
   /// ANGEMIETET = fremdes Objekt (ownerName = Vermieter), EIGENTUM = gehoert Wohnwerk
   tenure        String  @default("ANGEMIETET")
   ownerName     String?
+  /// Bankkonto, ueber das dieses Objekt laeuft. Eingehende Zahlungen auf dem
+  /// Konto werden beim Import automatisch diesem Objekt zugeordnet, wenn das
+  /// Konto nur zu einem Objekt gehoert.
+  bankAccountId String?
   managerName   String?
   managerPhone  String?
   managerEmail  String?
@@ -56,8 +60,10 @@ model Property {
   transactions BankTransaction[]
   templates    PropertyTemplate[]
   costs        PropertyCost[]
+  bankAccount  BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
   @@index([active])
+  @@index([bankAccountId])
 }
 
 /// Laufende Kosten eines Objekts aus Sicht von Wohnwerk: die Miete an den
@@ -276,6 +282,7 @@ model BankAccount {
   name     String
   iban     String  @unique
   bic      String?
+
   currency String  @default("EUR")
 
   openingBalanceCents Int      @default(0)
@@ -284,6 +291,7 @@ model BankAccount {
 
   statements   BankStatement[]
   transactions BankTransaction[]
+  properties Property[]
 }
 
 model BankStatement {

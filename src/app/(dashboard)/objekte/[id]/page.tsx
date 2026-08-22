@@ -68,6 +68,8 @@ export default async function PropertyDetailPage({
 
   if (!property) notFound();
 
+  const bankAccounts = await prisma.bankAccount.findMany({ orderBy: { name: "asc" } });
+
   const allBedIds = property.rooms.flatMap((room) => room.beds.map((bed) => bed.id));
   const [occupancy, summary] = await Promise.all([
     bedOccupancy(allBedIds),
@@ -440,6 +442,20 @@ export default async function PropertyDetailPage({
               <div>
                 <label htmlFor="shortCode">Kürzel</label>
                 <input id="shortCode" name="shortCode" defaultValue={property.shortCode ?? ""} />
+              </div>
+              <div>
+                <label htmlFor="bankAccountId">Bankkonto des Objekts</label>
+                <select id="bankAccountId" name="bankAccountId" defaultValue={property.bankAccountId ?? ""}>
+                  <option value="">– kein Konto zugeordnet –</option>
+                  {bankAccounts.map((konto) => (
+                    <option key={konto.id} value={konto.id}>
+                      {konto.name} · {konto.iban}
+                    </option>
+                  ))}
+                </select>
+                <p className="field-hint">
+                  Eingänge auf diesem Konto werden beim Import automatisch dem Objekt zugeordnet.
+                </p>
               </div>
               <div>
                 <label htmlFor="tenure">Eigentumsverhältnis</label>
