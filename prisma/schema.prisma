@@ -16,6 +16,10 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Fuer Migrationen: die direkte Verbindung ohne Pooler. Bei Supabase ist
+  // das Pflicht (der Transaktions-Pooler kann keine Migrationen), bei Neon
+  // oder lokalem Postgres setzt der Build-Ablauf sie gleich DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

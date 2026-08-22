@@ -14,6 +14,7 @@ gewünschten Zeilen aus dem Block am Ende hierher.
 | Variable | Bedeutung |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL-Verbindung. Bei Anbietern mit Pooling die gepoolte Adresse |
+| `DIRECT_URL` | Nur bei Supabase nötig: die direkte Verbindung ohne Pooler, für Migrationen. Bei allen anderen Anbietern weglassen, dann gilt automatisch `DATABASE_URL` |
 | `AUTH_SECRET` | Zufälliger Schlüssel für die Sitzungs-Cookies, mindestens 16 Zeichen |
 | `ADMIN_EMAIL` | Daraus entsteht beim ersten Login das Administratorkonto |
 | `ADMIN_PASSWORD` | Passwort für diesen ersten Zugang |

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "node --env-file-if-exists=.env scripts/pruefe-umgebung.mjs && prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "node --env-file-if-exists=.env scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
