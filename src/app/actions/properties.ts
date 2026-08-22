@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { bool, cents, flash, float, int, optionalStr, str } from "@/lib/form";
@@ -27,7 +27,7 @@ function refresh(propertyId?: string) {
 // --- Objekte ---------------------------------------------------------------
 
 export async function createProperty(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const name = str(formData, "name");
   const street = str(formData, "street");
@@ -74,7 +74,7 @@ export async function createProperty(formData: FormData) {
 }
 
 export async function updateProperty(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const property = await prisma.property.update({
@@ -103,7 +103,7 @@ export async function updateProperty(formData: FormData) {
 }
 
 export async function deleteProperty(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const tenancyCount = await prisma.tenancy.count({
@@ -128,7 +128,7 @@ export async function deleteProperty(formData: FormData) {
 // --- Zimmer ----------------------------------------------------------------
 
 export async function createRoom(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
   const name = str(formData, "name");
 
@@ -179,7 +179,7 @@ export async function createRoom(formData: FormData) {
 }
 
 export async function updateRoom(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
 
@@ -200,7 +200,7 @@ export async function updateRoom(formData: FormData) {
 }
 
 export async function deleteRoom(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
 
@@ -226,7 +226,7 @@ export async function deleteRoom(formData: FormData) {
 // --- Betten ----------------------------------------------------------------
 
 export async function createBed(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const roomId = str(formData, "roomId");
   const propertyId = str(formData, "propertyId");
 
@@ -255,7 +255,7 @@ export async function createBed(formData: FormData) {
 }
 
 export async function updateBed(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
 
@@ -277,7 +277,7 @@ export async function updateBed(formData: FormData) {
 }
 
 export async function deleteBed(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
 
@@ -310,7 +310,7 @@ const MAX_TEMPLATE_BYTES = 12 * 1024 * 1024;
  * ersetzt, damit nie zwei gleichartige Vordrucke im Umlauf sind.
  */
 export async function uploadPropertyTemplate(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
   const kind = str(formData, "kind");
   const ziel = `/objekte/${propertyId}`;
@@ -370,7 +370,7 @@ export async function uploadPropertyTemplate(formData: FormData) {
 
 /** Speichert die vom Anwender geprüfte Zuordnung der Formularfelder. */
 export async function savePropertyTemplateMapping(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const template = await prisma.propertyTemplate.findUnique({ where: { id } });
@@ -397,7 +397,7 @@ export async function savePropertyTemplateMapping(formData: FormData) {
 
 /** Entfernt einen Vordruck wieder. */
 export async function deletePropertyTemplate(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const template = await prisma.propertyTemplate.findUnique({ where: { id } });

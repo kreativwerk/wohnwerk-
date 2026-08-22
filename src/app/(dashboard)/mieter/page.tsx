@@ -5,6 +5,7 @@ import { TenancyBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Mieter" };
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function TenantsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; q?: string; status?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
   const query = (params.q ?? "").trim();
   const statusFilter = params.status ?? "";

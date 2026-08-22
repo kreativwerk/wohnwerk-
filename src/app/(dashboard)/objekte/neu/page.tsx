@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { createProperty } from "@/app/actions/properties";
 import { Card, Flash, PageHeader } from "@/components/ui";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Neues Objekt" };
 
@@ -10,6 +11,7 @@ export default async function NewPropertyPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
 
   return (

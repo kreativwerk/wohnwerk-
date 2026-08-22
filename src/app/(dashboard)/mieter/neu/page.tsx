@@ -5,6 +5,7 @@ import { BedPicker } from "@/components/interactive";
 import { Alert, Card, Flash, PageHeader } from "@/components/ui";
 import { bedOptions } from "@/lib/options";
 import { toDateInput } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Neuer Mieter" };
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function NewTenantPage({
 }: {
   searchParams: Promise<{ fehler?: string; bett?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
   const beds = await bedOptions();
   const freeBeds = beds.filter((bed) => !bed.occupied && !bed.blocked).length;

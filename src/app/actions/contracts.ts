@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { flash, str } from "@/lib/form";
@@ -30,7 +30,7 @@ function refresh(contractId: string) {
  * Vertragstext nicht mehr.
  */
 export async function sendContract(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await loadContract({ id });
@@ -91,7 +91,7 @@ export async function sendContract(formData: FormData) {
 
 /** Erzeugt einen neuen Link, falls der alte abgelaufen oder verschickt wurde. */
 export async function renewContractToken(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await prisma.contract.findUnique({ where: { id } });
@@ -115,7 +115,7 @@ export async function renewContractToken(formData: FormData) {
 }
 
 export async function cancelContract(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await prisma.contract.findUnique({ where: { id } });
@@ -133,7 +133,7 @@ export async function cancelContract(formData: FormData) {
 
 /** Erzeugt das PDF neu und legt es in Google Drive ab. */
 export async function regenerateContractPdf(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await loadContract({ id });
@@ -172,7 +172,7 @@ export async function regenerateContractPdf(formData: FormData) {
  * Ort unterschreibt statt ueber den Link.
  */
 export async function markContractSignedManually(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const signerName = str(formData, "signerName");
 

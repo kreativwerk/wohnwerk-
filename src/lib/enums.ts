@@ -67,6 +67,7 @@ export const DOCUMENT_KIND_LABEL: LabelMap = {
   INVOICE: "Rechnung",
   CONTRACT: "Mietvertrag",
   STATEMENT: "Kontoauszug",
+  EXPORT: "Steuerberater-Export",
   OTHER: "Sonstiges",
 };
 

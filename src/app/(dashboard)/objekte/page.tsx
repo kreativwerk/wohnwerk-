@@ -5,6 +5,7 @@ import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { prisma } from "@/lib/db";
 import { occupancySummary } from "@/lib/tenancy";
 import { formatCents } from "@/lib/money";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Objekte" };
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function PropertiesPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
 
   const properties = await prisma.property.findMany({

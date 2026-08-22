@@ -5,6 +5,7 @@ import { ContractBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Mietverträge" };
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function ContractsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; status?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
   const status = params.status ?? "";
 

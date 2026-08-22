@@ -1,10 +1,13 @@
 import Link from "next/link";
 
-import { runExport, shareWithAccountant } from "@/app/actions/accounting";
+import { runExport, saveDatevSettings, shareWithAccountant } from "@/app/actions/accounting";
+import { readDatevSettings } from "@/lib/datev";
+import { AdminOnly } from "@/components/admin-only";
 import { Alert, Card, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { checkDriveStatus, folderLink } from "@/lib/storage";
 import { formatCents } from "@/lib/money";
+import { formatDateTime } from "@/lib/dates";
 
 export const metadata = { title: "Steuerberater-Export" };
 export const dynamic = "force-dynamic";
@@ -65,6 +68,12 @@ export default async function ExportPage({
   ).length;
 
   const years = Array.from({ length: 5 }, (_, index) => currentYear - index);
+  const datev = await readDatevSettings();
+  const abgelegte = await prisma.document.findMany({
+    where: { kind: "EXPORT" },
+    orderBy: { uploadedAt: "desc" },
+    take: 30,
+  });
 
   return (
     <>
@@ -143,6 +152,17 @@ export default async function ExportPage({
                 </Td>
                 <Td align="right">
                   <a href={`/api/export/belege?jahr=${year}`} className="btn btn-secondary">
+                    CSV
+                  </a>
+                </Td>
+              </tr>
+              <tr>
+                <Td className="font-medium">DATEV-Buchungsstapel</Td>
+                <Td className="text-xs text-ink-500">
+                  EXTF-Format für die Kanzlei – direkt in DATEV einlesbar
+                </Td>
+                <Td align="right">
+                  <a href={`/api/export/datev?jahr=${year}`} className="btn btn-secondary">
                     CSV
                   </a>
                 </Td>
@@ -249,6 +269,87 @@ export default async function ExportPage({
         </div>
       </div>
 
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <AdminOnly>
+          <Card
+            title="DATEV-Stammdaten"
+            description="Diese Nummern vergibt Ihre Kanzlei. Ohne sie ist der Buchungsstapel trotzdem lesbar, DATEV fragt die Zuordnung dann beim Einlesen ab."
+          >
+            <form action={saveDatevSettings} className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="datev-berater">Beraternummer</label>
+                <input id="datev-berater" name="beraterNr" inputMode="numeric" defaultValue={datev.beraterNr} placeholder="z. B. 12345" />
+              </div>
+              <div>
+                <label htmlFor="datev-mandant">Mandantennummer</label>
+                <input id="datev-mandant" name="mandantNr" inputMode="numeric" defaultValue={datev.mandantNr} placeholder="z. B. 678" />
+              </div>
+              <div>
+                <label htmlFor="datev-bank">Sachkonto Bank</label>
+                <input id="datev-bank" name="kontoBank" inputMode="numeric" defaultValue={datev.kontoBank} />
+                <p className="field-hint">SKR03: 1200</p>
+              </div>
+              <div>
+                <label htmlFor="datev-erloes">Konto Mieteinnahmen</label>
+                <input id="datev-erloes" name="kontoErloes" inputMode="numeric" defaultValue={datev.kontoErloes} />
+                <p className="field-hint">Mit der Kanzlei abstimmen</p>
+              </div>
+              <div>
+                <label htmlFor="datev-aufwand">Konto Ausgaben</label>
+                <input id="datev-aufwand" name="kontoAufwand" inputMode="numeric" defaultValue={datev.kontoAufwand} />
+                <p className="field-hint">Sammelkonto, Kanzlei bucht um</p>
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" className="btn btn-secondary">Speichern</button>
+              </div>
+            </form>
+          </Card>
+        </AdminOnly>
+
+        <Card
+          title="Exportordner"
+          description="Jeder abgelegte Stand bleibt hier nachvollziehbar – wer der Kanzlei wann welche Zahlen übergeben hat."
+        >
+          {abgelegte.length === 0 ? (
+            <p className="text-sm text-ink-500">
+              Noch kein Export abgelegt. „In Google Drive ablegen“ erzeugt alle Dateien –
+              einschließlich DATEV – und verzeichnet sie hier.
+            </p>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Datei</Th>
+                  <Th>Abgelegt</Th>
+                  <Th align="right">Öffnen</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {abgelegte.map((doc) => (
+                  <tr key={doc.id}>
+                    <Td className="font-medium">{doc.title}</Td>
+                    <Td className="text-xs text-ink-500">{formatDateTime(doc.uploadedAt)}</Td>
+                    <Td align="right">
+                      {doc.driveUrl ? (
+                        <a href={doc.driveUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                          Drive
+                        </a>
+                      ) : doc.localPath ? (
+                        <a href={`/api/dateien/${doc.localPath.split("/").map(encodeURIComponent).join("/")}`} className="btn btn-ghost btn-sm">
+                          Datei
+                        </a>
+                      ) : (
+                        <span className="text-xs text-ink-500">–</span>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
+      </div>
+
       <div className="mt-6">
         <Card title="So ist die Ablage aufgebaut">
           <pre className="overflow-x-auto rounded-lg bg-ink-900 p-4 text-xs leading-relaxed text-ink-200">
@@ -259,7 +360,7 @@ export default async function ExportPage({
     └── ${year}/
         ├── 01 Belege/ … 12 Belege/  Rechnungen und Quittungen je Monat
         ├── Kontoauszüge/            Originaldateien der Bank
-        └── Steuerberater-Export/    Buchungen, Belegliste, Mieten als CSV`}
+        └── Steuerberater-Export/    Buchungen, Belegliste, Mieten, DATEV`}
           </pre>
           <p className="mt-3 text-sm text-ink-500">
             Jeder Beleg wird beim Hochladen direkt in den richtigen Monatsordner gelegt. Die

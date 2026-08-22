@@ -19,6 +19,7 @@ import { prisma } from "@/lib/db";
 import { bedOccupancy, occupancySummary } from "@/lib/tenancy";
 import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function PropertyDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
 

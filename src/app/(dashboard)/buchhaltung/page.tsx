@@ -10,6 +10,7 @@ import { EXPENSE_CATEGORIES } from "@/lib/enums";
 import { propertyOptions } from "@/lib/options";
 import { centsToInput, formatCents } from "@/lib/money";
 import { endOfMonth, formatDate, startOfMonth, toDateInput } from "@/lib/dates";
+import { AdminOnly } from "@/components/admin-only";
 
 export const metadata = { title: "Buchungen" };
 export const dynamic = "force-dynamic";
@@ -117,44 +118,46 @@ export default async function AccountingPage({
 
       <div className="mt-6">
         <Card padded={false}>
-          <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
-            <div className="min-w-52 flex-1">
-              <label htmlFor="q">Suche</label>
-              <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Zweck, Name, Kategorie" />
-            </div>
-            <div className="w-40">
-              <label htmlFor="richtung">Richtung</label>
-              <select id="richtung" name="richtung" defaultValue={params.richtung ?? ""}>
-                <option value="">Alle</option>
-                <option value="CREDIT">Eingang</option>
-                <option value="DEBIT">Ausgang</option>
-              </select>
-            </div>
-            <div className="w-40">
-              <label htmlFor="status">Status</label>
-              <select id="status" name="status" defaultValue={params.status ?? ""}>
-                <option value="">Alle</option>
-                <option value="OPEN">Offen</option>
-                <option value="MATCHED">Zugeordnet</option>
-                <option value="BOOKED">Gebucht</option>
-                <option value="IGNORED">Ignoriert</option>
-              </select>
-            </div>
-            <div className="w-40">
-              <label htmlFor="von">Von</label>
-              <input id="von" name="von" type="date" defaultValue={params.von ?? ""} />
-            </div>
-            <div className="w-40">
-              <label htmlFor="bis">Bis</label>
-              <input id="bis" name="bis" type="date" defaultValue={params.bis ?? ""} />
-            </div>
-            <button type="submit" className="btn btn-secondary">
-              Filtern
-            </button>
-            <Link href="/buchhaltung" className="btn btn-ghost">
-              Zurücksetzen
-            </Link>
-          </form>
+          <AdminOnly>
+            <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
+              <div className="min-w-52 flex-1">
+                <label htmlFor="q">Suche</label>
+                <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Zweck, Name, Kategorie" />
+              </div>
+              <div className="w-40">
+                <label htmlFor="richtung">Richtung</label>
+                <select id="richtung" name="richtung" defaultValue={params.richtung ?? ""}>
+                  <option value="">Alle</option>
+                  <option value="CREDIT">Eingang</option>
+                  <option value="DEBIT">Ausgang</option>
+                </select>
+              </div>
+              <div className="w-40">
+                <label htmlFor="status">Status</label>
+                <select id="status" name="status" defaultValue={params.status ?? ""}>
+                  <option value="">Alle</option>
+                  <option value="OPEN">Offen</option>
+                  <option value="MATCHED">Zugeordnet</option>
+                  <option value="BOOKED">Gebucht</option>
+                  <option value="IGNORED">Ignoriert</option>
+                </select>
+              </div>
+              <div className="w-40">
+                <label htmlFor="von">Von</label>
+                <input id="von" name="von" type="date" defaultValue={params.von ?? ""} />
+              </div>
+              <div className="w-40">
+                <label htmlFor="bis">Bis</label>
+                <input id="bis" name="bis" type="date" defaultValue={params.bis ?? ""} />
+              </div>
+              <button type="submit" className="btn btn-secondary">
+                Filtern
+              </button>
+              <Link href="/buchhaltung" className="btn btn-ghost">
+                Zurücksetzen
+              </Link>
+            </form>
+          </AdminOnly>
 
           {transactions.length === 0 ? (
             <div className="p-5">
@@ -209,130 +212,134 @@ export default async function AccountingPage({
                         )}
                         <div className="mt-1.5">
                           <Disclosure summary="Bearbeiten">
-                            <form action={updateTransaction} className="grid gap-3 sm:grid-cols-3">
-                              <input type="hidden" name="id" value={tx.id} />
-                              <input type="hidden" name="back" value="/buchhaltung" />
-                              <div>
-                                <label htmlFor={`cat-${tx.id}`}>Kategorie</label>
-                                <select id={`cat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
-                                  <option value="">– keine –</option>
-                                  {EXPENSE_CATEGORIES.map((category) => (
-                                    <option key={category} value={category}>
-                                      {category}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div>
-                                <label htmlFor={`prop-${tx.id}`}>Objekt</label>
-                                <select
-                                  id={`prop-${tx.id}`}
-                                  name="propertyId"
-                                  defaultValue={tx.propertyId ?? ""}
-                                >
-                                  <option value="">– keins –</option>
-                                  {properties.map((property) => (
-                                    <option key={property.id} value={property.id}>
-                                      {property.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div>
-                                <label htmlFor={`rev-${tx.id}`}>Status</label>
-                                <select
-                                  id={`rev-${tx.id}`}
-                                  name="reviewStatus"
-                                  defaultValue={tx.reviewStatus}
-                                >
-                                  <option value="OPEN">Offen</option>
-                                  <option value="MATCHED">Zugeordnet</option>
-                                  <option value="BOOKED">Gebucht</option>
-                                  <option value="IGNORED">Ignorieren</option>
-                                </select>
-                              </div>
-                              <div className="sm:col-span-3">
-                                <label htmlFor={`note-${tx.id}`}>Notiz</label>
-                                <input id={`note-${tx.id}`} name="notes" defaultValue={tx.notes ?? ""} />
-                              </div>
-                              <div className="sm:col-span-3">
-                                <button type="submit" className="btn btn-primary">
-                                  Speichern
-                                </button>
-                              </div>
-                            </form>
+                            <AdminOnly>
+                              <form action={updateTransaction} className="grid gap-3 sm:grid-cols-3">
+                                <input type="hidden" name="id" value={tx.id} />
+                                <input type="hidden" name="back" value="/buchhaltung" />
+                                <div>
+                                  <label htmlFor={`cat-${tx.id}`}>Kategorie</label>
+                                  <select id={`cat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
+                                    <option value="">– keine –</option>
+                                    {EXPENSE_CATEGORIES.map((category) => (
+                                      <option key={category} value={category}>
+                                        {category}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label htmlFor={`prop-${tx.id}`}>Objekt</label>
+                                  <select
+                                    id={`prop-${tx.id}`}
+                                    name="propertyId"
+                                    defaultValue={tx.propertyId ?? ""}
+                                  >
+                                    <option value="">– keins –</option>
+                                    {properties.map((property) => (
+                                      <option key={property.id} value={property.id}>
+                                        {property.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label htmlFor={`rev-${tx.id}`}>Status</label>
+                                  <select
+                                    id={`rev-${tx.id}`}
+                                    name="reviewStatus"
+                                    defaultValue={tx.reviewStatus}
+                                  >
+                                    <option value="OPEN">Offen</option>
+                                    <option value="MATCHED">Zugeordnet</option>
+                                    <option value="BOOKED">Gebucht</option>
+                                    <option value="IGNORED">Ignorieren</option>
+                                  </select>
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <label htmlFor={`note-${tx.id}`}>Notiz</label>
+                                  <input id={`note-${tx.id}`} name="notes" defaultValue={tx.notes ?? ""} />
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <button type="submit" className="btn btn-primary">
+                                    Speichern
+                                  </button>
+                                </div>
+                              </form>
+                            </AdminOnly>
                           </Disclosure>
 
                           <Disclosure summary="Beleg hochladen">
-                            <form action={uploadDocument} className="grid gap-3 sm:grid-cols-3">
-                              <input type="hidden" name="bankTransactionId" value={tx.id} />
-                              <input type="hidden" name="back" value="/buchhaltung" />
-                              <input type="hidden" name="kind" value="RECEIPT" />
-                              <div className="sm:col-span-3">
-                                <label htmlFor={`file-${tx.id}`}>Datei *</label>
-                                <input
-                                  id={`file-${tx.id}`}
-                                  name="file"
-                                  type="file"
-                                  required
-                                  accept=".pdf,.png,.jpg,.jpeg,.webp"
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor={`title-${tx.id}`}>Titel</label>
-                                <input
-                                  id={`title-${tx.id}`}
-                                  name="title"
-                                  defaultValue={tx.counterpartyName ?? ""}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor={`date-${tx.id}`}>Belegdatum</label>
-                                <input
-                                  id={`date-${tx.id}`}
-                                  name="documentDate"
-                                  type="date"
-                                  defaultValue={toDateInput(tx.bookingDate)}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor={`amount-${tx.id}`}>Betrag</label>
-                                <input
-                                  id={`amount-${tx.id}`}
-                                  name="amountCents"
-                                  inputMode="decimal"
-                                  defaultValue={centsToInput(Math.abs(tx.amountCents))}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor={`supplier-${tx.id}`}>Lieferant</label>
-                                <input
-                                  id={`supplier-${tx.id}`}
-                                  name="supplier"
-                                  defaultValue={tx.counterpartyName ?? ""}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor={`vat-${tx.id}`}>USt-Satz %</label>
-                                <input id={`vat-${tx.id}`} name="vatRatePct" inputMode="decimal" placeholder="19" />
-                              </div>
-                              <div>
-                                <label htmlFor={`dcat-${tx.id}`}>Kategorie</label>
-                                <select id={`dcat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
-                                  <option value="">– keine –</option>
-                                  {EXPENSE_CATEGORIES.map((category) => (
-                                    <option key={category} value={category}>
-                                      {category}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="sm:col-span-3">
-                                <button type="submit" className="btn btn-primary">
-                                  Beleg speichern
-                                </button>
-                              </div>
-                            </form>
+                            <AdminOnly>
+                              <form action={uploadDocument} className="grid gap-3 sm:grid-cols-3">
+                                <input type="hidden" name="bankTransactionId" value={tx.id} />
+                                <input type="hidden" name="back" value="/buchhaltung" />
+                                <input type="hidden" name="kind" value="RECEIPT" />
+                                <div className="sm:col-span-3">
+                                  <label htmlFor={`file-${tx.id}`}>Datei *</label>
+                                  <input
+                                    id={`file-${tx.id}`}
+                                    name="file"
+                                    type="file"
+                                    required
+                                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`title-${tx.id}`}>Titel</label>
+                                  <input
+                                    id={`title-${tx.id}`}
+                                    name="title"
+                                    defaultValue={tx.counterpartyName ?? ""}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`date-${tx.id}`}>Belegdatum</label>
+                                  <input
+                                    id={`date-${tx.id}`}
+                                    name="documentDate"
+                                    type="date"
+                                    defaultValue={toDateInput(tx.bookingDate)}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`amount-${tx.id}`}>Betrag</label>
+                                  <input
+                                    id={`amount-${tx.id}`}
+                                    name="amountCents"
+                                    inputMode="decimal"
+                                    defaultValue={centsToInput(Math.abs(tx.amountCents))}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`supplier-${tx.id}`}>Lieferant</label>
+                                  <input
+                                    id={`supplier-${tx.id}`}
+                                    name="supplier"
+                                    defaultValue={tx.counterpartyName ?? ""}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`vat-${tx.id}`}>USt-Satz %</label>
+                                  <input id={`vat-${tx.id}`} name="vatRatePct" inputMode="decimal" placeholder="19" />
+                                </div>
+                                <div>
+                                  <label htmlFor={`dcat-${tx.id}`}>Kategorie</label>
+                                  <select id={`dcat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
+                                    <option value="">– keine –</option>
+                                    {EXPENSE_CATEGORIES.map((category) => (
+                                      <option key={category} value={category}>
+                                        {category}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <button type="submit" className="btn btn-primary">
+                                    Beleg speichern
+                                  </button>
+                                </div>
+                              </form>
+                            </AdminOnly>
                           </Disclosure>
                         </div>
                       </Td>

@@ -16,6 +16,25 @@ export type SessionUser = {
   role: string;
 };
 
+/**
+ * Rollen. "admin" darf alles; "steuerberater" sieht ausschliesslich die
+ * Buchhaltung und auch die nur lesend - Zahlen pruefen und Exporte
+ * herunterladen ja, Daten veraendern nein.
+ */
+export const ROLES = {
+  ADMIN: "admin",
+  STEUERBERATER: "steuerberater",
+} as const;
+
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Verwaltung",
+  steuerberater: "Steuerberater (nur Buchhaltung, nur lesend)",
+};
+
+export function isAdmin(user: SessionUser | null): boolean {
+  return user?.role === ROLES.ADMIN;
+}
+
 function secret(): string {
   const value = process.env.AUTH_SECRET;
   if (!value || value.length < 16) {
@@ -101,6 +120,17 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+/**
+ * Fuer Server Actions und Seiten, die Daten veraendern oder ausserhalb der
+ * Buchhaltung liegen: verlangt die Verwaltungsrolle. Ein Steuerberater-Konto
+ * landet wieder auf seiner Startseite statt auf einer Fehlerseite.
+ */
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/buchhaltung");
   return user;
 }
 

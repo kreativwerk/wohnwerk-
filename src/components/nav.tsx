@@ -61,9 +61,16 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar({ user }: { user: { name: string; email: string } }) {
+export function Sidebar({ user }: { user: { name: string; email: string; role: string } }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Ein Steuerberater-Konto sieht nur die Buchhaltung; die Startseite ist
+  // dann die Buchungsuebersicht statt des Dashboards.
+  const sections =
+    user.role === "steuerberater"
+      ? NAV.filter((section) => section.group === "Buchhaltung")
+      : NAV;
 
   // Beim Seitenwechsel schliesst sich das mobile Menue von selbst.
   useEffect(() => setOpen(false), [pathname]);
@@ -78,7 +85,7 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
       </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
-        {NAV.map((section) => (
+        {sections.map((section) => (
           <div key={section.group}>
             <p className="px-3 pb-2 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-brand-400">
               {section.group}

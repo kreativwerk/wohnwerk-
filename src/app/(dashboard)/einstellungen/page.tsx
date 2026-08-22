@@ -1,7 +1,7 @@
 import { changePassword, createUser, deactivateUser, updateSettings } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { checkDriveStatus } from "@/lib/storage";
@@ -15,6 +15,7 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  await requireAdmin();
   const params = await searchParams;
   const [me, settings, drive, users] = await Promise.all([
     requireUser(),
@@ -233,7 +234,14 @@ export default async function SettingsPage({
                     {user.name}
                     {user.id === me.id && <span className="ml-2 text-xs text-ink-500">(Sie)</span>}
                   </Td>
-                  <Td className="text-ink-600">{user.email}</Td>
+                  <Td className="text-ink-600">
+                    {user.email}
+                    {user.role === "steuerberater" && (
+                      <span className="ml-2">
+                        <Badge tone="info">Steuerberater</Badge>
+                      </span>
+                    )}
+                  </Td>
                   <Td className="text-ink-600">
                     {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "nie"}
                   </Td>
@@ -264,6 +272,19 @@ export default async function SettingsPage({
           <div className="space-y-4 border-t border-ink-200 p-5">
             <Disclosure summary="Weiteren Zugang anlegen">
               <form action={createUser} className="grid gap-3 sm:grid-cols-3">
+                <div className="sm:col-span-3">
+                  <label htmlFor="new-role">Rolle</label>
+                  <select id="new-role" name="role" defaultValue="admin">
+                    <option value="admin">Verwaltung – voller Zugriff</option>
+                    <option value="steuerberater">
+                      Steuerberater – nur Buchhaltung, nur lesend
+                    </option>
+                  </select>
+                  <p className="field-hint">
+                    Ein Steuerberater-Konto sieht Buchungen, Belege, Kontoauszüge und die
+                    Exporte. Ändern kann es nichts.
+                  </p>
+                </div>
                 <div>
                   <label htmlFor="new-name">Name</label>
                   <input id="new-name" name="name" required />

@@ -9,6 +9,7 @@ import { propertyOptions } from "@/lib/options";
 import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate, toDateInput } from "@/lib/dates";
 import { checkDriveStatus } from "@/lib/storage";
+import { AdminOnly } from "@/components/admin-only";
 
 export const metadata = { title: "Belege" };
 export const dynamic = "force-dynamic";
@@ -101,33 +102,35 @@ export default async function DocumentsPage({
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card padded={false}>
-            <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
-              <div className="min-w-48 flex-1">
-                <label htmlFor="q">Suche</label>
-                <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Titel, Lieferant" />
-              </div>
-              <div className="w-44">
-                <label htmlFor="art">Art</label>
-                <select id="art" name="art" defaultValue={params.art ?? ""}>
-                  <option value="">Alle</option>
-                  {Object.entries(DOCUMENT_KIND_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-28">
-                <label htmlFor="jahr">Jahr</label>
-                <input id="jahr" name="jahr" inputMode="numeric" defaultValue={params.jahr ?? ""} />
-              </div>
-              <button type="submit" className="btn btn-secondary">
-                Filtern
-              </button>
-              <Link href="/buchhaltung/belege" className="btn btn-ghost">
-                Zurücksetzen
-              </Link>
-            </form>
+            <AdminOnly>
+              <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
+                <div className="min-w-48 flex-1">
+                  <label htmlFor="q">Suche</label>
+                  <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Titel, Lieferant" />
+                </div>
+                <div className="w-44">
+                  <label htmlFor="art">Art</label>
+                  <select id="art" name="art" defaultValue={params.art ?? ""}>
+                    <option value="">Alle</option>
+                    {Object.entries(DOCUMENT_KIND_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-28">
+                  <label htmlFor="jahr">Jahr</label>
+                  <input id="jahr" name="jahr" inputMode="numeric" defaultValue={params.jahr ?? ""} />
+                </div>
+                <button type="submit" className="btn btn-secondary">
+                  Filtern
+                </button>
+                <Link href="/buchhaltung/belege" className="btn btn-ghost">
+                  Zurücksetzen
+                </Link>
+              </form>
+            </AdminOnly>
 
             {documents.length === 0 ? (
               <div className="p-5">
@@ -175,92 +178,94 @@ export default async function DocumentsPage({
                         {document.kind !== "CONTRACT" && document.kind !== "STATEMENT" && (
                           <div className="mt-1.5">
                             <Disclosure summary="Bearbeiten">
-                              <form action={updateDocument} className="grid gap-3 sm:grid-cols-2">
-                                <input type="hidden" name="id" value={document.id} />
-                                <input type="hidden" name="back" value="/buchhaltung/belege" />
-                                <div className="sm:col-span-2">
-                                  <label htmlFor={`t-${document.id}`}>Titel</label>
-                                  <input id={`t-${document.id}`} name="title" defaultValue={document.title} />
-                                </div>
-                                <div>
-                                  <label htmlFor={`d-${document.id}`}>Belegdatum</label>
-                                  <input
-                                    id={`d-${document.id}`}
-                                    name="documentDate"
-                                    type="date"
-                                    defaultValue={toDateInput(document.documentDate)}
-                                  />
-                                </div>
-                                <div>
-                                  <label htmlFor={`a-${document.id}`}>Betrag</label>
-                                  <input
-                                    id={`a-${document.id}`}
-                                    name="amountCents"
-                                    inputMode="decimal"
-                                    defaultValue={centsToInput(document.amountCents)}
-                                  />
-                                </div>
-                                <div>
-                                  <label htmlFor={`s-${document.id}`}>Lieferant</label>
-                                  <input
-                                    id={`s-${document.id}`}
-                                    name="supplier"
-                                    defaultValue={document.supplier ?? ""}
-                                  />
-                                </div>
-                                <div>
-                                  <label htmlFor={`v-${document.id}`}>USt-Satz %</label>
-                                  <input
-                                    id={`v-${document.id}`}
-                                    name="vatRatePct"
-                                    inputMode="decimal"
-                                    defaultValue={document.vatRatePct ?? ""}
-                                  />
-                                </div>
-                                <div>
-                                  <label htmlFor={`c-${document.id}`}>Kategorie</label>
-                                  <select
-                                    id={`c-${document.id}`}
-                                    name="category"
-                                    defaultValue={document.category ?? ""}
-                                  >
-                                    <option value="">– keine –</option>
-                                    {EXPENSE_CATEGORIES.map((category) => (
-                                      <option key={category} value={category}>
-                                        {category}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label htmlFor={`p-${document.id}`}>Objekt</label>
-                                  <select
-                                    id={`p-${document.id}`}
-                                    name="propertyId"
-                                    defaultValue={document.propertyId ?? ""}
-                                  >
-                                    <option value="">– keins –</option>
-                                    {properties.map((property) => (
-                                      <option key={property.id} value={property.id}>
-                                        {property.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <label htmlFor={`n-${document.id}`}>Notiz</label>
-                                  <input
-                                    id={`n-${document.id}`}
-                                    name="notes"
-                                    defaultValue={document.notes ?? ""}
-                                  />
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <button type="submit" className="btn btn-primary">
-                                    Speichern
-                                  </button>
-                                </div>
-                              </form>
+                              <AdminOnly>
+                                <form action={updateDocument} className="grid gap-3 sm:grid-cols-2">
+                                  <input type="hidden" name="id" value={document.id} />
+                                  <input type="hidden" name="back" value="/buchhaltung/belege" />
+                                  <div className="sm:col-span-2">
+                                    <label htmlFor={`t-${document.id}`}>Titel</label>
+                                    <input id={`t-${document.id}`} name="title" defaultValue={document.title} />
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`d-${document.id}`}>Belegdatum</label>
+                                    <input
+                                      id={`d-${document.id}`}
+                                      name="documentDate"
+                                      type="date"
+                                      defaultValue={toDateInput(document.documentDate)}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`a-${document.id}`}>Betrag</label>
+                                    <input
+                                      id={`a-${document.id}`}
+                                      name="amountCents"
+                                      inputMode="decimal"
+                                      defaultValue={centsToInput(document.amountCents)}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`s-${document.id}`}>Lieferant</label>
+                                    <input
+                                      id={`s-${document.id}`}
+                                      name="supplier"
+                                      defaultValue={document.supplier ?? ""}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`v-${document.id}`}>USt-Satz %</label>
+                                    <input
+                                      id={`v-${document.id}`}
+                                      name="vatRatePct"
+                                      inputMode="decimal"
+                                      defaultValue={document.vatRatePct ?? ""}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`c-${document.id}`}>Kategorie</label>
+                                    <select
+                                      id={`c-${document.id}`}
+                                      name="category"
+                                      defaultValue={document.category ?? ""}
+                                    >
+                                      <option value="">– keine –</option>
+                                      {EXPENSE_CATEGORIES.map((category) => (
+                                        <option key={category} value={category}>
+                                          {category}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label htmlFor={`p-${document.id}`}>Objekt</label>
+                                    <select
+                                      id={`p-${document.id}`}
+                                      name="propertyId"
+                                      defaultValue={document.propertyId ?? ""}
+                                    >
+                                      <option value="">– keins –</option>
+                                      {properties.map((property) => (
+                                        <option key={property.id} value={property.id}>
+                                          {property.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label htmlFor={`n-${document.id}`}>Notiz</label>
+                                    <input
+                                      id={`n-${document.id}`}
+                                      name="notes"
+                                      defaultValue={document.notes ?? ""}
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <button type="submit" className="btn btn-primary">
+                                      Speichern
+                                    </button>
+                                  </div>
+                                </form>
+                              </AdminOnly>
                             </Disclosure>
                           </div>
                         )}
@@ -289,16 +294,18 @@ export default async function DocumentsPage({
                         {document.amountCents === null ? "–" : formatCents(document.amountCents)}
                       </Td>
                       <Td align="right">
-                        <form action={deleteDocument}>
-                          <input type="hidden" name="id" value={document.id} />
-                          <input type="hidden" name="back" value="/buchhaltung/belege" />
-                          <ConfirmButton
-                            className="btn btn-ghost"
-                            message={`Beleg „${document.title}“ löschen?`}
-                          >
-                            Löschen
-                          </ConfirmButton>
-                        </form>
+                        <AdminOnly>
+                          <form action={deleteDocument}>
+                            <input type="hidden" name="id" value={document.id} />
+                            <input type="hidden" name="back" value="/buchhaltung/belege" />
+                            <ConfirmButton
+                              className="btn btn-ghost"
+                              message={`Beleg „${document.title}“ löschen?`}
+                            >
+                              Löschen
+                            </ConfirmButton>
+                          </form>
+                        </AdminOnly>
                       </Td>
                     </tr>
                   ))}
@@ -310,84 +317,86 @@ export default async function DocumentsPage({
 
         <div className="space-y-6">
           <Card title="Beleg hochladen">
-            <form action={uploadDocument} className="space-y-3">
-              <input type="hidden" name="back" value="/buchhaltung/belege" />
-              <div>
-                <label htmlFor="file">Datei *</label>
-                <input id="file" name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" />
-              </div>
-              <div>
-                <label htmlFor="title">Titel</label>
-                <input id="title" name="title" placeholder="Rechnung Stadtwerke März" />
-              </div>
-              <div>
-                <label htmlFor="kind">Art</label>
-                <select id="kind" name="kind" defaultValue="RECEIPT">
-                  <option value="RECEIPT">Beleg</option>
-                  <option value="INVOICE">Rechnung</option>
-                  <option value="OTHER">Sonstiges</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="documentDate">Belegdatum</label>
-                <input
-                  id="documentDate"
-                  name="documentDate"
-                  type="date"
-                  defaultValue={toDateInput(new Date())}
-                />
-              </div>
-              <div>
-                <label htmlFor="amountCents">Betrag</label>
-                <input id="amountCents" name="amountCents" inputMode="decimal" />
-              </div>
-              <div>
-                <label htmlFor="supplier">Lieferant</label>
-                <input id="supplier" name="supplier" />
-              </div>
-              <div>
-                <label htmlFor="vatRatePct">USt-Satz %</label>
-                <input id="vatRatePct" name="vatRatePct" inputMode="decimal" placeholder="19" />
-              </div>
-              <div>
-                <label htmlFor="category">Kategorie</label>
-                <select id="category" name="category" defaultValue="">
-                  <option value="">– keine –</option>
-                  {EXPENSE_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="propertyId">Objekt</label>
-                <select id="propertyId" name="propertyId" defaultValue="">
-                  <option value="">– keins –</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="bankTransactionId">Zu Buchung</label>
-                <select id="bankTransactionId" name="bankTransactionId" defaultValue="">
-                  <option value="">– keine Zuordnung –</option>
-                  {unlinkedTransactions.map((tx) => (
-                    <option key={tx.id} value={tx.id}>
-                      {formatDate(tx.bookingDate)} · {formatCents(tx.amountCents)} ·{" "}
-                      {(tx.counterpartyName ?? tx.purpose ?? "").slice(0, 40)}
-                    </option>
-                  ))}
-                </select>
-                <p className="field-hint">Zeigt Ausgaben ohne Beleg.</p>
-              </div>
-              <button type="submit" className="btn btn-primary w-full">
-                Beleg hochladen
-              </button>
-            </form>
+            <AdminOnly>
+              <form action={uploadDocument} className="space-y-3">
+                <input type="hidden" name="back" value="/buchhaltung/belege" />
+                <div>
+                  <label htmlFor="file">Datei *</label>
+                  <input id="file" name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" />
+                </div>
+                <div>
+                  <label htmlFor="title">Titel</label>
+                  <input id="title" name="title" placeholder="Rechnung Stadtwerke März" />
+                </div>
+                <div>
+                  <label htmlFor="kind">Art</label>
+                  <select id="kind" name="kind" defaultValue="RECEIPT">
+                    <option value="RECEIPT">Beleg</option>
+                    <option value="INVOICE">Rechnung</option>
+                    <option value="OTHER">Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="documentDate">Belegdatum</label>
+                  <input
+                    id="documentDate"
+                    name="documentDate"
+                    type="date"
+                    defaultValue={toDateInput(new Date())}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="amountCents">Betrag</label>
+                  <input id="amountCents" name="amountCents" inputMode="decimal" />
+                </div>
+                <div>
+                  <label htmlFor="supplier">Lieferant</label>
+                  <input id="supplier" name="supplier" />
+                </div>
+                <div>
+                  <label htmlFor="vatRatePct">USt-Satz %</label>
+                  <input id="vatRatePct" name="vatRatePct" inputMode="decimal" placeholder="19" />
+                </div>
+                <div>
+                  <label htmlFor="category">Kategorie</label>
+                  <select id="category" name="category" defaultValue="">
+                    <option value="">– keine –</option>
+                    {EXPENSE_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="propertyId">Objekt</label>
+                  <select id="propertyId" name="propertyId" defaultValue="">
+                    <option value="">– keins –</option>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="bankTransactionId">Zu Buchung</label>
+                  <select id="bankTransactionId" name="bankTransactionId" defaultValue="">
+                    <option value="">– keine Zuordnung –</option>
+                    {unlinkedTransactions.map((tx) => (
+                      <option key={tx.id} value={tx.id}>
+                        {formatDate(tx.bookingDate)} · {formatCents(tx.amountCents)} ·{" "}
+                        {(tx.counterpartyName ?? tx.purpose ?? "").slice(0, 40)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="field-hint">Zeigt Ausgaben ohne Beleg.</p>
+                </div>
+                <button type="submit" className="btn btn-primary w-full">
+                  Beleg hochladen
+                </button>
+              </form>
+            </AdminOnly>
           </Card>
         </div>
       </div>

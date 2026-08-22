@@ -1,5 +1,6 @@
 import { getSessionUser } from "@/lib/auth";
 import { buildDocumentCsv, buildRentCsv, buildTransactionCsv } from "@/lib/export";
+import { buildDatevCsv } from "@/lib/datev";
 
 /** Direkter CSV-Download fuer den Steuerberater-Export. */
 export async function GET(request: Request, context: { params: Promise<{ type: string }> }) {
@@ -19,6 +20,18 @@ export async function GET(request: Request, context: { params: Promise<{ type: s
   }
 
   const suffix = month ? `${year}-${String(month).padStart(2, "0")}` : String(year);
+
+  // DATEV liefert Bytes in Windows-1252 statt UTF-8-Text.
+  if (type === "datev") {
+    const bytes = await buildDatevCsv(year, month);
+    return new Response(new Uint8Array(bytes), {
+      headers: {
+        "content-type": "text/csv; charset=windows-1252",
+        "content-disposition": `attachment; filename="EXTF_Buchungsstapel_${suffix}.csv"`,
+        "cache-control": "private, no-store",
+      },
+    });
+  }
 
   let csv: string;
   let fileName: string;

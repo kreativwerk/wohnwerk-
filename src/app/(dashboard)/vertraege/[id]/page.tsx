@@ -15,6 +15,7 @@ import { Alert, Card, Flash, PageHeader } from "@/components/ui";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { getAppUrl } from "@/lib/settings";
 import { formatDate, formatDateTime } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function ContractDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
 

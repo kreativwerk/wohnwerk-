@@ -7,11 +7,13 @@ import { monthlyCashflow, periodSummary } from "@/lib/accounting";
 import { occupancySummary } from "@/lib/tenancy";
 import { formatCents } from "@/lib/money";
 import { endOfMonth, formatDate, formatMonth, startOfMonth } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requireAdmin();
   const now = new Date();
   const from = startOfMonth(now);
   const to = endOfMonth(now);

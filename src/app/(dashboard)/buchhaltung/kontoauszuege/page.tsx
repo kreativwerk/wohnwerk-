@@ -9,6 +9,7 @@ import { Alert, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/com
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
+import { AdminOnly } from "@/components/admin-only";
 
 export const metadata = { title: "Kontoauszüge" };
 export const dynamic = "force-dynamic";
@@ -58,49 +59,51 @@ export default async function StatementsPage({
                 hochladen.
               </Alert>
             ) : (
-              <form action={importStatement} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="bankAccountId">Bankkonto *</label>
-                    <select id="bankAccountId" name="bankAccountId" required>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name} · {account.iban}
-                        </option>
-                      ))}
-                    </select>
+              <AdminOnly>
+                <form action={importStatement} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="bankAccountId">Bankkonto *</label>
+                      <select id="bankAccountId" name="bankAccountId" required>
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name} · {account.iban}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="file">Datei *</label>
+                      <input
+                        id="file"
+                        name="file"
+                        type="file"
+                        required
+                        accept=".csv,.txt,.xml,.sta,.mt940,.940"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label htmlFor="file">Datei *</label>
-                    <input
-                      id="file"
-                      name="file"
-                      type="file"
-                      required
-                      accept=".csv,.txt,.xml,.sta,.mt940,.940"
-                    />
-                  </div>
-                </div>
 
-                <Alert tone="info" title="Unterstützte Formate">
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
-                    <li>
-                      <strong>CSV</strong> – der übliche Export aus dem Online-Banking (Sparkasse, DKB,
-                      ING, Comdirect, Volksbank, Qonto, N26). Spalten werden automatisch erkannt.
-                    </li>
-                    <li>
-                      <strong>CAMT.053</strong> – XML-Auszug, enthält auch den Schlusssaldo.
-                    </li>
-                    <li>
-                      <strong>MT940</strong> – klassisches SWIFT-Format (.sta).
-                    </li>
-                  </ul>
-                </Alert>
+                  <Alert tone="info" title="Unterstützte Formate">
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
+                      <li>
+                        <strong>CSV</strong> – der übliche Export aus dem Online-Banking (Sparkasse, DKB,
+                        ING, Comdirect, Volksbank, Qonto, N26). Spalten werden automatisch erkannt.
+                      </li>
+                      <li>
+                        <strong>CAMT.053</strong> – XML-Auszug, enthält auch den Schlusssaldo.
+                      </li>
+                      <li>
+                        <strong>MT940</strong> – klassisches SWIFT-Format (.sta).
+                      </li>
+                    </ul>
+                  </Alert>
 
-                <button type="submit" className="btn btn-primary">
-                  Hochladen und einlesen
-                </button>
-              </form>
+                  <button type="submit" className="btn btn-primary">
+                    Hochladen und einlesen
+                  </button>
+                </form>
+              </AdminOnly>
             )}
           </Card>
         </div>
@@ -118,15 +121,17 @@ export default async function StatementsPage({
                     {account._count.transactions} Buchung(en)
                   </p>
                   {account._count.transactions === 0 && (
-                    <form action={deleteBankAccount} className="mt-2">
-                      <input type="hidden" name="id" value={account.id} />
-                      <ConfirmButton
-                        className="btn btn-ghost"
-                        message={`Konto „${account.name}“ löschen?`}
-                      >
-                        Löschen
-                      </ConfirmButton>
-                    </form>
+                    <AdminOnly>
+                      <form action={deleteBankAccount} className="mt-2">
+                        <input type="hidden" name="id" value={account.id} />
+                        <ConfirmButton
+                          className="btn btn-ghost"
+                          message={`Konto „${account.name}“ löschen?`}
+                        >
+                          Löschen
+                        </ConfirmButton>
+                      </form>
+                    </AdminOnly>
                   )}
                 </li>
               ))}
@@ -134,27 +139,29 @@ export default async function StatementsPage({
           )}
 
           <Disclosure summary="Bankkonto hinzufügen" defaultOpen={accounts.length === 0}>
-            <form action={createBankAccount} className="space-y-3">
-              <div>
-                <label htmlFor="name">Bezeichnung *</label>
-                <input id="name" name="name" required placeholder="Geschäftskonto" />
-              </div>
-              <div>
-                <label htmlFor="iban">IBAN *</label>
-                <input id="iban" name="iban" required placeholder="DE00 0000 0000 0000 0000 00" />
-              </div>
-              <div>
-                <label htmlFor="bic">BIC</label>
-                <input id="bic" name="bic" />
-              </div>
-              <div>
-                <label htmlFor="openingBalanceCents">Anfangssaldo</label>
-                <input id="openingBalanceCents" name="openingBalanceCents" inputMode="decimal" defaultValue="0,00" />
-              </div>
-              <button type="submit" className="btn btn-primary w-full">
-                Konto anlegen
-              </button>
-            </form>
+            <AdminOnly>
+              <form action={createBankAccount} className="space-y-3">
+                <div>
+                  <label htmlFor="name">Bezeichnung *</label>
+                  <input id="name" name="name" required placeholder="Geschäftskonto" />
+                </div>
+                <div>
+                  <label htmlFor="iban">IBAN *</label>
+                  <input id="iban" name="iban" required placeholder="DE00 0000 0000 0000 0000 00" />
+                </div>
+                <div>
+                  <label htmlFor="bic">BIC</label>
+                  <input id="bic" name="bic" />
+                </div>
+                <div>
+                  <label htmlFor="openingBalanceCents">Anfangssaldo</label>
+                  <input id="openingBalanceCents" name="openingBalanceCents" inputMode="decimal" defaultValue="0,00" />
+                </div>
+                <button type="submit" className="btn btn-primary w-full">
+                  Konto anlegen
+                </button>
+              </form>
+            </AdminOnly>
           </Disclosure>
         </Card>
       </div>
@@ -220,15 +227,17 @@ export default async function StatementsPage({
                             Datei
                           </a>
                         )}
-                        <form action={deleteStatement}>
-                          <input type="hidden" name="id" value={statement.id} />
-                          <ConfirmButton
-                            className="btn btn-ghost"
-                            message="Auszug und alle daraus importierten Buchungen entfernen?"
-                          >
-                            Entfernen
-                          </ConfirmButton>
-                        </form>
+                        <AdminOnly>
+                          <form action={deleteStatement}>
+                            <input type="hidden" name="id" value={statement.id} />
+                            <ConfirmButton
+                              className="btn btn-ghost"
+                              message="Auszug und alle daraus importierten Buchungen entfernen?"
+                            >
+                              Entfernen
+                            </ConfirmButton>
+                          </form>
+                        </AdminOnly>
                       </div>
                     </Td>
                   </tr>

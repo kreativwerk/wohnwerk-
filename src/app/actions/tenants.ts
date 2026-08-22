@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { cents, date, flash, int, optionalStr, str } from "@/lib/form";
@@ -50,7 +50,7 @@ function tenantData(formData: FormData) {
  * Hausverwaltung taeglich geht: Person erfassen, Bett zuweisen, Link schicken.
  */
 export async function createTenant(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const data = tenantData(formData);
 
   if (!data.firstName || !data.lastName || !data.email) {
@@ -126,7 +126,7 @@ export async function createTenant(formData: FormData) {
 }
 
 export async function updateTenant(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   await prisma.tenant.update({ where: { id }, data: tenantData(formData) });
@@ -137,7 +137,7 @@ export async function updateTenant(formData: FormData) {
 }
 
 export async function deleteTenant(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const active = await prisma.tenancy.count({
@@ -163,7 +163,7 @@ export async function deleteTenant(formData: FormData) {
 
 /** Weist einem bestehenden Mieter ein (weiteres) Bett zu. */
 export async function createTenancy(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const tenantId = str(formData, "tenantId");
   const bedId = str(formData, "bedId");
@@ -219,7 +219,7 @@ export async function createTenancy(formData: FormData) {
 }
 
 export async function updateTenancy(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
 
   const tenancy = await prisma.tenancy.findUnique({ where: { id }, include: { contract: true } });
@@ -270,7 +270,7 @@ export async function updateTenancy(formData: FormData) {
 
 /** Beendet ein Mietverhaeltnis zum angegebenen Datum. */
 export async function endTenancy(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const endDate = date(formData, "endDate") ?? new Date();
 

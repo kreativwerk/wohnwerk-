@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { FOLDER, uploadFile } from "./storage";
+import { buildDatevCsv } from "./datev";
 import { formatDate } from "./dates";
 import { CHARGE_STATUS_LABEL, DOCUMENT_KIND_LABEL, TX_REVIEW_STATUS_LABEL } from "./enums";
 
@@ -259,12 +260,14 @@ export type ExportResult = {
 export async function exportToDrive(year: number, month?: number): Promise<ExportResult> {
   const suffix = month ? `${year}-${String(month).padStart(2, "0")}` : String(year);
 
-  const parts: Array<{ name: string; content: string }> = [
-    { name: `Buchungen ${suffix}.csv`, content: await buildTransactionCsv(year, month) },
-    { name: `Belegliste ${suffix}.csv`, content: await buildDocumentCsv(year, month) },
+  const parts: Array<{ name: string; data: Buffer }> = [
+    { name: `Buchungen ${suffix}.csv`, data: Buffer.from(await buildTransactionCsv(year, month), "utf8") },
+    { name: `Belegliste ${suffix}.csv`, data: Buffer.from(await buildDocumentCsv(year, month), "utf8") },
+    // DATEV-Buchungsstapel: die Datei, die die Kanzlei direkt einliest.
+    { name: `EXTF_Buchungsstapel_${suffix}.csv`, data: await buildDatevCsv(year, month) },
   ];
   if (!month) {
-    parts.push({ name: `Mieten ${year}.csv`, content: await buildRentCsv(year) });
+    parts.push({ name: `Mieten ${year}.csv`, data: Buffer.from(await buildRentCsv(year), "utf8") });
   }
 
   const files: ExportResult["files"] = [];
@@ -272,10 +275,28 @@ export async function exportToDrive(year: number, month?: number): Promise<Expor
     const stored = await uploadFile({
       fileName: part.name,
       mimeType: "text/csv",
-      data: Buffer.from(part.content, "utf8"),
+      data: part.data,
       folderSegments: FOLDER.exports(year),
     });
     files.push({ name: part.name, url: stored.url, backend: stored.backend });
+
+    // Jeder abgelegte Export erscheint im Exportordner der Anwendung -
+    // damit nachvollziehbar bleibt, welcher Stand wann uebergeben wurde.
+    await prisma.document.create({
+      data: {
+        kind: "EXPORT",
+        title: part.name.replace(/\.csv$/, ""),
+        fileName: part.name,
+        mimeType: "text/csv",
+        sizeBytes: part.data.byteLength,
+        driveFileId: stored.fileId,
+        driveUrl: stored.url,
+        driveFolder: stored.folder,
+        localPath: stored.localPath,
+        documentDate: new Date(),
+        category: "Steuerberater-Export",
+      },
+    });
   }
 
   return { year, month, files };

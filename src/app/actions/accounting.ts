@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { cents, date, flash, int, optionalCents, optionalStr, str } from "@/lib/form";
@@ -28,7 +28,7 @@ function refresh() {
 // --- Bankkonten ------------------------------------------------------------
 
 export async function createBankAccount(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const name = str(formData, "name");
   const iban = str(formData, "iban").replace(/\s/g, "").toUpperCase();
@@ -61,7 +61,7 @@ export async function createBankAccount(formData: FormData) {
 }
 
 export async function deleteBankAccount(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = "/buchhaltung/kontoauszuege";
 
@@ -86,7 +86,7 @@ export async function deleteBankAccount(formData: FormData) {
  * Zahlungseingaenge automatisch den Mietforderungen zuordnen.
  */
 export async function importStatement(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = "/buchhaltung/kontoauszuege";
 
   const bankAccountId = str(formData, "bankAccountId");
@@ -233,7 +233,7 @@ export async function importStatement(formData: FormData) {
 }
 
 export async function deleteStatement(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = "/buchhaltung/kontoauszuege";
 
@@ -262,7 +262,7 @@ export async function deleteStatement(formData: FormData) {
 // --- Buchungen -------------------------------------------------------------
 
 export async function updateTransaction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung";
 
@@ -283,7 +283,7 @@ export async function updateTransaction(formData: FormData) {
 }
 
 export async function runAutoMatch(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   const created = await ensureRentCharges();
@@ -302,7 +302,7 @@ export async function runAutoMatch(formData: FormData) {
 }
 
 export async function allocatePayment(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   const result = await allocate({
@@ -317,7 +317,7 @@ export async function allocatePayment(formData: FormData) {
 }
 
 export async function removeAllocation(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   await deallocate(str(formData, "id"));
@@ -327,7 +327,7 @@ export async function removeAllocation(formData: FormData) {
 }
 
 export async function generateCharges(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   const created = await ensureRentCharges();
@@ -345,7 +345,7 @@ export async function generateCharges(formData: FormData) {
 }
 
 export async function waiveCharge(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
@@ -363,7 +363,7 @@ export async function waiveCharge(formData: FormData) {
 
 /** Beleg hochladen und optional direkt einer Bankbuchung zuordnen. */
 export async function uploadDocument(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/belege";
 
   const file = formData.get("file");
@@ -444,7 +444,7 @@ export async function uploadDocument(formData: FormData) {
 }
 
 export async function updateDocument(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/belege";
 
@@ -468,7 +468,7 @@ export async function updateDocument(formData: FormData) {
 }
 
 export async function deleteDocument(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/belege";
 
@@ -486,7 +486,7 @@ export async function deleteDocument(formData: FormData) {
 // --- Steuerberater ---------------------------------------------------------
 
 export async function runExport(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = "/buchhaltung/export";
 
   const year = int(formData, "year", new Date().getUTCFullYear());
@@ -504,7 +504,7 @@ export async function runExport(formData: FormData) {
 }
 
 export async function shareWithAccountant(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
   const back = "/buchhaltung/export";
 
   const email = str(formData, "email").toLowerCase();
@@ -522,7 +522,7 @@ export async function shareWithAccountant(formData: FormData) {
 }
 
 export async function openDriveFolder(formData: FormData) {
-  await requireUser();
+  await requireAdmin();
   const year = int(formData, "year", new Date().getUTCFullYear());
   const link = await folderLink(["Buchhaltung", String(year)]);
 
@@ -530,4 +530,28 @@ export async function openDriveFolder(formData: FormData) {
     link ??
       flash("/buchhaltung/export", "fehler", "Google Drive ist nicht konfiguriert."),
   );
+}
+
+/** Kanzlei-Stammdaten fuer den DATEV-Export speichern. */
+export async function saveDatevSettings(formData: FormData) {
+  const user = await requireAdmin();
+  const back = "/buchhaltung/export";
+
+  const felder: Array<[string, string]> = [
+    ["datevBeraterNr", str(formData, "beraterNr").replace(/\D/g, "").slice(0, 7)],
+    ["datevMandantNr", str(formData, "mandantNr").replace(/\D/g, "").slice(0, 5)],
+    ["datevKontoBank", str(formData, "kontoBank").replace(/\D/g, "").slice(0, 8) || "1200"],
+    ["datevKontoErloes", str(formData, "kontoErloes").replace(/\D/g, "").slice(0, 8) || "8100"],
+    ["datevKontoAufwand", str(formData, "kontoAufwand").replace(/\D/g, "").slice(0, 8) || "4900"],
+  ];
+
+  await prisma.$transaction(
+    felder.map(([key, value]) =>
+      prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } }),
+    ),
+  );
+
+  await audit(user.email, "update", "Settings", null, "DATEV");
+  revalidatePath(back);
+  redirect(flash(back, "ok", "DATEV-Einstellungen gespeichert."));
 }

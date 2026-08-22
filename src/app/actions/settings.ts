@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { ROLES, requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
@@ -13,7 +13,7 @@ import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from "@/lib/settings
 const KEYS = Object.keys(DEFAULT_SETTINGS) as Array<keyof AppSettings>;
 
 export async function updateSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const patch: Partial<AppSettings> = {};
   for (const key of KEYS) {
@@ -29,11 +29,14 @@ export async function updateSettings(formData: FormData) {
 }
 
 export async function createUser(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const email = str(formData, "email").toLowerCase();
   const name = str(formData, "name");
   const password = str(formData, "password");
+  const roleRaw = str(formData, "role");
+  // Nur bekannte Rollen; alles Unerwartete wird zur Verwaltungsrolle.
+  const role = roleRaw === ROLES.STEUERBERATER ? ROLES.STEUERBERATER : ROLES.ADMIN;
   const back = "/einstellungen";
 
   if (!email || !name || password.length < 10) {
@@ -44,7 +47,7 @@ export async function createUser(formData: FormData) {
   if (existing) redirect(flash(back, "fehler", "Diese E-Mail-Adresse wird bereits verwendet."));
 
   await prisma.user.create({
-    data: { email, name, passwordHash: hashPassword(password), role: "admin" },
+    data: { email, name, passwordHash: hashPassword(password), role },
   });
 
   await audit(user.email, "create", "User", null, email);
@@ -53,7 +56,7 @@ export async function createUser(formData: FormData) {
 }
 
 export async function changePassword(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireAdmin();
 
   const password = str(formData, "password");
   const back = "/einstellungen";
@@ -73,7 +76,7 @@ export async function changePassword(formData: FormData) {
 }
 
 export async function deactivateUser(formData: FormData) {
-  const actor = await requireUser();
+  const actor = await requireAdmin();
   const id = str(formData, "id");
   const back = "/einstellungen";
 

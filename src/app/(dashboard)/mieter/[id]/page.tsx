@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { bedOptions } from "@/lib/options";
 import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate, formatMonth, toDateInput } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
 

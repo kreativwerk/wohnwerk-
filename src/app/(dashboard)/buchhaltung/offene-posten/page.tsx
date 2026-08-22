@@ -13,6 +13,7 @@ import { Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/
 import { prisma } from "@/lib/db";
 import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate, formatMonth } from "@/lib/dates";
+import { AdminOnly } from "@/components/admin-only";
 
 export const metadata = { title: "Offene Posten" };
 export const dynamic = "force-dynamic";
@@ -91,18 +92,22 @@ export default async function OpenItemsPage({
         breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Offene Posten" }]}
         actions={
           <>
-            <form action={generateCharges}>
-              <input type="hidden" name="back" value={BACK} />
-              <button type="submit" className="btn btn-secondary">
-                Forderungen erzeugen
-              </button>
-            </form>
-            <form action={runAutoMatch}>
-              <input type="hidden" name="back" value={BACK} />
-              <button type="submit" className="btn btn-primary">
-                Zahlungen automatisch zuordnen
-              </button>
-            </form>
+            <AdminOnly>
+              <form action={generateCharges}>
+                <input type="hidden" name="back" value={BACK} />
+                <button type="submit" className="btn btn-secondary">
+                  Forderungen erzeugen
+                </button>
+              </form>
+            </AdminOnly>
+            <AdminOnly>
+              <form action={runAutoMatch}>
+                <input type="hidden" name="back" value={BACK} />
+                <button type="submit" className="btn btn-primary">
+                  Zahlungen automatisch zuordnen
+                </button>
+              </form>
+            </AdminOnly>
           </>
         }
       />
@@ -126,19 +131,21 @@ export default async function OpenItemsPage({
 
       <div className="mt-6">
         <Card padded={false}>
-          <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
-            <div className="w-56">
-              <label htmlFor="status">Anzeigen</label>
-              <select id="status" name="status" defaultValue={statusFilter}>
-                <option value="OFFEN">Nur offene und Teilzahlungen</option>
-                <option value="PAID">Nur bezahlte</option>
-                <option value="ALLE">Alle</option>
-              </select>
-            </div>
-            <button type="submit" className="btn btn-secondary">
-              Anzeigen
-            </button>
-          </form>
+          <AdminOnly>
+            <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
+              <div className="w-56">
+                <label htmlFor="status">Anzeigen</label>
+                <select id="status" name="status" defaultValue={statusFilter}>
+                  <option value="OFFEN">Nur offene und Teilzahlungen</option>
+                  <option value="PAID">Nur bezahlte</option>
+                  <option value="ALLE">Alle</option>
+                </select>
+              </div>
+              <button type="submit" className="btn btn-secondary">
+                Anzeigen
+              </button>
+            </form>
+          </AdminOnly>
 
           {charges.length === 0 ? (
             <div className="p-5">
@@ -188,17 +195,19 @@ export default async function OpenItemsPage({
                                   {formatDate(allocation.bankTransaction.bookingDate)} ·{" "}
                                   {formatCents(allocation.amountCents)}
                                 </span>
-                                <form action={removeAllocation}>
-                                  <input type="hidden" name="id" value={allocation.id} />
-                                  <input type="hidden" name="back" value={BACK} />
-                                  <button
-                                    type="submit"
-                                    className="text-ink-500 hover:text-rose-600"
-                                    title="Zuordnung aufheben"
-                                  >
-                                    ×
-                                  </button>
-                                </form>
+                                <AdminOnly>
+                                  <form action={removeAllocation}>
+                                    <input type="hidden" name="id" value={allocation.id} />
+                                    <input type="hidden" name="back" value={BACK} />
+                                    <button
+                                      type="submit"
+                                      className="text-ink-500 hover:text-rose-600"
+                                      title="Zuordnung aufheben"
+                                    >
+                                      ×
+                                    </button>
+                                  </form>
+                                </AdminOnly>
                               </li>
                             ))}
                           </ul>
@@ -212,45 +221,49 @@ export default async function OpenItemsPage({
                                   Kein offener Zahlungseingang vorhanden.
                                 </p>
                               ) : (
-                                <form action={allocatePayment} className="space-y-2">
-                                  <input type="hidden" name="rentChargeId" value={charge.id} />
-                                  <input type="hidden" name="back" value={BACK} />
-                                  <div>
-                                    <label htmlFor={`tx-${charge.id}`}>Zahlungseingang</label>
-                                    <select id={`tx-${charge.id}`} name="bankTransactionId" required>
-                                      {unallocatedPayments.map((tx) => (
-                                        <option key={tx.id} value={tx.id}>
-                                          {formatDate(tx.bookingDate)} · {formatCents(tx.free)} ·{" "}
-                                          {(tx.counterpartyName ?? "").slice(0, 30)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label htmlFor={`amt-${charge.id}`}>Betrag</label>
-                                    <input
-                                      id={`amt-${charge.id}`}
-                                      name="amountCents"
-                                      inputMode="decimal"
-                                      defaultValue={centsToInput(open)}
-                                    />
-                                  </div>
-                                  <button type="submit" className="btn btn-primary">
-                                    Zuordnen
-                                  </button>
-                                </form>
+                                <AdminOnly>
+                                  <form action={allocatePayment} className="space-y-2">
+                                    <input type="hidden" name="rentChargeId" value={charge.id} />
+                                    <input type="hidden" name="back" value={BACK} />
+                                    <div>
+                                      <label htmlFor={`tx-${charge.id}`}>Zahlungseingang</label>
+                                      <select id={`tx-${charge.id}`} name="bankTransactionId" required>
+                                        {unallocatedPayments.map((tx) => (
+                                          <option key={tx.id} value={tx.id}>
+                                            {formatDate(tx.bookingDate)} · {formatCents(tx.free)} ·{" "}
+                                            {(tx.counterpartyName ?? "").slice(0, 30)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label htmlFor={`amt-${charge.id}`}>Betrag</label>
+                                      <input
+                                        id={`amt-${charge.id}`}
+                                        name="amountCents"
+                                        inputMode="decimal"
+                                        defaultValue={centsToInput(open)}
+                                      />
+                                    </div>
+                                    <button type="submit" className="btn btn-primary">
+                                      Zuordnen
+                                    </button>
+                                  </form>
+                                </AdminOnly>
                               )}
 
-                              <form action={waiveCharge} className="mt-3">
-                                <input type="hidden" name="id" value={charge.id} />
-                                <input type="hidden" name="back" value={BACK} />
-                                <ConfirmButton
-                                  className="btn btn-ghost"
-                                  message="Forderung als erlassen markieren?"
-                                >
-                                  Forderung erlassen
-                                </ConfirmButton>
-                              </form>
+                              <AdminOnly>
+                                <form action={waiveCharge} className="mt-3">
+                                  <input type="hidden" name="id" value={charge.id} />
+                                  <input type="hidden" name="back" value={BACK} />
+                                  <ConfirmButton
+                                    className="btn btn-ghost"
+                                    message="Forderung als erlassen markieren?"
+                                  >
+                                    Forderung erlassen
+                                  </ConfirmButton>
+                                </form>
+                              </AdminOnly>
                             </Disclosure>
                           </div>
                         )}

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { occupancySummary, OCCUPYING_STATUSES } from "@/lib/tenancy";
 import { formatCents } from "@/lib/money";
 import { addMonths, daysBetween, formatDate } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 
 export const metadata = { title: "Belegungsplan" };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function OccupancyPage({
 }: {
   searchParams: Promise<{ objekt?: string }>;
 }) {
+  await requireAdmin();
   const { objekt } = await searchParams;
 
   const today = new Date();
