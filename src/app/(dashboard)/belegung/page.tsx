@@ -180,7 +180,7 @@ export default async function OccupancyPage({
                               </span>
                             </div>
 
-                            <div className="relative h-7 flex-1 rounded bg-ink-100">
+                            <div className="relative h-7 flex-1 rounded bg-amber-100/70">
                               {/* Monatsraster */}
                               <div className="absolute inset-0 flex">
                                 {months.map((month) => (

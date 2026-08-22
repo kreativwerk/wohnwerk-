@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, Table, Td, Th } from "@/components/ui";
 import { coversLandlordConfirmation } from "@/lib/pdf-template";
+import { monthlyCostCents } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
 import { occupancySummary } from "@/lib/tenancy";
 import { formatCents } from "@/lib/money";
@@ -22,6 +23,7 @@ export default async function PropertiesPage({
     include: {
       rooms: { include: { beds: { select: { id: true } } } },
       templates: { select: { kind: true } },
+      costs: { select: { amountCents: true, interval: true } },
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
@@ -71,6 +73,7 @@ export default async function PropertiesPage({
                 <Th align="center">Betten</Th>
                 <Th>Auslastung</Th>
                 <Th align="right">Miete / Monat</Th>
+                <Th align="right">Überschuss / Monat</Th>
               </tr>
             </thead>
             <tbody>
@@ -134,6 +137,26 @@ export default async function PropertiesPage({
                       <p className="text-xs font-normal text-ink-500">
                         max. {formatCents(summary?.potentialRentCents ?? 0)}
                       </p>
+                    </Td>
+                    <Td align="right" className="tabular-nums">
+                      {property.costs.length === 0 ? (
+                        <span className="text-xs text-ink-500">Kosten fehlen</span>
+                      ) : (
+                        (() => {
+                          const kosten = monthlyCostCents(property.costs);
+                          const plus = (summary?.actualRentCents ?? 0) - kosten;
+                          return (
+                            <>
+                              <span className={`font-semibold ${plus >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                {formatCents(plus)}
+                              </span>
+                              <p className="text-xs font-normal text-ink-500">
+                                Kosten {formatCents(kosten)}
+                              </p>
+                            </>
+                          );
+                        })()
+                      )}
                     </Td>
                   </tr>
                 );

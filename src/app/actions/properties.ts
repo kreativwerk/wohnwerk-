@@ -463,3 +463,65 @@ async function attachTemplateOnCreate(
   }
   return null;
 }
+
+// --- Laufende Kosten des Objekts -------------------------------------------
+
+export async function createPropertyCost(formData: FormData) {
+  const user = await requireAdmin();
+  const propertyId = str(formData, "propertyId");
+  const ziel = `/objekte/${propertyId}`;
+
+  const label = str(formData, "label");
+  const amountCents = cents(formData, "amount");
+  const interval = str(formData, "interval") === "YEARLY" ? "YEARLY" : "MONTHLY";
+
+  if (!label || amountCents === null || amountCents <= 0) {
+    redirect(flash(ziel, "fehler", "Bezeichnung und ein Betrag über 0 sind nötig."));
+  }
+
+  await prisma.propertyCost.create({
+    data: { propertyId, label, amountCents, interval, notes: optionalStr(formData, "notes") },
+  });
+  await audit(user.email, "create", "PropertyCost", propertyId, label);
+  refresh(propertyId);
+  redirect(flash(ziel, "ok", `Kostenposten „${label}“ wurde angelegt.`));
+}
+
+export async function updatePropertyCost(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const kosten = await prisma.propertyCost.findUnique({ where: { id } });
+  if (!kosten) redirect(flash("/objekte", "fehler", "Kostenposten nicht gefunden."));
+  const ziel = `/objekte/${kosten.propertyId}`;
+
+  const label = str(formData, "label");
+  const amountCents = cents(formData, "amount");
+  if (!label || amountCents === null || amountCents <= 0) {
+    redirect(flash(ziel, "fehler", "Bezeichnung und ein Betrag über 0 sind nötig."));
+  }
+
+  await prisma.propertyCost.update({
+    where: { id },
+    data: {
+      label,
+      amountCents,
+      interval: str(formData, "interval") === "YEARLY" ? "YEARLY" : "MONTHLY",
+      notes: optionalStr(formData, "notes"),
+    },
+  });
+  await audit(user.email, "update", "PropertyCost", kosten.propertyId, label);
+  refresh(kosten.propertyId);
+  redirect(flash(ziel, "ok", "Kostenposten wurde gespeichert."));
+}
+
+export async function deletePropertyCost(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const kosten = await prisma.propertyCost.findUnique({ where: { id } });
+  if (!kosten) redirect(flash("/objekte", "fehler", "Kostenposten nicht gefunden."));
+
+  await prisma.propertyCost.delete({ where: { id } });
+  await audit(user.email, "delete", "PropertyCost", kosten.propertyId, kosten.label);
+  refresh(kosten.propertyId);
+  redirect(flash(`/objekte/${kosten.propertyId}`, "ok", "Kostenposten wurde entfernt."));
+}

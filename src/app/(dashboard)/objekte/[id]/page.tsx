@@ -15,6 +15,7 @@ import { BedBadge } from "@/components/status";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Card, EmptyState, Flash, Meter, PageHeader, StatCard } from "@/components/ui";
 import { PropertyTemplates } from "@/components/template-card";
+import { PropertyCosts } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
 import { bedOccupancy, occupancySummary } from "@/lib/tenancy";
 import { centsToInput, formatCents } from "@/lib/money";
@@ -47,6 +48,7 @@ export default async function PropertyDetailPage({
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: { beds: { orderBy: [{ sortOrder: "asc" }, { label: "asc" }] } },
       },
+      costs: { orderBy: { createdAt: "asc" } },
       templates: {
         orderBy: { uploadedAt: "asc" },
         // Ohne `data`: die PDF selbst hat auf der Seite nichts verloren.
@@ -146,8 +148,16 @@ export default async function PropertyDetailPage({
                     <ul className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {room.beds.map((bed) => {
                         const state = occupancy.get(bed.id);
+                        const frei = !state?.occupied && bed.status !== "BLOCKED";
                         return (
-                          <li key={bed.id} className="rounded-lg border border-ink-200 p-3.5">
+                          <li
+                            key={bed.id}
+                            className={`rounded-lg border p-3.5 ${
+                              frei
+                                ? "border-amber-300 bg-amber-50"
+                                : "border-ink-200"
+                            }`}
+                          >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-ink-900">{bed.label}</p>
@@ -384,6 +394,16 @@ export default async function PropertyDetailPage({
             </div>
           </form>
         </Card>
+      </div>
+
+      {/* --- Unsere Kosten -------------------------------------------------- */}
+      <div className="mt-6">
+        <PropertyCosts
+          propertyId={property.id}
+          costs={property.costs}
+          currentRentCents={summary.actualRentCents}
+          potentialRentCents={summary.potentialRentCents}
+        />
       </div>
 
       {/* --- Vordrucke ------------------------------------------------------ */}

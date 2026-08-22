@@ -56,5 +56,6 @@ export function ReviewBadge({ status }: { status: string }) {
 export function BedBadge({ occupied, blocked }: { occupied: boolean; blocked: boolean }) {
   if (occupied) return <Badge tone="brand">Belegt</Badge>;
   if (blocked) return <Badge tone="danger">Gesperrt</Badge>;
-  return <Badge tone="success">Frei</Badge>;
+  // Gelb: ein freies Bett ist kein Erfolg, sondern entgangene Miete.
+  return <Badge tone="warning">Frei</Badge>;
 }

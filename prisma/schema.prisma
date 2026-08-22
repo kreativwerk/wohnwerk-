@@ -55,8 +55,30 @@ model Property {
   documents    Document[]
   transactions BankTransaction[]
   templates    PropertyTemplate[]
+  costs        PropertyCost[]
 
   @@index([active])
+}
+
+/// Laufende Kosten eines Objekts aus Sicht von Wohnwerk: die Miete an den
+/// Vermieter, Nebenkosten, Strom, Oel und was sonst anfaellt. Manche Objekte
+/// sind all-inclusive angemietet - dann gibt es nur einen Posten.
+model PropertyCost {
+  id         String @id @default(cuid())
+  propertyId String
+
+  label       String
+  amountCents Int
+  /// MONTHLY oder YEARLY - jaehrliche Posten gehen mit einem Zwoelftel in die Monatssumme ein
+  interval    String  @default("MONTHLY")
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
 
 /// Vordruck eines Objekts: Mietvertrag und Wohnungsgeberbestaetigung.
