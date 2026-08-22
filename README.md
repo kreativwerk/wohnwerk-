@@ -124,7 +124,7 @@ Voraussetzung: Node 20 oder neuer und eine PostgreSQL-Datenbank.
 
 ```bash
 npm install
-cp .env.example .env          # Werte eintragen, siehe unten
+# .env anlegen, Vorlage in docs/umgebungsvariablen.md
 npm run db:migrate            # Tabellen anlegen
 npm run db:seed               # optional: Beispieldaten
 npm run dev                   # http://localhost:3000
@@ -152,45 +152,51 @@ nicht dauerhaft ist; für den echten Betrieb sollte Drive verbunden sein.
 
 ## Auf Vercel veröffentlichen
 
-**1. Datenbank anlegen.**
-Im Vercel-Projekt unter *Storage* eine Postgres-Datenbank erstellen (Neon), oder
-eine bestehende Supabase-/Neon-Datenbank verwenden. Vercel setzt `DATABASE_URL`
-dann selbst; bei externen Anbietern die **gepoolte** Verbindungs-URL eintragen.
+**1. Datenbank zuerst.**
+Vercel → *Storage* → *Create Database* → **Neon Postgres**, Region Frankfurt.
+Danach *Connect Project* und das Wohnwerk-Projekt wählen. Vercel trägt
+`DATABASE_URL` daraufhin selbst ein. Erst danach das Projekt bauen lassen,
+sonst bricht der erste Durchlauf ab.
 
 **2. Repository verbinden.**
-In Vercel *New Project* → dieses Repository auswählen. Framework wird als
-Next.js erkannt. Gebaut wird über das Skript `vercel-build`, das den
-Prisma-Client erzeugt und die Migrationen einspielt – ohne Zutun.
+*Add New* → *Project* → dieses Repository. Next.js wird erkannt. An den
+Build-Einstellungen **nichts** ändern: sobald der Build-Befehl überschrieben
+wird, läuft `vercel-build` nicht mehr, und damit entstehen die Tabellen nicht.
 
-**3. Umgebungsvariablen setzen** (Project Settings → Environment Variables):
+Das Repository enthält bewusst keine `.env.example`. Vercel würde daraus
+sonst alle Variablennamen mit leeren Beispielwerten anlegen; das Projekt sähe
+eingerichtet aus, und der Build scheiterte an leeren Werten. Die Liste der
+Variablen steht stattdessen in `docs/umgebungsvariablen.md`.
 
-| Variable                      | Pflicht | Bedeutung                                     |
-| ----------------------------- | ------- | --------------------------------------------- |
-| `DATABASE_URL`                | ja      | PostgreSQL-Verbindung                         |
-| `AUTH_SECRET`                 | ja      | Zufälliger Schlüssel für Sitzungs-Cookies     |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | ja    | Erster Zugang beim ersten Login               |
-| `APP_URL`                     | ja      | Ihre Domain, z. B. `https://verwaltung.firma.de` |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | für Drive | Schlüssel des Dienstkontos                  |
-| `GOOGLE_DRIVE_ROOT_FOLDER_ID` | für Drive | Ziel-Ordner in Drive                        |
-| `RESEND_API_KEY`, `MAIL_FROM` | optional | Automatischer Versand der Vertragslinks      |
+**3. Diese fünf Variablen setzen** (Settings → Environment Variables):
 
-**4. Datenbankschema.**
-Nichts zu tun. Vercel verwendet den Befehl `vercel-build`, der bei jedem
-Deployment `prisma migrate deploy` mitlaufen lässt und das Schema anlegt bzw.
-aktualisiert. Schlägt die Verbindung fehl, bricht das Deployment sichtbar ab,
-statt mit halber Datenbank online zu gehen.
+| Variable | Wert |
+| --- | --- |
+| `AUTH_SECRET` | Zufälliger Schlüssel, siehe unten |
+| `ADMIN_EMAIL` | Ihre Adresse, daraus entsteht der erste Zugang |
+| `ADMIN_PASSWORD` | Ihr Passwort für den ersten Login |
+| `ADMIN_NAME` | Anzeigename, z. B. `Hausverwaltung` |
+| `APP_URL` | Erst die `.vercel.app`-Adresse, später Ihre Domain |
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+**4. Deployen.**
+Das Schema entsteht dabei von allein: `vercel-build` führt
+`prisma migrate deploy` aus. Fehlt eine Variable oder steht noch ein
+Beispielwert darin, bricht der Build mit einer Meldung im Klartext ab, die
+den Namen der Variable nennt.
 
 **5. Google Drive einrichten.**
-Auf Vercel ist das Dateisystem schreibgeschuetzt, eine lokale Ablage gibt es
+Auf Vercel ist das Dateisystem schreibgeschützt, eine lokale Ablage gibt es
 dort nicht. Ohne eingerichtetes Drive weist die Anwendung Uploads mit einer
-klaren Meldung ab, statt Belege ins Leere zu schreiben. Die Einrichtung steht
-weiter unten unter *Google Drive verbinden*.
+klaren Meldung ab. Die Einrichtung steht im nächsten Abschnitt.
 
 **6. Domain verbinden.**
-In Vercel unter *Settings → Domains* die Domain eintragen und die angezeigten
-DNS-Einträge beim Anbieter setzen. Danach dieselbe Adresse in `APP_URL` und
-unter *Einstellungen → Adresse der Anwendung* eintragen – daraus werden die
-Vertragslinks für die Mieter gebaut.
+*Settings → Domains*, DNS-Einträge beim Anbieter setzen. Danach dieselbe
+Adresse in `APP_URL` und unter *Einstellungen → Adresse der Anwendung*
+eintragen – daraus werden die Vertragslinks für die Mieter gebaut.
 
 ---
 
