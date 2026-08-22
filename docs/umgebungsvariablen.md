@@ -26,7 +26,21 @@ gewünschten Zeilen aus dem Block am Ende hierher.
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-## Später, für die Dokumentenablage
+## Dokumentenablage (Supabase Storage – empfohlen)
+
+| Variable | Bedeutung |
+| --- | --- |
+| `SUPABASE_URL` | Projekt-Adresse, z. B. `https://xyz.supabase.co` |
+| `SUPABASE_SECRET_KEY` | Geheimer Schlüssel (`sb_secret_…`) aus Settings → API Keys |
+
+Verträge, Belege und Kontoauszüge landen dann im privaten Bucket
+`dokumente` desselben Supabase-Projekts wie die Datenbank. Ausgeliefert
+werden sie ausschließlich über die Anwendung an angemeldete Benutzer –
+der Schlüssel bleibt auf dem Server.
+
+## Alternativ: Google Drive
+
+Nur relevant, wenn kein Supabase Storage konfiguriert ist.
 
 | Variable | Bedeutung |
 | --- | --- |
@@ -37,8 +51,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 Alternativ statt des Dienstkontos: `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET` und `GOOGLE_REFRESH_TOKEN`.
 
-Ohne Drive nimmt die Anwendung keine Dokumente an und sagt das deutlich.
-Auf Vercel gibt es keine Festplatte, die ein Deployment überlebt.
+Ohne jede Ablage nimmt die Anwendung keine Belege an und sagt das
+deutlich; der Kontoauszug-Import läuft trotzdem durch, nur das Original
+wird nicht archiviert.
 
 ## Optional
 

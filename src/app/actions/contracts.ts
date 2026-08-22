@@ -240,12 +240,21 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
         ];
 
   for (const dokument of dokumente) {
-    const stored = await uploadFile({
-      fileName: dokument.fileName,
-      mimeType: "application/pdf",
-      data: dokument.pdf,
-      folderSegments: FOLDER.contracts(year),
-    });
+    // Die Unterschrift ist zu diesem Zeitpunkt gespeichert; scheitert die
+    // Ablage, geht nichts verloren - das PDF laesst sich jederzeit aus den
+    // Vertragsdaten neu erzeugen. Der Mieter darf keinen Fehler sehen.
+    let stored: Awaited<ReturnType<typeof uploadFile>>;
+    try {
+      stored = await uploadFile({
+        fileName: dokument.fileName,
+        mimeType: "application/pdf",
+        data: dokument.pdf,
+        folderSegments: FOLDER.contracts(year),
+      });
+    } catch (error) {
+      console.error("[vertrag] Ablage fehlgeschlagen:", error);
+      continue;
+    }
 
     // Der Mietvertrag ist das Dokument, das am Vertrag selbst haengt.
     if (dokument.istMietvertrag) {

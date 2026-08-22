@@ -141,14 +141,25 @@ export async function importStatement(formData: FormData) {
   }
 
   const year = (parsed.periodEnd ?? new Date()).getUTCFullYear();
-  const stored = await uploadFile({
-    fileName: `${formatDate(parsed.periodStart).replace(/\./g, "-")} bis ${formatDate(
-      parsed.periodEnd,
-    ).replace(/\./g, "-")} ${account.name}${file.name.slice(file.name.lastIndexOf("."))}`,
-    mimeType: file.type || "application/octet-stream",
-    data: buffer,
-    folderSegments: FOLDER.statements(year),
-  });
+
+  // Die Buchungen sind das Wesentliche; die Originaldatei zusaetzlich
+  // abzulegen ist Kuer. Scheitert die Ablage, laeuft der Import durch und
+  // die Meldung sagt, dass das Original nicht archiviert wurde.
+  let stored: Awaited<ReturnType<typeof uploadFile>> | null = null;
+  let ablageFehler: string | null = null;
+  try {
+    stored = await uploadFile({
+      fileName: `${formatDate(parsed.periodStart).replace(/\./g, "-")} bis ${formatDate(
+        parsed.periodEnd,
+      ).replace(/\./g, "-")} ${account.name}${file.name.slice(file.name.lastIndexOf("."))}`,
+      mimeType: file.type || "application/octet-stream",
+      data: buffer,
+      folderSegments: FOLDER.statements(year),
+    });
+  } catch (error) {
+    console.error("[import] Ablage des Originals fehlgeschlagen:", error);
+    ablageFehler = (error as Error).message;
+  }
 
   const statement = await prisma.bankStatement.create({
     data: {
@@ -160,8 +171,8 @@ export async function importStatement(formData: FormData) {
       periodEnd: parsed.periodEnd,
       rowsTotal: parsed.transactions.length,
       closingBalanceCents: parsed.closingBalanceCents,
-      driveFileId: stored.fileId,
-      driveUrl: stored.url,
+      driveFileId: stored?.fileId ?? null,
+      driveUrl: stored?.url ?? null,
     },
   });
 
@@ -202,17 +213,17 @@ export async function importStatement(formData: FormData) {
   });
 
   // Beleg-Charakter: der Auszug selbst gehoert in die Belegablage.
-  await prisma.document.create({
+  if (stored) await prisma.document.create({
     data: {
       kind: "STATEMENT",
       title: `Kontoauszug ${account.name} ${formatDate(parsed.periodStart)} – ${formatDate(parsed.periodEnd)}`,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
       sizeBytes: buffer.byteLength,
-      driveFileId: stored.fileId,
-      driveUrl: stored.url,
-      driveFolder: stored.folder,
-      localPath: stored.localPath,
+      driveFileId: stored!.fileId,
+      driveUrl: stored!.url,
+      driveFolder: stored!.folder,
+      localPath: stored!.localPath,
       documentDate: parsed.periodEnd,
       category: "Kontoauszug",
     },
@@ -244,6 +255,7 @@ export async function importStatement(formData: FormData) {
     match.matched > 0 ? `${match.matched} Zahlung(en) automatisch zugeordnet` : null,
     objektZugeordnet > 0 ? `${objektZugeordnet} Buchung(en) dem Objekt des Kontos zugewiesen` : null,
     parsed.warnings.length > 0 ? `${parsed.warnings.length} Hinweis(e) beim Einlesen` : null,
+    ablageFehler ? "Original nicht archiviert (Ablage nicht erreichbar)" : null,
   ].filter(Boolean);
 
   redirect(flash(back, "ok", `${parts.join(", ")}.`));
@@ -407,14 +419,22 @@ export async function uploadDocument(formData: FormData) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const title = str(formData, "title") || file.name;
 
-  const stored = await uploadFile({
-    fileName: `${documentDate.toISOString().slice(0, 10)} ${title}${file.name.slice(
-      file.name.lastIndexOf("."),
-    )}`,
-    mimeType: file.type || "application/octet-stream",
-    data: buffer,
-    folderSegments: FOLDER.receipts(documentDate.getUTCFullYear(), documentDate.getUTCMonth() + 1),
-  });
+  // Beim Beleg ist die Datei selbst der Wert: ohne Ablage kein Beleg.
+  // Aber der Fehler ist eine Meldung, kein Serverabsturz.
+  let stored: Awaited<ReturnType<typeof uploadFile>>;
+  try {
+    stored = await uploadFile({
+      fileName: `${documentDate.toISOString().slice(0, 10)} ${title}${file.name.slice(
+        file.name.lastIndexOf("."),
+      )}`,
+      mimeType: file.type || "application/octet-stream",
+      data: buffer,
+      folderSegments: FOLDER.receipts(documentDate.getUTCFullYear(), documentDate.getUTCMonth() + 1),
+    });
+  } catch (error) {
+    console.error("[beleg] Ablage fehlgeschlagen:", error);
+    redirect(flash(back, "fehler", (error as Error).message));
+  }
 
   const document = await prisma.document.create({
     data: {
@@ -510,7 +530,13 @@ export async function runExport(formData: FormData) {
   const monthRaw = int(formData, "month", 0);
   const month = monthRaw >= 1 && monthRaw <= 12 ? monthRaw : undefined;
 
-  const result = await exportToDrive(year, month);
+  let result: Awaited<ReturnType<typeof exportToDrive>>;
+  try {
+    result = await exportToDrive(year, month);
+  } catch (error) {
+    console.error("[export] Ablage fehlgeschlagen:", error);
+    redirect(flash(back, "fehler", (error as Error).message));
+  }
   await audit(user.email, "export", "Accounting", null, `${year}${month ? `-${month}` : ""}`);
   revalidatePath(back);
 

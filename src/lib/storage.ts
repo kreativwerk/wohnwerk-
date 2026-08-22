@@ -14,7 +14,7 @@ import crypto from "node:crypto";
  */
 
 export type StoredFile = {
-  backend: "drive" | "local";
+  backend: "supabase" | "drive" | "local";
   fileId: string | null;
   url: string | null;
   folder: string;
@@ -23,12 +23,97 @@ export type StoredFile = {
 
 export type DriveStatus = {
   configured: boolean;
-  mode: "service-account" | "oauth" | "none";
+  mode: "supabase" | "service-account" | "oauth" | "none";
   rootFolderId: string | null;
   sharedDrive: boolean;
   ok: boolean;
   message: string;
 };
+
+// --- Supabase Storage ------------------------------------------------------
+// Die bevorzugte Ablage: liegt beim selben Anbieter wie die Datenbank,
+// braucht nur zwei Umgebungsvariablen und keinen Google-Papierkram.
+
+const SUPABASE_BUCKET = "dokumente";
+
+function supabaseConfig(): { url: string; key: string } | null {
+  const url = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!url || !key) return null;
+  return { url, key };
+}
+
+async function uploadToSupabase(
+  fileName: string,
+  mimeType: string,
+  data: Buffer,
+  folderSegments: string[],
+): Promise<StoredFile> {
+  const config = supabaseConfig()!;
+  const ordner = folderSegments.map(safeName).join("/");
+
+  // Kollisionen vermeiden wie bei der lokalen Ablage: nummerierter Anhang.
+  const ext = path.extname(fileName);
+  const base = path.basename(fileName, ext);
+
+  for (let versuch = 0; versuch < 50; versuch += 1) {
+    const name = versuch === 0 ? fileName : `${base}-${versuch}${ext}`;
+    const objektPfad = `${ordner}/${name}`;
+
+    const antwort = await fetch(
+      `${config.url}/storage/v1/object/${SUPABASE_BUCKET}/${objektPfad
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/")}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${config.key}`,
+          "content-type": mimeType || "application/octet-stream",
+          "x-upsert": "false",
+        },
+        body: new Uint8Array(data),
+      },
+    );
+
+    if (antwort.ok) {
+      return {
+        backend: "supabase",
+        fileId: objektPfad,
+        url: `/api/ablage/${objektPfad.split("/").map(encodeURIComponent).join("/")}`,
+        folder: ordner,
+        localPath: null,
+      };
+    }
+    // 409: Name schon vergeben - naechster Versuch mit Anhang.
+    if (antwort.status !== 409) {
+      throw new Error(
+        `Supabase-Ablage antwortete mit ${antwort.status}: ${(await antwort.text()).slice(0, 200)}`,
+      );
+    }
+  }
+  throw new Error("Supabase-Ablage: kein freier Dateiname nach 50 Versuchen.");
+}
+
+/** Liest eine Datei aus der Supabase-Ablage; null, wenn nicht konfiguriert oder nicht da. */
+export async function readSupabaseFile(
+  objektPfad: string,
+): Promise<{ data: Buffer; contentType: string } | null> {
+  const config = supabaseConfig();
+  if (!config) return null;
+  const antwort = await fetch(
+    `${config.url}/storage/v1/object/${SUPABASE_BUCKET}/${objektPfad
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`,
+    { headers: { authorization: `Bearer ${config.key}` } },
+  );
+  if (!antwort.ok) return null;
+  return {
+    data: Buffer.from(await antwort.arrayBuffer()),
+    contentType: antwort.headers.get("content-type") ?? "application/octet-stream",
+  };
+}
 
 const LOCAL_ROOT = process.env.STORAGE_DIR
   ? path.resolve(process.env.STORAGE_DIR)
@@ -193,6 +278,11 @@ export async function uploadFile(params: {
 }): Promise<StoredFile> {
   const fileName = safeName(params.fileName);
   const folder = params.folderSegments.join("/");
+
+  if (supabaseConfig()) {
+    return uploadToSupabase(fileName, params.mimeType, params.data, params.folderSegments);
+  }
+
   const drive = await getDrive();
 
   if (drive) {
@@ -361,6 +451,43 @@ export async function folderLink(folderSegments: string[]): Promise<string | nul
 
 /** Statusanzeige fuer die Einstellungsseite. */
 export async function checkDriveStatus(): Promise<DriveStatus> {
+  // Supabase-Ablage hat Vorrang: gleiche Plattform wie die Datenbank.
+  const supabase = supabaseConfig();
+  if (supabase) {
+    try {
+      const antwort = await fetch(`${supabase.url}/storage/v1/bucket/${SUPABASE_BUCKET}`, {
+        headers: { authorization: `Bearer ${supabase.key}` },
+      });
+      if (antwort.ok) {
+        return {
+          configured: true,
+          mode: "supabase",
+          rootFolderId: null,
+          sharedDrive: false,
+          ok: true,
+          message: `Dokumente werden in Supabase Storage abgelegt (Bucket „${SUPABASE_BUCKET}“).`,
+        };
+      }
+      return {
+        configured: true,
+        mode: "supabase",
+        rootFolderId: null,
+        sharedDrive: false,
+        ok: false,
+        message: `Supabase Storage antwortet mit ${antwort.status} – Bucket „${SUPABASE_BUCKET}“ vorhanden und SUPABASE_SECRET_KEY gültig?`,
+      };
+    } catch (error) {
+      return {
+        configured: true,
+        mode: "supabase",
+        rootFolderId: null,
+        sharedDrive: false,
+        ok: false,
+        message: `Supabase Storage nicht erreichbar: ${(error as Error).message}`,
+      };
+    }
+  }
+
   const mode = driveMode();
   const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? null;
 
@@ -372,7 +499,7 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
       sharedDrive: false,
       ok: false,
       message:
-        "Google Drive ist nicht konfiguriert - Dokumente werden lokal unter ./storage abgelegt.",
+        "Keine Ablage konfiguriert – bitte SUPABASE_URL und SUPABASE_SECRET_KEY in Vercel setzen. Dokumente können bis dahin nicht gespeichert werden.",
     };
   }
 
