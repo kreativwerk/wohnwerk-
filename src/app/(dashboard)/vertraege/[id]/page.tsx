@@ -196,8 +196,7 @@ export default async function ContractDetailPage({
                   PDF neu erzeugen und ablegen
                 </button>
                 <p className="field-hint">
-                  Legt das PDF in Google Drive unter „Mietverträge“ ab (oder lokal, falls Drive nicht
-                  eingerichtet ist).
+                  Legt das PDF in der Dokumentenablage unter „Mietverträge“ ab.
                 </p>
               </form>
 

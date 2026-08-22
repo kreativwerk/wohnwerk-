@@ -12,7 +12,7 @@ import { renderContractPdf } from "@/lib/contract-pdf";
 import { buildDocumentsFromTemplates } from "@/lib/property-documents";
 import { contractInviteMail, sendMail } from "@/lib/mail";
 import { getAppUrl, getSettings } from "@/lib/settings";
-import { FOLDER, randomToken, uploadFile } from "@/lib/storage";
+import { FOLDER, backendLabel, randomToken, uploadFile } from "@/lib/storage";
 import { formatDate } from "@/lib/dates";
 import { ensureRentCharges } from "@/lib/accounting";
 
@@ -160,9 +160,7 @@ export async function regenerateContractPdf(formData: FormData) {
     flash(
       `/vertraege/${id}`,
       "ok",
-      stored.backend === "drive"
-        ? "PDF wurde neu erzeugt und in Google Drive abgelegt."
-        : "PDF wurde neu erzeugt und lokal abgelegt (Google Drive ist nicht konfiguriert).",
+      `PDF wurde neu erzeugt und in ${backendLabel(stored.backend)} abgelegt.`,
     ),
   );
 }

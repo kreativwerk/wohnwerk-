@@ -40,7 +40,7 @@ export default async function SettingsPage({
         <ul className="space-y-3 text-sm">
           <li className="flex flex-wrap items-center gap-3">
             <Badge tone={drive.ok ? "success" : drive.configured ? "danger" : "warning"}>
-              Google Drive
+              Dokumentenablage
             </Badge>
             <span className="text-ink-600">{drive.message}</span>
           </li>
@@ -62,26 +62,13 @@ export default async function SettingsPage({
 
         {!drive.ok && (
           <div className="mt-4">
-            <Alert tone="info" title="Google Drive verbinden">
-              <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs">
-                <li>
-                  In der Google Cloud Console ein Dienstkonto anlegen und einen JSON-Schlüssel
-                  herunterladen.
-                </li>
-                <li>
-                  Den Ziel-Ordner in Google Drive für die E-Mail-Adresse des Dienstkontos als
-                  Bearbeiter freigeben (oder eine geteilte Ablage verwenden).
-                </li>
-                <li>
-                  In den Umgebungsvariablen <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> (der JSON-Inhalt,
-                  gern Base64-kodiert) und <code>GOOGLE_DRIVE_ROOT_FOLDER_ID</code> (die ID aus der
-                  Ordner-URL) setzen.
-                </li>
-                <li>Anwendung neu starten – der Status oben wird dann grün.</li>
-              </ol>
-              <p className="mt-2 text-xs">
-                Ohne Drive funktioniert alles weiter, die Dateien liegen dann im Verzeichnis{" "}
-                <code>./storage</code>.
+            <Alert tone="warning" title="Dokumentenablage nicht erreichbar">
+              <p className="mt-1 text-xs">
+                Dokumente werden normalerweise ohne jede Einrichtung direkt in der
+                Supabase-Datenbank gespeichert. Erscheint diese Meldung, ist die Datenbank
+                gerade nicht erreichbar – bitte in ein paar Minuten erneut versuchen.
+                Uploads werden bis dahin nicht angenommen; Kontoauszüge werden trotzdem
+                eingelesen, nur das Original wird nicht archiviert.
               </p>
             </Alert>
           </div>

@@ -4,17 +4,20 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
+import { prisma } from "@/lib/db";
+
 /**
  * Ablage fuer Mietvertraege, Belege und Kontoauszuege.
  *
- * Bevorzugt wird Google Drive – dort liegt am Ende der gesamte Ordnerbaum,
- * den der Steuerberater freigegeben bekommt. Ist Drive nicht konfiguriert
- * (oder faellt aus), schreibt das System in ein lokales Verzeichnis, damit nie
- * ein Dokument verloren geht. Der Rest der Anwendung kennt nur dieses Interface.
+ * Reihenfolge: Supabase Storage (wenn konfiguriert), sonst Google Drive
+ * (wenn konfiguriert), sonst die Datenbank selbst -- die ist immer da und
+ * braucht keine einzige zusaetzliche Umgebungsvariable. Ein lokales
+ * Verzeichnis bleibt letzte Rueckfallebene, damit nie ein Dokument
+ * verloren geht. Der Rest der Anwendung kennt nur dieses Interface.
  */
 
 export type StoredFile = {
-  backend: "supabase" | "drive" | "local";
+  backend: "supabase" | "db" | "drive" | "local";
   fileId: string | null;
   url: string | null;
   folder: string;
@@ -23,12 +26,26 @@ export type StoredFile = {
 
 export type DriveStatus = {
   configured: boolean;
-  mode: "supabase" | "service-account" | "oauth" | "none";
+  mode: "supabase" | "datenbank" | "service-account" | "oauth" | "none";
   rootFolderId: string | null;
   sharedDrive: boolean;
   ok: boolean;
   message: string;
 };
+
+/** Menschlicher Name der Ablage fuer Statusmeldungen ("wurde in ... abgelegt"). */
+export function backendLabel(backend: StoredFile["backend"]): string {
+  switch (backend) {
+    case "supabase":
+      return "Supabase Storage";
+    case "db":
+      return "der Dokumentenablage";
+    case "drive":
+      return "Google Drive";
+    default:
+      return "der lokalen Ablage";
+  }
+}
 
 // --- Supabase Storage ------------------------------------------------------
 // Die bevorzugte Ablage: liegt beim selben Anbieter wie die Datenbank,
@@ -113,6 +130,63 @@ export async function readSupabaseFile(
     data: Buffer.from(await antwort.arrayBuffer()),
     contentType: antwort.headers.get("content-type") ?? "application/octet-stream",
   };
+}
+
+// --- Datenbank-Ablage ------------------------------------------------------
+// Immer verfuegbar: nutzt die bestehende Datenbankverbindung, keine weitere
+// Einrichtung noetig. Der "pfad" folgt denselben Ordnerkonventionen.
+
+async function uploadToDatabase(
+  fileName: string,
+  mimeType: string,
+  data: Buffer,
+  folderSegments: string[],
+): Promise<StoredFile> {
+  const ordner = folderSegments.map(safeName).join("/");
+  const ext = path.extname(fileName);
+  const base = path.basename(fileName, ext);
+
+  for (let versuch = 0; versuch < 50; versuch += 1) {
+    const name = versuch === 0 ? fileName : `${base}-${versuch}${ext}`;
+    const pfad = `${ordner}/${name}`;
+    try {
+      await prisma.ablageDatei.create({
+        data: {
+          pfad,
+          mimeType: mimeType || "application/octet-stream",
+          sizeBytes: data.byteLength,
+          daten: new Uint8Array(data),
+        },
+      });
+      return {
+        backend: "db",
+        fileId: pfad,
+        url: `/api/ablage/${pfad.split("/").map(encodeURIComponent).join("/")}`,
+        folder: ordner,
+        localPath: null,
+      };
+    } catch (error) {
+      // P2002: Pfad schon vergeben - naechster Versuch mit Nummernanhang.
+      if ((error as { code?: string }).code === "P2002") continue;
+      throw error;
+    }
+  }
+  throw new Error("Datenbank-Ablage: kein freier Dateiname nach 50 Versuchen.");
+}
+
+/**
+ * Liest ein abgelegtes Dokument anhand seines Pfads - erst aus Supabase
+ * Storage (falls konfiguriert), sonst aus der Datenbank-Ablage.
+ */
+export async function readStoredFile(
+  pfad: string,
+): Promise<{ data: Buffer; contentType: string } | null> {
+  const ausSupabase = await readSupabaseFile(pfad);
+  if (ausSupabase) return ausSupabase;
+
+  const zeile = await prisma.ablageDatei.findUnique({ where: { pfad } });
+  if (!zeile) return null;
+  return { data: Buffer.from(zeile.daten), contentType: zeile.mimeType };
 }
 
 const LOCAL_ROOT = process.env.STORAGE_DIR
@@ -280,7 +354,11 @@ export async function uploadFile(params: {
   const folder = params.folderSegments.join("/");
 
   if (supabaseConfig()) {
-    return uploadToSupabase(fileName, params.mimeType, params.data, params.folderSegments);
+    try {
+      return await uploadToSupabase(fileName, params.mimeType, params.data, params.folderSegments);
+    } catch (error) {
+      console.error("[storage] Supabase-Upload fehlgeschlagen, nutze Datenbank-Ablage:", error);
+    }
   }
 
   const drive = await getDrive();
@@ -303,9 +381,14 @@ export async function uploadFile(params: {
         localPath: null,
       };
     } catch (error) {
-      console.error("[storage] Drive-Upload fehlgeschlagen, nutze lokale Ablage:", error);
-      return writeLocal(fileName, params.data, params.folderSegments, "drive-fehler");
+      console.error("[storage] Drive-Upload fehlgeschlagen, nutze Datenbank-Ablage:", error);
     }
+  }
+
+  try {
+    return await uploadToDatabase(fileName, params.mimeType, params.data, params.folderSegments);
+  } catch (error) {
+    console.error("[storage] Datenbank-Ablage fehlgeschlagen, nutze lokale Ablage:", error);
   }
 
   return writeLocal(fileName, params.data, params.folderSegments, "nicht-eingerichtet");
@@ -361,15 +444,12 @@ async function writeLocal(
 }
 
 function localFallbackMessage(reason: "nicht-eingerichtet" | "drive-fehler"): string {
-  const ursache =
-    reason === "nicht-eingerichtet"
-      ? "Google Drive ist noch nicht eingerichtet"
-      : "der Upload zu Google Drive ist fehlgeschlagen";
+  void reason;
   return (
-    `Die Datei konnte nicht gespeichert werden: ${ursache}, und die lokale ` +
-    "Ablage steht auf diesem Server nicht zur Verfügung. Bitte unter " +
-    "Einstellungen → Google Drive die Verbindung einrichten und prüfen. " +
-    "Solange keine Ablage erreichbar ist, werden keine Dokumente angenommen."
+    "Die Datei konnte nicht gespeichert werden: die Dokumentenablage in der " +
+    "Datenbank ist gerade nicht erreichbar, und die lokale Ablage steht auf " +
+    "diesem Server nicht zur Verfügung. Bitte in ein paar Minuten erneut " +
+    "versuchen; der Status ist unter Einstellungen → Systemstatus sichtbar."
   );
 }
 
@@ -389,16 +469,39 @@ export async function deleteFile(file: {
   localPath?: string | null;
 }): Promise<void> {
   if (file.driveFileId) {
-    const drive = await getDrive();
-    if (drive) {
+    // Supabase- und Datenbank-Ablage nutzen den Objektpfad als Kennung.
+    try {
+      await prisma.ablageDatei.deleteMany({ where: { pfad: file.driveFileId } });
+    } catch (error) {
+      console.error("[storage] Datenbank-Datei konnte nicht gelöscht werden:", error);
+    }
+    const supabase = supabaseConfig();
+    if (supabase && file.driveFileId.includes("/")) {
       try {
-        await drive.files.update({
-          fileId: file.driveFileId,
-          requestBody: { trashed: true },
-          supportsAllDrives: true,
-        });
+        await fetch(
+          `${supabase.url}/storage/v1/object/${SUPABASE_BUCKET}/${file.driveFileId
+            .split("/")
+            .map(encodeURIComponent)
+            .join("/")}`,
+          { method: "DELETE", headers: { authorization: `Bearer ${supabase.key}` } },
+        );
       } catch (error) {
-        console.error("[storage] Drive-Datei konnte nicht in den Papierkorb wandern:", error);
+        console.error("[storage] Supabase-Datei konnte nicht gelöscht werden:", error);
+      }
+    }
+    // Echte Drive-IDs enthalten nie einen Schraegstrich - Ablagepfade schon.
+    if (!file.driveFileId.includes("/")) {
+      const drive = await getDrive();
+      if (drive) {
+        try {
+          await drive.files.update({
+            fileId: file.driveFileId,
+            requestBody: { trashed: true },
+            supportsAllDrives: true,
+          });
+        } catch (error) {
+          console.error("[storage] Drive-Datei konnte nicht in den Papierkorb wandern:", error);
+        }
       }
     }
   }
@@ -492,15 +595,28 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
   const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? null;
 
   if (mode === "none" || !rootFolderId) {
-    return {
-      configured: false,
-      mode,
-      rootFolderId,
-      sharedDrive: false,
-      ok: false,
-      message:
-        "Keine Ablage konfiguriert – bitte SUPABASE_URL und SUPABASE_SECRET_KEY in Vercel setzen. Dokumente können bis dahin nicht gespeichert werden.",
-    };
+    // Standardfall ohne weitere Einrichtung: die Datenbank selbst ist die Ablage.
+    try {
+      const anzahl = await prisma.ablageDatei.count();
+      return {
+        configured: true,
+        mode: "datenbank",
+        rootFolderId: null,
+        sharedDrive: false,
+        ok: true,
+        message:
+          `Dokumente werden in der Supabase-Datenbank abgelegt (${anzahl} Datei${anzahl === 1 ? "" : "en"}) – keine Einrichtung nötig.`,
+      };
+    } catch (error) {
+      return {
+        configured: true,
+        mode: "datenbank",
+        rootFolderId: null,
+        sharedDrive: false,
+        ok: false,
+        message: `Datenbank-Ablage nicht erreichbar: ${(error as Error).message}`,
+      };
+    }
   }
 
   const drive = await getDrive();

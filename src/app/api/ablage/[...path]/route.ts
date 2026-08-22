@@ -1,10 +1,10 @@
 import { requireApiUser } from "@/lib/auth";
-import { readSupabaseFile } from "@/lib/storage";
+import { readStoredFile } from "@/lib/storage";
 
 /**
- * Liefert Dokumente aus der Supabase-Ablage aus - nur an angemeldete
- * Benutzer. Der geheime Schluessel bleibt auf dem Server; im Browser
- * taucht nie eine Supabase-Adresse auf.
+ * Liefert Dokumente aus der Ablage aus (Supabase Storage oder Datenbank) -
+ * nur an angemeldete Benutzer. Schluessel und Datenbank bleiben auf dem
+ * Server; im Browser taucht nie eine Supabase-Adresse auf.
  */
 export async function GET(
   _request: Request,
@@ -20,7 +20,7 @@ export async function GET(
   const objektPfad = path.map(decodeURIComponent).join("/");
   if (objektPfad.includes("..")) return new Response("Ungültiger Pfad", { status: 400 });
 
-  const datei = await readSupabaseFile(objektPfad);
+  const datei = await readStoredFile(objektPfad);
   if (!datei) return new Response("Datei nicht gefunden", { status: 404 });
 
   return new Response(new Uint8Array(datei.data), {

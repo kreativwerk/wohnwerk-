@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "./db";
-import { FOLDER, uploadFile } from "./storage";
+import { FOLDER, uploadFile, type StoredFile } from "./storage";
 import { buildDatevCsv } from "./datev";
 import { formatDate } from "./dates";
 import { CHARGE_STATUS_LABEL, DOCUMENT_KIND_LABEL, TX_REVIEW_STATUS_LABEL } from "./enums";
@@ -250,7 +250,7 @@ export async function buildRentCsv(year: number): Promise<string> {
 export type ExportResult = {
   year: number;
   month?: number;
-  files: Array<{ name: string; url: string | null; backend: string }>;
+  files: Array<{ name: string; url: string | null; backend: StoredFile["backend"] }>;
 };
 
 /**

@@ -79,7 +79,7 @@ export default async function ExportPage({
     <>
       <PageHeader
         title="Steuerberater-Export"
-        description="Alle Zahlen und Belege eines Jahres – als CSV zum Herunterladen und als Ordner in Google Drive zum Freigeben."
+        description="Alle Zahlen und Belege eines Jahres – als CSV zum Herunterladen und als Exportordner für die Kanzlei."
         breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Steuerberater" }]}
         actions={
           <form className="flex items-center gap-2">
@@ -200,7 +200,7 @@ export default async function ExportPage({
         </Card>
 
         <div className="space-y-6">
-          <Card title="In Google Drive ablegen">
+          <Card title="Export in die Ablage">
             {drive.ok ? (
               <Alert tone="success">{drive.message}</Alert>
             ) : (
@@ -246,26 +246,37 @@ export default async function ExportPage({
             )}
           </Card>
 
-          <Card
-            title="Ordner freigeben"
-            description={`Der Steuerberater erhält Leserechte auf den kompletten Jahresordner ${year}.`}
-          >
-            <form action={shareWithAccountant} className="space-y-3">
-              <input type="hidden" name="year" value={year} />
-              <div>
-                <label htmlFor="email">E-Mail des Steuerberaters</label>
-                <input id="email" name="email" type="email" required placeholder="kanzlei@beispiel.de" />
-              </div>
-              <button type="submit" className="btn btn-primary w-full" disabled={!drive.ok}>
-                Ordner freigeben
-              </button>
-              {!drive.ok && (
-                <p className="field-hint">
-                  Erst möglich, wenn Google Drive verbunden ist.
-                </p>
-              )}
-            </form>
-          </Card>
+          {drive.mode === "service-account" || drive.mode === "oauth" ? (
+            <Card
+              title="Ordner freigeben"
+              description={`Der Steuerberater erhält Leserechte auf den kompletten Jahresordner ${year}.`}
+            >
+              <form action={shareWithAccountant} className="space-y-3">
+                <input type="hidden" name="year" value={year} />
+                <div>
+                  <label htmlFor="email">E-Mail des Steuerberaters</label>
+                  <input id="email" name="email" type="email" required placeholder="kanzlei@beispiel.de" />
+                </div>
+                <button type="submit" className="btn btn-primary w-full" disabled={!drive.ok}>
+                  Ordner freigeben
+                </button>
+              </form>
+            </Card>
+          ) : (
+            <Card
+              title="Zugang für den Steuerberater"
+              description="Kein Ordner-Freigeben nötig – der Steuerberater arbeitet direkt in der App."
+            >
+              <p className="text-sm text-ink-600">
+                Legen Sie unter{" "}
+                <Link href="/einstellungen" className="font-semibold text-brand-700 hover:underline">
+                  Einstellungen → Benutzer
+                </Link>{" "}
+                einen Zugang mit der Rolle „Steuerberater“ an. Dieser sieht ausschließlich die
+                Buchhaltung (nur lesend) und kann die Exporte und Belege hier selbst herunterladen.
+              </p>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -312,7 +323,7 @@ export default async function ExportPage({
         >
           {abgelegte.length === 0 ? (
             <p className="text-sm text-ink-500">
-              Noch kein Export abgelegt. „In Google Drive ablegen“ erzeugt alle Dateien –
+              Noch kein Export abgelegt. „Export erzeugen und ablegen“ erzeugt alle Dateien –
               einschließlich DATEV – und verzeichnet sie hier.
             </p>
           ) : (
@@ -332,7 +343,7 @@ export default async function ExportPage({
                     <Td align="right">
                       {doc.driveUrl ? (
                         <a href={doc.driveUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-                          Drive
+                          {doc.driveUrl.startsWith("/") ? "Öffnen" : "Drive"}
                         </a>
                       ) : doc.localPath ? (
                         <a href={`/api/dateien/${doc.localPath.split("/").map(encodeURIComponent).join("/")}`} className="btn btn-ghost btn-sm">

@@ -26,19 +26,26 @@ gewünschten Zeilen aus dem Block am Ende hierher.
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-## Dokumentenablage (Supabase Storage – empfohlen)
+## Dokumentenablage
+
+**Ohne weitere Einrichtung** landen Verträge, Belege und Kontoauszüge
+direkt in der Datenbank (Tabelle `AblageDatei`) – es sind also keine
+zusätzlichen Variablen nötig. Ausgeliefert werden die Dateien
+ausschließlich über die Anwendung an angemeldete Benutzer.
+
+### Optional: Supabase Storage
 
 | Variable | Bedeutung |
 | --- | --- |
 | `SUPABASE_URL` | Projekt-Adresse, z. B. `https://xyz.supabase.co` |
 | `SUPABASE_SECRET_KEY` | Geheimer Schlüssel (`sb_secret_…`) aus Settings → API Keys |
 
-Verträge, Belege und Kontoauszüge landen dann im privaten Bucket
-`dokumente` desselben Supabase-Projekts wie die Datenbank. Ausgeliefert
-werden sie ausschließlich über die Anwendung an angemeldete Benutzer –
-der Schlüssel bleibt auf dem Server.
+Sind beide gesetzt, landen neue Dateien stattdessen im privaten Bucket
+`dokumente` desselben Supabase-Projekts wie die Datenbank – sinnvoll,
+wenn viele oder sehr große Dokumente anfallen. Bereits in der Datenbank
+abgelegte Dateien bleiben abrufbar.
 
-## Alternativ: Google Drive
+### Alternativ: Google Drive
 
 Nur relevant, wenn kein Supabase Storage konfiguriert ist.
 
@@ -51,9 +58,9 @@ Nur relevant, wenn kein Supabase Storage konfiguriert ist.
 Alternativ statt des Dienstkontos: `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET` und `GOOGLE_REFRESH_TOKEN`.
 
-Ohne jede Ablage nimmt die Anwendung keine Belege an und sagt das
-deutlich; der Kontoauszug-Import läuft trotzdem durch, nur das Original
-wird nicht archiviert.
+Ist keine Ablage erreichbar (auch die Datenbank nicht), nimmt die
+Anwendung keine Belege an und sagt das deutlich; der Kontoauszug-Import
+läuft trotzdem durch, nur das Original wird nicht archiviert.
 
 ## Optional
 

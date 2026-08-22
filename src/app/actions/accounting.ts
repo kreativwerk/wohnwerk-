@@ -10,7 +10,7 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { cents, date, flash, int, optionalCents, optionalStr, str } from "@/lib/form";
 import { dedupeHash, parseStatement } from "@/lib/bank";
-import { FOLDER, deleteFile, folderLink, shareFolderWith, uploadFile } from "@/lib/storage";
+import { FOLDER, backendLabel, deleteFile, folderLink, shareFolderWith, uploadFile } from "@/lib/storage";
 import { allocate, autoMatch, deallocate, ensureRentCharges } from "@/lib/accounting";
 import { exportToDrive } from "@/lib/export";
 import { formatDate } from "@/lib/dates";
@@ -473,9 +473,7 @@ export async function uploadDocument(formData: FormData) {
     flash(
       back,
       "ok",
-      stored.backend === "drive"
-        ? `Beleg „${title}“ wurde in Google Drive abgelegt.`
-        : `Beleg „${title}“ wurde lokal abgelegt (Google Drive ist nicht konfiguriert).`,
+      `Beleg „${title}“ wurde in ${backendLabel(stored.backend)} abgelegt.`,
     ),
   );
 }
@@ -540,7 +538,7 @@ export async function runExport(formData: FormData) {
   await audit(user.email, "export", "Accounting", null, `${year}${month ? `-${month}` : ""}`);
   revalidatePath(back);
 
-  const backend = result.files[0]?.backend === "drive" ? "Google Drive" : "der lokalen Ablage";
+  const backend = backendLabel(result.files[0]?.backend ?? "db");
   redirect(
     flash(back, "ok", `${result.files.length} Datei(en) wurden in ${backend} abgelegt.`),
   );

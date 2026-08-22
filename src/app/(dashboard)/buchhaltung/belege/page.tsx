@@ -74,7 +74,7 @@ export default async function DocumentsPage({
     <>
       <PageHeader
         title="Belege"
-        description="Rechnungen und Quittungen – abgelegt in Google Drive, sortiert nach Jahr und Monat."
+        description="Rechnungen und Quittungen – sicher abgelegt, sortiert nach Jahr und Monat."
         breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Belege" }]}
         actions={
           <Link href="/buchhaltung/export" className="btn btn-secondary">
@@ -88,7 +88,7 @@ export default async function DocumentsPage({
       {!drive.ok && (
         <div className="mb-5">
           <Badge tone={drive.configured ? "danger" : "warning"}>
-            {drive.configured ? "Google Drive nicht erreichbar" : "Google Drive nicht eingerichtet"}
+            {drive.configured ? "Ablage nicht erreichbar" : "Ablage nicht eingerichtet"}
           </Badge>
           <p className="mt-1 text-sm text-ink-600">
             {drive.message}{" "}

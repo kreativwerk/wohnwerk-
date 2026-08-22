@@ -453,6 +453,24 @@ model Document {
 }
 
 // ---------------------------------------------------------------------------
+// Dokumentenablage in der Datenbank
+// ---------------------------------------------------------------------------
+
+// Die Standard-Ablage: Dateien liegen direkt in der Supabase-Datenbank, mit
+// der die App ohnehin verbunden ist. Braucht keinerlei zusaetzliche
+// Einrichtung. Der "pfad" folgt denselben Ordnerkonventionen wie die
+// uebrigen Ablagen (Jahr/Monat/Belegart) und ist die Kennung, unter der
+// Document.driveFileId auf die Datei verweist.
+model AblageDatei {
+  id        String   @id @default(cuid())
+  pfad      String   @unique
+  mimeType  String
+  sizeBytes Int      @default(0)
+  daten     Bytes
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
 // Einstellungen (Key/Value) + Benutzer + Audit
 // ---------------------------------------------------------------------------
 
