@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { bool, cents, flash, float, int, optionalStr, str } from "@/lib/form";
+import { cents, flash, float, int, optionalStr, str } from "@/lib/form";
 import {
   TEMPLATE_KIND,
   TEMPLATE_KIND_LABEL,
@@ -97,13 +97,54 @@ export async function updateProperty(formData: FormData) {
       managerEmail: optionalStr(formData, "managerEmail"),
       wifiSsid: optionalStr(formData, "wifiSsid"),
       wifiPassword: optionalStr(formData, "wifiPassword"),
-      active: bool(formData, "active"),
     },
   });
 
   await audit(user.email, "update", "Property", id, property.name);
   refresh(id);
   redirect(flash(`/objekte/${id}`, "ok", "Objektdaten wurden gespeichert."));
+}
+
+/**
+ * Stellt ein Objekt inaktiv oder wieder aktiv. Inaktive Objekte
+ * verschwinden aus Belegungsplan, Bettauswahl und den Kennzahlen,
+ * bleiben aber mit ihrer ganzen Historie in der Buchhaltung erhalten.
+ */
+export async function togglePropertyActive(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+
+  const property = await prisma.property.findUnique({ where: { id } });
+  if (!property) redirect(flash("/objekte", "fehler", "Objekt nicht gefunden."));
+
+  if (property.active) {
+    // Solange noch jemand dort wohnt, wuerde Inaktivstellen Daten verstecken.
+    const tenancyCount = await prisma.tenancy.count({
+      where: { bed: { room: { propertyId: id } }, status: { in: ["SENT", "ACTIVE"] } },
+    });
+    if (tenancyCount > 0) {
+      redirect(
+        flash(
+          `/objekte/${id}`,
+          "fehler",
+          `Das Objekt hat noch ${tenancyCount} laufende Mietverhältnis(se) – bitte erst beenden, dann inaktiv stellen.`,
+        ),
+      );
+    }
+  }
+
+  await prisma.property.update({ where: { id }, data: { active: !property.active } });
+  await audit(user.email, property.active ? "deactivate" : "activate", "Property", id, property.name);
+  refresh(id);
+  redirect(
+    flash(
+      `/objekte/${id}`,
+      "ok",
+      property.active
+        ? `„${property.name}“ ist jetzt inaktiv – es taucht in Belegungsplan und Kennzahlen nicht mehr auf.`
+        : `„${property.name}“ ist wieder aktiv.`,
+    ),
+  );
 }
 
 export async function deleteProperty(formData: FormData) {

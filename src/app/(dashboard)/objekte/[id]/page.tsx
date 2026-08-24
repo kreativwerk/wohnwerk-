@@ -7,13 +7,14 @@ import {
   deleteBed,
   deleteProperty,
   deleteRoom,
+  togglePropertyActive,
   updateBed,
   updateProperty,
   updateRoom,
 } from "@/app/actions/properties";
 import { BedBadge } from "@/components/status";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
-import { Card, EmptyState, Flash, Meter, PageHeader, StatCard } from "@/components/ui";
+import { Alert, Card, EmptyState, Flash, Meter, PageHeader, StatCard } from "@/components/ui";
 import { PropertyTemplates } from "@/components/template-card";
 import { PropertyCosts } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
@@ -79,17 +80,44 @@ export default async function PropertyDetailPage({
   return (
     <>
       <PageHeader
-        title={property.name}
+        title={property.active ? property.name : `${property.name} (inaktiv)`}
         description={`${property.street}, ${property.zip} ${property.city}`}
         breadcrumb={[{ label: "Objekte", href: "/objekte" }, { label: property.name }]}
         actions={
-          <Link href={`/belegung?objekt=${property.id}`} className="btn btn-secondary">
-            Belegungsplan
-          </Link>
+          <>
+            <form action={togglePropertyActive}>
+              <input type="hidden" name="id" value={property.id} />
+              {property.active ? (
+                <ConfirmButton
+                  className="btn btn-secondary"
+                  message={`„${property.name}“ inaktiv stellen? Es verschwindet aus Belegungsplan, Bettauswahl und Kennzahlen – Buchhaltung und Historie bleiben erhalten.`}
+                >
+                  Inaktiv stellen
+                </ConfirmButton>
+              ) : (
+                <button type="submit" className="btn btn-primary">
+                  Wieder aktivieren
+                </button>
+              )}
+            </form>
+            <Link href={`/belegung?objekt=${property.id}`} className="btn btn-secondary">
+              Belegungsplan
+            </Link>
+          </>
         }
       />
 
       <Flash ok={flash.ok} fehler={flash.fehler} />
+
+      {!property.active && (
+        <div className="mb-5">
+          <Alert tone="warning" title="Dieses Objekt ist inaktiv">
+            Es erscheint nicht mehr im Belegungsplan, in der Bettauswahl für neue Mieter und in
+            den Kennzahlen. Alle Buchungen, Verträge und Dokumente bleiben erhalten. Über
+            „Wieder aktivieren“ kommt es jederzeit zurück.
+          </Alert>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Zimmer" value={String(property.rooms.length)} />
@@ -493,11 +521,6 @@ export default async function PropertyDetailPage({
                 <textarea id="notes" name="notes" rows={3} defaultValue={property.notes ?? ""} />
               </div>
             </div>
-
-            <label className="flex items-center gap-2 text-sm font-normal text-ink-700">
-              <input type="checkbox" name="active" defaultChecked={property.active} className="h-4 w-4" />
-              Objekt ist aktiv
-            </label>
 
             <button type="submit" className="btn btn-primary">
               Objektdaten speichern

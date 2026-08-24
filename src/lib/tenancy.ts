@@ -149,8 +149,9 @@ export type OccupancySummary = {
 
 /** Kennzahlen fuer Dashboard und Objektuebersicht. */
 export async function occupancySummary(propertyId?: string, at = new Date()): Promise<OccupancySummary> {
+  // Ohne Objektfilter zaehlen nur aktive Objekte - inaktive sind Geschichte.
   const beds = await prisma.bed.findMany({
-    where: propertyId ? { room: { propertyId } } : {},
+    where: propertyId ? { room: { propertyId } } : { room: { property: { active: true } } },
     select: { id: true, status: true, monthlyRentCents: true },
   });
 
@@ -175,7 +176,9 @@ export async function occupancySummary(propertyId?: string, at = new Date()): Pr
       status: { in: [...OCCUPYING_STATUSES] },
       startDate: { lte: at },
       OR: [{ endDate: null }, { endDate: { gte: at } }],
-      ...(propertyId ? { bed: { room: { propertyId } } } : {}),
+      ...(propertyId
+        ? { bed: { room: { propertyId } } }
+        : { bed: { room: { property: { active: true } } } }),
     },
     select: { monthlyRentCents: true },
   });

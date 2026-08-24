@@ -82,7 +82,10 @@ export default async function PropertiesPage({
                 const bedCount = property.rooms.reduce((sum, room) => sum + room.beds.length, 0);
 
                 return (
-                  <tr key={property.id} className="hover:bg-ink-50">
+                  <tr
+                    key={property.id}
+                    className={property.active ? "hover:bg-ink-50" : "opacity-60 hover:bg-ink-50 hover:opacity-100"}
+                  >
                     <Td>
                       <Link
                         href={`/objekte/${property.id}`}
@@ -91,16 +94,19 @@ export default async function PropertiesPage({
                         {property.name}
                       </Link>
                       {!property.active && (
-                        <span className="ml-2 text-xs text-ink-500">(inaktiv)</span>
+                        <span className="ml-2">
+                          <Badge tone="neutral">Inaktiv</Badge>
+                        </span>
                       )}
                       {property.shortCode && (
                         <p className="text-xs text-ink-500">Kürzel {property.shortCode}</p>
                       )}
-                      {!property.templates.some((t) => coversLandlordConfirmation(t.kind)) && (
-                        <p className="mt-1">
-                          <Badge tone="warning">Wohnungsgeberbestätigung fehlt</Badge>
-                        </p>
-                      )}
+                      {property.active &&
+                        !property.templates.some((t) => coversLandlordConfirmation(t.kind)) && (
+                          <p className="mt-1">
+                            <Badge tone="warning">Wohnungsgeberbestätigung fehlt</Badge>
+                          </p>
+                        )}
                     </Td>
                     <Td className="text-ink-600">
                       {property.street}
