@@ -24,6 +24,8 @@ const schritte = [
   ["node", ["scripts/uebernehme-vertraege.mjs"]],
   // Aus zugeordneten Scans echte Vertraege machen (idempotent)
   ["node", ["scripts/vertraege-nacharbeiten.mjs"]],
+  // Original-Vertragsvorlage bei den Objekten hinterlegen (idempotent)
+  ["node", ["scripts/vorlagen-einrichten.mjs"]],
   ["npx", ["next", "build"]],
 ];
 
