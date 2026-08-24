@@ -150,7 +150,7 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card
           title="Auslastung je Objekt"
-          className="lg:col-span-2"
+          className="min-w-0 lg:col-span-2"
           actions={
             <Link href="/objekte" className="btn btn-ghost">
               Alle Objekte
@@ -229,7 +229,7 @@ export default async function DashboardPage() {
         <Card
           title="Einnahmen und Ausgaben"
           description="Letzte 12 Monate aus den importierten Kontoauszügen"
-          className="lg:col-span-2"
+          className="min-w-0 lg:col-span-2"
         >
           {cashflow.every((month) => month.incomeCents === 0 && month.expenseCents === 0) ? (
             <EmptyState

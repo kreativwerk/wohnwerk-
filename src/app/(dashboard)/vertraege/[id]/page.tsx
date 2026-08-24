@@ -87,7 +87,7 @@ export default async function ContractDetailPage({
       <Flash ok={flash.ok} fehler={flash.fehler} />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card title="Vertragsinhalt" description="Genau dieser Text erscheint im PDF und beim Mieter.">
             <ContractView data={data} />
           </Card>

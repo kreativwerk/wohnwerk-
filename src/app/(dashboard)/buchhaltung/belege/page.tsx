@@ -10,6 +10,7 @@ import { centsToInput, formatCents } from "@/lib/money";
 import { formatDate, toDateInput } from "@/lib/dates";
 import { checkDriveStatus } from "@/lib/storage";
 import { AdminOnly } from "@/components/admin-only";
+import { BelegDatei } from "@/components/beleg-datei";
 
 export const metadata = { title: "Belege" };
 export const dynamic = "force-dynamic";
@@ -77,9 +78,15 @@ export default async function DocumentsPage({
         description="Rechnungen und Quittungen – sicher abgelegt, sortiert nach Jahr und Monat."
         breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Belege" }]}
         actions={
-          <Link href="/buchhaltung/export" className="btn btn-secondary">
-            Steuerberater-Export
-          </Link>
+          <>
+            {/* Unterwegs der wichtigste Weg: Beleg abfotografieren. */}
+            <a href="#beleg-hochladen" className="btn btn-primary">
+              Beleg erfassen
+            </a>
+            <Link href="/buchhaltung/export" className="btn btn-secondary">
+              Steuerberater-Export
+            </Link>
+          </>
         }
       />
 
@@ -100,15 +107,17 @@ export default async function DocumentsPage({
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        {/* min-w-0: ohne das wächst die Gitterspalte auf die Breite ihres
+            Inhalts und die Seite lässt sich am Handy seitlich schieben. */}
+        <div className="min-w-0 lg:col-span-2">
           <Card padded={false}>
             <AdminOnly>
               <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
-                <div className="min-w-48 flex-1">
+                <div className="min-w-40 flex-1">
                   <label htmlFor="q">Suche</label>
                   <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Titel, Lieferant" />
                 </div>
-                <div className="w-44">
+                <div className="min-w-36 flex-1 sm:w-44 sm:flex-none">
                   <label htmlFor="art">Art</label>
                   <select id="art" name="art" defaultValue={params.art ?? ""}>
                     <option value="">Alle</option>
@@ -119,7 +128,7 @@ export default async function DocumentsPage({
                     ))}
                   </select>
                 </div>
-                <div className="w-28">
+                <div className="w-24">
                   <label htmlFor="jahr">Jahr</label>
                   <input id="jahr" name="jahr" inputMode="numeric" defaultValue={params.jahr ?? ""} />
                 </div>
@@ -315,14 +324,17 @@ export default async function DocumentsPage({
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card title="Beleg hochladen">
+        <div className="min-w-0 space-y-6" id="beleg-hochladen">
+          <Card
+            title="Beleg erfassen"
+            description="Unterwegs abfotografieren – das Foto wird automatisch auf eine sinnvolle Größe gebracht."
+          >
             <AdminOnly>
               <form action={uploadDocument} className="space-y-3">
                 <input type="hidden" name="back" value="/buchhaltung/belege" />
                 <div>
-                  <label htmlFor="file">Datei *</label>
-                  <input id="file" name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" />
+                  <label htmlFor="file">Beleg *</label>
+                  <BelegDatei />
                 </div>
                 <div>
                   <label htmlFor="title">Titel</label>

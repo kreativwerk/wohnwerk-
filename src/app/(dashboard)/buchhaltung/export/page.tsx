@@ -123,7 +123,7 @@ export default async function ExportPage({
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <Card title="Direkt herunterladen" description="Öffnet sich in Excel und LibreOffice ohne Umwege.">
           <Table>
             <thead>
@@ -280,7 +280,7 @@ export default async function ExportPage({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <AdminOnly>
           <Card
             title="DATEV-Stammdaten"

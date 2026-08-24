@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { createTenancy, deleteTenant, endTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
-import { toggleTenantFormer } from "@/app/actions/contracts";
+import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
 import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
@@ -141,14 +141,41 @@ export default async function TenantDetailPage({
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <TenancyBadge status={tenancy.status} />
-                      {tenancy.contract && <ContractBadge status={tenancy.contract.status} />}
-                      {tenancy.contract && (
-                        <Link href={`/vertraege/${tenancy.contract.id}`} className="btn btn-secondary">
-                          Vertrag öffnen
-                        </Link>
+                      {tenancy.contract ? (
+                        <>
+                          <ContractBadge status={tenancy.contract.status} />
+                          <Link
+                            href={`/vertraege/${tenancy.contract.id}`}
+                            className="btn btn-secondary"
+                          >
+                            Vertrag öffnen
+                          </Link>
+                        </>
+                      ) : (
+                        <Badge tone="danger">Mietvertrag fehlt</Badge>
                       )}
                     </div>
                   </div>
+
+                  {!tenancy.contract && (
+                    <div className="mt-3 rounded-md bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+                      <p>
+                        Zu diesem Mietverhältnis ist kein Mietvertrag hinterlegt. Liegt der
+                        unterschriebene Vertrag als Scan vor, ordnen Sie ihn in der{" "}
+                        <Link href="/vertraege/ablage" className="font-semibold underline">
+                          Vertragsablage
+                        </Link>{" "}
+                        zu – andernfalls legen Sie hier einen neuen Vertrag an.
+                      </p>
+                      <form action={createContractForTenancy} className="mt-2">
+                        <input type="hidden" name="tenancyId" value={tenancy.id} />
+                        <input type="hidden" name="back" value={`/mieter/${tenant.id}`} />
+                        <button type="submit" className="btn btn-secondary btn-sm">
+                          Vertrag anlegen
+                        </button>
+                      </form>
+                    </div>
+                  )}
 
                   {openCharges.length > 0 && (
                     <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">

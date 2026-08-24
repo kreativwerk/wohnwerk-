@@ -42,7 +42,10 @@ export default async function TenantsPage({
     },
     include: {
       tenancies: {
-        include: { bed: { include: { room: { include: { property: true } } } } },
+        include: {
+          bed: { include: { room: { include: { property: true } } } },
+          contract: { select: { id: true, status: true } },
+        },
         orderBy: { startDate: "desc" },
       },
     },
@@ -117,6 +120,7 @@ export default async function TenantsPage({
                 <Th>Unterkunft</Th>
                 <Th>Zeitraum</Th>
                 <Th align="right">Miete</Th>
+                <Th>Mietvertrag</Th>
                 <Th align="right">Status</Th>
               </tr>
             </thead>
@@ -176,6 +180,20 @@ export default async function TenantsPage({
                     </Td>
                     <Td align="right" className="tabular-nums">
                       {current ? formatCents(current.monthlyRentCents) : "–"}
+                    </Td>
+                    <Td>
+                      {!current ? (
+                        <span className="text-ink-500">–</span>
+                      ) : current.contract ? (
+                        <Link
+                          href={`/vertraege/${current.contract.id}`}
+                          className="text-brand-700 hover:underline"
+                        >
+                          vorhanden
+                        </Link>
+                      ) : (
+                        <Badge tone="danger">Vertrag fehlt</Badge>
+                      )}
                     </Td>
                     <Td align="right">
                       {current ? <TenancyBadge status={current.status} /> : <span className="text-ink-500">–</span>}

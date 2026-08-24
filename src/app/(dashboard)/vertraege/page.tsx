@@ -31,8 +31,10 @@ export default async function ContractsPage({
   await requireAdmin();
   const params = await searchParams;
   const status = params.status ?? "";
+  const heute = new Date();
 
-  const [contracts, counts, ohneVertrag, ehemalige, inAblage] = await Promise.all([
+  const [contracts, counts, ohneVertrag, ehemalige, inAblage, laufendeMietverhaeltnisse] =
+    await Promise.all([
     prisma.contract.findMany({
       where: status ? { status } : {},
       include: {
@@ -77,15 +79,26 @@ export default async function ContractsPage({
       take: 300,
     }),
     prisma.document.count({ where: { kind: "CONTRACT", tenantId: null } }),
+    // Abgleich: wie viele Mietverhältnisse laufen gerade überhaupt?
+    prisma.tenancy.count({
+      where: {
+        tenant: { status: { not: "EHEMALIG" } },
+        status: { not: "ENDED" },
+        OR: [{ endDate: null }, { endDate: { gte: heute } }],
+      },
+    }),
   ]);
 
-  const heute = new Date();
   const istAktiv = (tenancy: (typeof ohneVertrag)[number]) =>
     tenancy.status !== "ENDED" && (!tenancy.endDate || tenancy.endDate >= heute);
   const aktiveOhneVertrag = ohneVertrag.filter(istAktiv).length;
 
   const countFor = (value: string) =>
     counts.find((entry) => entry.status === value)?._count._all ?? 0;
+
+  // Der eigentliche Abgleich: zu jedem laufenden Mietverhältnis gehört ein
+  // Vertrag. Was hier fehlt, steht unten namentlich in der Liste.
+  const mitVertrag = Math.max(0, laufendeMietverhaeltnisse - aktiveOhneVertrag);
 
   /** Der hinterlegte Scan bzw. das erzeugte PDF eines Vertrags. */
   const vertragsPdf = (contract: (typeof contracts)[number]) =>
@@ -110,7 +123,30 @@ export default async function ContractsPage({
 
       <Flash ok={params.ok} fehler={params.fehler} />
 
+      {/* Abgleich laufende Mietverhältnisse gegen vorhandene Verträge */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Laufende Mietverhältnisse" value={String(laufendeMietverhaeltnisse)} />
+        <StatCard
+          label="Vertrag hinterlegt"
+          value={`${mitVertrag} von ${laufendeMietverhaeltnisse}`}
+          tone={aktiveOhneVertrag === 0 ? "success" : "neutral"}
+        />
+        <StatCard
+          label="Vertrag fehlt"
+          value={String(aktiveOhneVertrag)}
+          tone={aktiveOhneVertrag > 0 ? "danger" : "success"}
+          hint={aktiveOhneVertrag > 0 ? "namentlich in der Liste unten" : "alle vollständig"}
+        />
+        <StatCard
+          label="In der Ablage"
+          value={String(inAblage)}
+          tone={inAblage > 0 ? "warning" : "success"}
+          href="/vertraege/ablage"
+          hint={inAblage > 0 ? "noch keinem Mieter zugeordnet" : "alles zugeordnet"}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Entwürfe" value={String(countFor("DRAFT"))} href="/vertraege?status=DRAFT" />
         <StatCard
           label="Versendet"
