@@ -58,9 +58,10 @@ export default async function ContractsPage({
       orderBy: [{ endDate: { sort: "desc", nulls: "first" } }, { startDate: "desc" }],
       take: 300,
     }),
-    // Ehemalige Mieter: ausgezogen, Verträge bleiben in den Unterlagen.
+    // Ehemalige Mieter ohne eigenen Vertragsdatensatz: ausgezogen, oft ohne
+    // bekanntes Bett. Wer einen Vertrag hat, steht schon in der Tabelle oben.
     prisma.tenant.findMany({
-      where: { status: "EHEMALIG" },
+      where: { status: "EHEMALIG", tenancies: { none: { contract: { isNot: null } } } },
       include: {
         documents: {
           where: { kind: "CONTRACT" },
@@ -347,7 +348,7 @@ export default async function ContractsPage({
         <div className="mt-6">
           <Card
             title="Ehemalige Mieter – Verträge beendet"
-            description={`${ehemalige.length} Personen sind ausgezogen. Ihre Verträge bleiben für die Buchhaltung erhalten.`}
+            description={`${ehemalige.length} Personen sind ausgezogen; zu ihnen ist kein Bett mehr hinterlegt. Die Verträge bleiben für die Buchhaltung erhalten.`}
             padded={false}
           >
             <Table>
