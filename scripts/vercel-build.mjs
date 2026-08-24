@@ -22,6 +22,8 @@ const schritte = [
   ["npx", ["prisma", "migrate", "deploy"]],
   // Einmalige Uebernahme eingescannter Bestandsvertraege (no-op ohne Ordner)
   ["node", ["scripts/uebernehme-vertraege.mjs"]],
+  // Aus zugeordneten Scans echte Vertraege machen (idempotent)
+  ["node", ["scripts/vertraege-nacharbeiten.mjs"]],
   ["npx", ["next", "build"]],
 ];
 

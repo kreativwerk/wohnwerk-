@@ -9,8 +9,11 @@ export type BedStatus = (typeof BED_STATUS)[number];
 export const TENANCY_STATUS = ["DRAFT", "SENT", "ACTIVE", "ENDED", "CANCELLED"] as const;
 export type TenancyStatus = (typeof TENANCY_STATUS)[number];
 
-export const CONTRACT_STATUS = ["DRAFT", "SENT", "VIEWED", "SIGNED", "CANCELLED"] as const;
+export const CONTRACT_STATUS = ["DRAFT", "SENT", "VIEWED", "SIGNED", "ENDED", "CANCELLED"] as const;
 export type ContractStatus = (typeof CONTRACT_STATUS)[number];
+
+export const TENANT_STATUS = ["AKTIV", "EHEMALIG"] as const;
+export type TenantStatus = (typeof TENANT_STATUS)[number];
 
 export const TX_DIRECTION = ["CREDIT", "DEBIT"] as const;
 export type TxDirection = (typeof TX_DIRECTION)[number];
@@ -45,7 +48,13 @@ export const CONTRACT_STATUS_LABEL: LabelMap = {
   SENT: "Versendet",
   VIEWED: "Geöffnet",
   SIGNED: "Unterschrieben",
+  ENDED: "Beendet",
   CANCELLED: "Storniert",
+};
+
+export const TENANT_STATUS_LABEL: LabelMap = {
+  AKTIV: "Aktiv",
+  EHEMALIG: "Ehemalig",
 };
 
 export const TX_REVIEW_STATUS_LABEL: LabelMap = {

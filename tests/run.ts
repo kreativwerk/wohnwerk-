@@ -11,6 +11,7 @@ import { parseAmountToCents, formatCents, centsToInput } from "../src/lib/money"
 import { parseBankDate, monthsBetween, fromDateInput } from "../src/lib/dates";
 import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedupeHash, decodeBuffer } from "../src/lib/bank";
 import { contrastRatio, readTokens } from "../src/lib/contrast";
+import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -456,6 +457,49 @@ async function main() {
       );
     });
   }
+
+  // --- Vertragsablage: Namen zuordnen ------------------------------------
+  // Der Vorschlag darf grosszügig sein, aber nie zwei Menschen verschmelzen.
+
+  const MIETER = [
+    { id: "a", firstName: "Jurgin", lastName: "Haradinaj" },
+    { id: "b", firstName: "Drilon", lastName: "Bucolli" },
+    { id: "c", firstName: "Albin", lastName: "Bucolli" },
+    { id: "d", firstName: "Granit", lastName: "Dermaku" },
+  ];
+
+  await test("Name wird aus dem Dokumenttitel zurückgewonnen", () => {
+    assert.equal(nameAusTitel("Mietvertrag Ardit Beka (Bestand)"), "Ardit Beka");
+    assert.equal(nameAusTitel("Mietvertrag Csaba Varadi (nur SEPA-Mandat)"), "Csaba Varadi");
+    assert.equal(nameAusTitel("Mietvertrag Melos Vitia"), "Melos Vitia");
+  });
+
+  await test("Schreibfehler im Nachnamen wird vorgeschlagen", () => {
+    const treffer = besterTreffer("Jurgin Hajdinaj", MIETER);
+    assert.equal(treffer?.tenantId, "a");
+  });
+
+  await test("Schreibfehler im Vornamen wird vorgeschlagen", () => {
+    const treffer = besterTreffer("Jurgen Haradinaj", MIETER);
+    assert.equal(treffer?.tenantId, "a");
+  });
+
+  await test("Gleicher Nachname, anderer Vorname wird nicht vorgeschlagen", () => {
+    // Dian, Drilon und Albin Bucolli sind drei verschiedene Menschen.
+    const treffer = besterTreffer("Dian Bucolli", MIETER);
+    assert.equal(treffer, null, `fälschlich vorgeschlagen: ${treffer?.name}`);
+  });
+
+  await test("Fremder Name liefert keinen Vorschlag", () => {
+    assert.equal(besterTreffer("Felix Csonka", MIETER), null);
+  });
+
+  await test("Namensähnlichkeit: gleich ist 1, verschieden ist klein", () => {
+    assert.equal(namensAehnlichkeit("Ardit Beka", "Ardit Beka"), 1);
+    assert.ok(namensAehnlichkeit("Ardit Beka", "Melos Vitia") < 0.2);
+    // Groß-/Kleinschreibung und Sonderzeichen dürfen nichts ändern.
+    assert.equal(namensAehnlichkeit("ARDIT  BEKA", "Ardit Beka"), 1);
+  });
 
   await test("Markenfarben stammen unverändert aus den Logo-Dateien", () => {
     assert.equal(t["accent-500"].toLowerCase(), "#ee5627", "Orange der W-Marke");

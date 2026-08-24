@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
+import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { TenancyBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
@@ -32,7 +32,13 @@ export default async function TenantsPage({
             ],
           }
         : {}),
-      ...(statusFilter ? { tenancies: { some: { status: statusFilter } } } : {}),
+      // Ehemalige Mieter bleiben erhalten, stehen aber nicht mehr im Weg -
+      // sie erscheinen nur, wenn ausdrücklich danach gefiltert wird.
+      ...(statusFilter === "EHEMALIG"
+        ? { status: "EHEMALIG" }
+        : statusFilter
+          ? { status: { not: "EHEMALIG" }, tenancies: { some: { status: statusFilter } } }
+          : { status: { not: "EHEMALIG" } }),
     },
     include: {
       tenancies: {
@@ -67,11 +73,12 @@ export default async function TenantsPage({
           <div className="w-48">
             <label htmlFor="status">Status</label>
             <select id="status" name="status" defaultValue={statusFilter}>
-              <option value="">Alle</option>
+              <option value="">Alle außer ehemaligen</option>
               <option value="ACTIVE">Aktiv</option>
               <option value="SENT">Vertrag versendet</option>
               <option value="DRAFT">Entwurf</option>
               <option value="ENDED">Beendet</option>
+              <option value="EHEMALIG">Nur ehemalige Mieter</option>
             </select>
           </div>
           <button type="submit" className="btn btn-secondary">
@@ -130,6 +137,11 @@ export default async function TenantsPage({
                       >
                         {tenant.lastName}, {tenant.firstName}
                       </Link>
+                      {tenant.status === "EHEMALIG" && (
+                        <span className="ml-2">
+                          <Badge tone="neutral">Ehemalig</Badge>
+                        </span>
+                      )}
                     </Td>
                     <Td className="text-ink-600">
                       <a href={`mailto:${tenant.email}`} className="hover:text-brand-700">

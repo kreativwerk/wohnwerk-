@@ -19,6 +19,7 @@ const CONTRACT_TONE: Record<string, Tone> = {
   SENT: "info",
   VIEWED: "warning",
   SIGNED: "success",
+  ENDED: "neutral",
   CANCELLED: "danger",
 };
 

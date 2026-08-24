@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { createTenancy, deleteTenant, endTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
+import { toggleTenantFormer } from "@/app/actions/contracts";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
-import { Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
+import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { bedOptions } from "@/lib/options";
 import { centsToInput, formatCents } from "@/lib/money";
@@ -67,16 +68,29 @@ export default async function TenantDetailPage({
   return (
     <>
       <PageHeader
-        title={`${tenant.firstName} ${tenant.lastName}`}
+        title={
+          tenant.status === "EHEMALIG"
+            ? `${tenant.firstName} ${tenant.lastName} (ehemalig)`
+            : `${tenant.firstName} ${tenant.lastName}`
+        }
         description={[tenant.email, tenant.phone, tenant.company].filter(Boolean).join(" · ")}
         breadcrumb={[
           { label: "Mieter", href: "/mieter" },
           { label: `${tenant.firstName} ${tenant.lastName}` },
         ]}
         actions={
-          <a href={`mailto:${tenant.email}`} className="btn btn-secondary">
-            E-Mail schreiben
-          </a>
+          <>
+            <form action={toggleTenantFormer}>
+              <input type="hidden" name="tenantId" value={tenant.id} />
+              <input type="hidden" name="back" value={`/mieter/${tenant.id}`} />
+              <button type="submit" className="btn btn-secondary">
+                {tenant.status === "EHEMALIG" ? "Wieder aktiv setzen" : "Als ehemalig markieren"}
+              </button>
+            </form>
+            <a href={`mailto:${tenant.email}`} className="btn btn-secondary">
+              E-Mail schreiben
+            </a>
+          </>
         }
       />
 
@@ -357,7 +371,14 @@ export default async function TenantDetailPage({
               <tbody>
                 {tenant.documents.map((document) => (
                   <tr key={document.id}>
-                    <Td>{document.title}</Td>
+                    <Td>
+                      {document.title}
+                      {document.kind === "CONTRACT" && (
+                        <span className="ml-2">
+                          <Badge tone="brand">Mietvertrag</Badge>
+                        </span>
+                      )}
+                    </Td>
                     <Td className="text-ink-600">
                       {formatDate(document.documentDate ?? document.uploadedAt)}
                     </Td>

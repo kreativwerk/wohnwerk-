@@ -190,7 +190,13 @@ model Tenant {
   city    String?
   country String? @default("Deutschland")
 
-  notes     String?
+  notes String?
+
+  /// AKTIV = aktueller oder kuenftiger Mieter, EHEMALIG = ausgezogen.
+  /// Ehemalige Mieter bleiben mit ihren Vertraegen erhalten, tauchen aber
+  /// nicht mehr in den laufenden Listen auf.
+  status String @default("AKTIV")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -199,6 +205,7 @@ model Tenant {
 
   @@index([lastName])
   @@index([email])
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +249,7 @@ model Contract {
   tenancyId String @unique
 
   contractNumber String @unique
-  status         String @default("DRAFT") // DRAFT | SENT | VIEWED | SIGNED | CANCELLED
+  status         String @default("DRAFT") // DRAFT | SENT | VIEWED | SIGNED | ENDED | CANCELLED
 
   // Einmal-Link fuer den Mieter
   token          String    @unique

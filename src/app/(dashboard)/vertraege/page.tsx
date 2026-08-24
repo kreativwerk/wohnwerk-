@@ -1,7 +1,19 @@
 import Link from "next/link";
 
-import { createContractForTenancy } from "@/app/actions/contracts";
-import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { createContractForTenancy, endContract } from "@/app/actions/contracts";
+import {
+  Alert,
+  Badge,
+  Card,
+  EmptyState,
+  Flash,
+  PageHeader,
+  StatCard,
+  Table,
+  Td,
+  Th,
+} from "@/components/ui";
+import { ConfirmButton } from "@/components/interactive";
 import { ContractBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
@@ -20,7 +32,7 @@ export default async function ContractsPage({
   const params = await searchParams;
   const status = params.status ?? "";
 
-  const [contracts, counts, ohneVertrag] = await Promise.all([
+  const [contracts, counts, ohneVertrag, ehemalige, inAblage] = await Promise.all([
     prisma.contract.findMany({
       where: status ? { status } : {},
       include: {
@@ -30,15 +42,15 @@ export default async function ContractsPage({
             bed: { include: { room: { include: { property: true } } } },
           },
         },
+        documents: { select: { id: true, driveUrl: true }, orderBy: { uploadedAt: "desc" } },
       },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 300,
     }),
     prisma.contract.groupBy({ by: ["status"], _count: { _all: true } }),
-    // Aktive und frühere Mietverhältnisse, zu denen (noch) kein Vertrag existiert -
-    // z. B. die aus der Excel übernommenen Bestandsmieter.
+    // Mietverhältnisse aktiver Mieter, zu denen kein Vertrag existiert.
     prisma.tenancy.findMany({
-      where: { contract: null },
+      where: { contract: null, tenant: { status: { not: "EHEMALIG" } } },
       include: {
         tenant: true,
         bed: { include: { room: { include: { property: true } } } },
@@ -46,6 +58,24 @@ export default async function ContractsPage({
       orderBy: [{ endDate: { sort: "desc", nulls: "first" } }, { startDate: "desc" }],
       take: 300,
     }),
+    // Ehemalige Mieter: ausgezogen, Verträge bleiben in den Unterlagen.
+    prisma.tenant.findMany({
+      where: { status: "EHEMALIG" },
+      include: {
+        documents: {
+          where: { kind: "CONTRACT" },
+          select: { id: true, title: true, driveUrl: true, documentDate: true },
+          orderBy: { documentDate: "asc" },
+        },
+        tenancies: {
+          include: { bed: { include: { room: { include: { property: true } } } } },
+          orderBy: { startDate: "asc" },
+        },
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 300,
+    }),
+    prisma.document.count({ where: { kind: "CONTRACT", tenantId: null } }),
   ]);
 
   const heute = new Date();
@@ -56,15 +86,24 @@ export default async function ContractsPage({
   const countFor = (value: string) =>
     counts.find((entry) => entry.status === value)?._count._all ?? 0;
 
+  /** Der hinterlegte Scan bzw. das erzeugte PDF eines Vertrags. */
+  const vertragsPdf = (contract: (typeof contracts)[number]) =>
+    contract.pdfUrl ?? contract.documents.find((d) => d.driveUrl)?.driveUrl ?? null;
+
   return (
     <>
       <PageHeader
         title="Mietverträge"
         description="Vom Entwurf über den Versand bis zur Unterschrift."
         actions={
-          <Link href="/mieter/neu" className="btn btn-primary">
-            Neuer Mieter mit Vertrag
-          </Link>
+          <>
+            <Link href="/vertraege/ablage" className="btn btn-secondary">
+              Ablage{inAblage > 0 ? ` (${inAblage})` : ""}
+            </Link>
+            <Link href="/mieter/neu" className="btn btn-primary">
+              Neuer Mieter mit Vertrag
+            </Link>
+          </>
         }
       />
 
@@ -85,17 +124,29 @@ export default async function ContractsPage({
           href="/vertraege?status=SIGNED"
         />
         <StatCard
-          label="Storniert"
-          value={String(countFor("CANCELLED"))}
-          href="/vertraege?status=CANCELLED"
+          label="Beendet"
+          value={String(countFor("ENDED") + countFor("CANCELLED"))}
+          href="/vertraege?status=ENDED"
         />
       </div>
+
+      {inAblage > 0 && (
+        <div className="mt-6">
+          <Alert tone="warning" title={`${inAblage} Vertrag/Verträge warten auf Zuordnung`}>
+            In der Ablage liegen eingescannte Mietverträge, die keinem Mieter zugeordnet werden
+            konnten – oft weil der Name anders geschrieben ist.{" "}
+            <Link href="/vertraege/ablage" className="font-semibold underline">
+              Jetzt zuordnen
+            </Link>
+          </Alert>
+        </div>
+      )}
 
       {ohneVertrag.length > 0 && (
         <div className="mt-6">
           <Card
             title="Mieter ohne Mietvertrag"
-            description={`${aktiveOhneVertrag} aktive und ${ohneVertrag.length - aktiveOhneVertrag} frühere Mietverhältnisse ohne hinterlegten Vertrag.`}
+            description={`${aktiveOhneVertrag} aktive und ${ohneVertrag.length - aktiveOhneVertrag} frühere Mietverhältnisse ohne hinterlegten Vertrag. Liegt der Vertrag als Scan vor, ordnen Sie ihn in der Ablage zu.`}
             padded={false}
           >
             <Table>
@@ -177,6 +228,7 @@ export default async function ContractsPage({
                 <option value="SENT">Versendet</option>
                 <option value="VIEWED">Geöffnet</option>
                 <option value="SIGNED">Unterschrieben</option>
+                <option value="ENDED">Beendet</option>
                 <option value="CANCELLED">Storniert</option>
               </select>
             </div>
@@ -211,7 +263,7 @@ export default async function ContractsPage({
                   <Th>Unterkunft</Th>
                   <Th>Mietbeginn</Th>
                   <Th align="right">Miete</Th>
-                  <Th>Verlauf</Th>
+                  <Th>Dokument</Th>
                   <Th align="right">Status</Th>
                 </tr>
               </thead>
@@ -245,17 +297,43 @@ export default async function ContractsPage({
                     <Td align="right" className="tabular-nums">
                       {formatCents(contract.tenancy.monthlyRentCents)}
                     </Td>
-                    <Td className="text-xs text-ink-500">
-                      {contract.signedAt
-                        ? `unterschrieben ${formatDate(contract.signedAt)}`
-                        : contract.viewedAt
-                          ? `geöffnet ${formatDate(contract.viewedAt)}`
-                          : contract.sentAt
-                            ? `versendet ${formatDate(contract.sentAt)}`
-                            : `angelegt ${formatDate(contract.createdAt)}`}
+                    <Td>
+                      {vertragsPdf(contract) ? (
+                        <a
+                          href={vertragsPdf(contract)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Vertrag öffnen
+                        </a>
+                      ) : (
+                        <Badge tone="warning">Kein Dokument</Badge>
+                      )}
+                      <p className="mt-1 text-xs text-ink-500">
+                        {contract.signedAt
+                          ? `unterschrieben ${formatDate(contract.signedAt)}`
+                          : contract.viewedAt
+                            ? `geöffnet ${formatDate(contract.viewedAt)}`
+                            : contract.sentAt
+                              ? `versendet ${formatDate(contract.sentAt)}`
+                              : `angelegt ${formatDate(contract.createdAt)}`}
+                      </p>
                     </Td>
                     <Td align="right">
                       <ContractBadge status={contract.status} />
+                      {contract.status !== "ENDED" && contract.status !== "CANCELLED" && (
+                        <form action={endContract} className="mt-1.5">
+                          <input type="hidden" name="id" value={contract.id} />
+                          <input type="hidden" name="back" value="/vertraege" />
+                          <ConfirmButton
+                            className="btn btn-ghost btn-sm"
+                            message={`Vertrag von ${contract.tenancy.tenant.firstName} ${contract.tenancy.tenant.lastName} beenden? Das Mietverhältnis wird beendet und der Mieter gilt als ehemalig.`}
+                          >
+                            Vertrag beenden
+                          </ConfirmButton>
+                        </form>
+                      )}
                     </Td>
                   </tr>
                 ))}
@@ -264,6 +342,84 @@ export default async function ContractsPage({
           )}
         </Card>
       </div>
+
+      {ehemalige.length > 0 && (
+        <div className="mt-6">
+          <Card
+            title="Ehemalige Mieter – Verträge beendet"
+            description={`${ehemalige.length} Personen sind ausgezogen. Ihre Verträge bleiben für die Buchhaltung erhalten.`}
+            padded={false}
+          >
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Mieter</Th>
+                  <Th>Unterkunft</Th>
+                  <Th>Vertragsdatum</Th>
+                  <Th>Dokument</Th>
+                  <Th align="right">Status</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {ehemalige.map((mieter) => {
+                  const objekt = mieter.tenancies[0]?.bed.room.property.name ?? null;
+                  const zeitraum = mieter.tenancies[0];
+                  return (
+                    <tr key={mieter.id} className="hover:bg-ink-50">
+                      <Td>
+                        <Link
+                          href={`/mieter/${mieter.id}`}
+                          className="font-medium hover:text-brand-700"
+                        >
+                          {mieter.firstName} {mieter.lastName}
+                        </Link>
+                      </Td>
+                      <Td className="text-ink-600">
+                        {objekt ?? <span className="text-xs text-ink-500">nicht hinterlegt</span>}
+                        {zeitraum && (
+                          <p className="text-xs text-ink-500">
+                            {formatDate(zeitraum.startDate)} –{" "}
+                            {zeitraum.endDate ? formatDate(zeitraum.endDate) : "offen"}
+                          </p>
+                        )}
+                      </Td>
+                      <Td className="whitespace-nowrap text-ink-600">
+                        {mieter.documents[0]?.documentDate
+                          ? formatDate(mieter.documents[0].documentDate)
+                          : "–"}
+                      </Td>
+                      <Td>
+                        {mieter.documents.length === 0 ? (
+                          <Badge tone="warning">Kein Dokument</Badge>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {mieter.documents.map((dokument, index) => (
+                              <a
+                                key={dokument.id}
+                                href={dokument.driveUrl ?? "#"}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-ghost btn-sm"
+                              >
+                                {mieter.documents.length > 1
+                                  ? `Vertrag ${index + 1}`
+                                  : "Vertrag öffnen"}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </Td>
+                      <Td align="right">
+                        <Badge tone="neutral">Beendet</Badge>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </Card>
+        </div>
+      )}
     </>
   );
 }

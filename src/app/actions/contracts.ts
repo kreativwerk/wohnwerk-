@@ -16,6 +16,7 @@ import { FOLDER, backendLabel, randomToken, uploadFile } from "@/lib/storage";
 import { formatDate } from "@/lib/dates";
 import { ensureRentCharges } from "@/lib/accounting";
 import { nextContractNumber } from "@/lib/tenancy";
+import { ABLAGE_KATEGORIE, nameAusTitel, ordneVertragZu } from "@/lib/vertragsablage";
 
 function refresh(contractId: string) {
   revalidatePath("/vertraege");
@@ -23,6 +24,214 @@ function refresh(contractId: string) {
   revalidatePath("/mieter");
   revalidatePath("/belegung");
   revalidatePath("/");
+}
+
+const ABLAGE = "/vertraege/ablage";
+
+/** Ordnet ein abgelegtes Vertragsdokument einem vorhandenen Mieter zu. */
+export async function assignContractDocument(formData: FormData) {
+  const user = await requireAdmin();
+  const documentId = str(formData, "documentId");
+  const tenantId = str(formData, "tenantId");
+  if (!tenantId) redirect(flash(ABLAGE, "fehler", "Bitte zuerst einen Mieter auswählen."));
+
+  let ergebnis;
+  try {
+    ergebnis = await ordneVertragZu(documentId, tenantId);
+  } catch (error) {
+    redirect(flash(ABLAGE, "fehler", (error as Error).message));
+  }
+
+  await audit(user.email, "assign", "Document", documentId, ergebnis.mieterName);
+  revalidatePath(ABLAGE);
+  revalidatePath("/vertraege");
+  revalidatePath("/mieter");
+  revalidatePath(`/mieter/${tenantId}`);
+  redirect(
+    flash(
+      ABLAGE,
+      "ok",
+      ergebnis.contractId
+        ? `Vertrag wurde ${ergebnis.mieterName} zugeordnet und erscheint jetzt unter Mietverträge.`
+        : `Vertrag wurde ${ergebnis.mieterName} zugeordnet (kein Mietverhältnis hinterlegt – der Vertrag liegt bei den Unterlagen des Mieters).`,
+    ),
+  );
+}
+
+/** Nimmt eine Zuordnung zurueck - das Dokument landet wieder in der Ablage. */
+export async function unassignContractDocument(formData: FormData) {
+  const user = await requireAdmin();
+  const documentId = str(formData, "documentId");
+  const back = str(formData, "back") || ABLAGE;
+
+  const dokument = await prisma.document.findUnique({ where: { id: documentId } });
+  if (!dokument) redirect(flash(back, "fehler", "Dokument nicht gefunden."));
+
+  // Haengt am Vertrag nur dieser Scan, verliert der Vertrag sein PDF.
+  if (dokument.contractId) {
+    const vertrag = await prisma.contract.findUnique({ where: { id: dokument.contractId } });
+    if (vertrag?.pdfFileId === dokument.driveFileId) {
+      await prisma.contract.update({
+        where: { id: vertrag.id },
+        data: { pdfFileId: null, pdfUrl: null, pdfPath: null },
+      });
+    }
+  }
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: {
+      tenantId: null,
+      contractId: null,
+      category: ABLAGE_KATEGORIE,
+      title: `Mietvertrag ${nameAusTitel(dokument.title)} (ohne Zuordnung)`,
+    },
+  });
+
+  await audit(user.email, "unassign", "Document", documentId);
+  revalidatePath(ABLAGE);
+  revalidatePath("/vertraege");
+  revalidatePath("/mieter");
+  redirect(flash(back, "ok", "Zuordnung aufgehoben – der Vertrag liegt wieder in der Ablage."));
+}
+
+/**
+ * Legt aus einem abgelegten Vertrag einen ehemaligen Mieter an. Fuer den
+ * Altbestand: die Person wohnt laengst nicht mehr hier, der Vertrag gehoert
+ * aber in die Unterlagen.
+ */
+export async function createFormerTenantFromDocument(formData: FormData) {
+  const user = await requireAdmin();
+  const documentId = str(formData, "documentId");
+
+  const dokument = await prisma.document.findUnique({ where: { id: documentId } });
+  if (!dokument) redirect(flash(ABLAGE, "fehler", "Dokument nicht gefunden."));
+
+  const name = nameAusTitel(dokument.title);
+  const [firstName, ...rest] = name.split(" ");
+  if (!firstName) redirect(flash(ABLAGE, "fehler", "Im Titel steht kein Name."));
+
+  const tenant = await prisma.tenant.create({
+    data: {
+      firstName,
+      lastName: rest.join(" "),
+      email: "",
+      status: "EHEMALIG",
+      notes: "Aus dem Vertragsscan übernommen (Altbestand).",
+    },
+  });
+
+  await ordneVertragZu(documentId, tenant.id);
+  await audit(user.email, "create", "Tenant", tenant.id, `${name} (ehemalig)`);
+  revalidatePath(ABLAGE);
+  revalidatePath("/vertraege");
+  revalidatePath("/mieter");
+  redirect(flash(ABLAGE, "ok", `${name} wurde als ehemaliger Mieter angelegt.`));
+}
+
+/** Nimmt einen weiteren Vertragsscan in die Ablage auf. */
+export async function uploadContractDocument(formData: FormData) {
+  const user = await requireAdmin();
+  const datei = formData.get("file");
+  if (!(datei instanceof File) || datei.size === 0) {
+    redirect(flash(ABLAGE, "fehler", "Bitte eine Datei auswählen."));
+  }
+
+  const puffer = Buffer.from(await datei.arrayBuffer());
+  const jahr = new Date().getFullYear();
+
+  let abgelegt;
+  try {
+    abgelegt = await uploadFile({
+      fileName: datei.name,
+      mimeType: datei.type || "application/pdf",
+      data: puffer,
+      folderSegments: FOLDER.contracts(jahr),
+    });
+  } catch (error) {
+    console.error("[vertragsablage] Ablage fehlgeschlagen:", error);
+    redirect(flash(ABLAGE, "fehler", (error as Error).message));
+  }
+
+  const dokument = await prisma.document.create({
+    data: {
+      kind: "CONTRACT",
+      title: `Mietvertrag ${str(formData, "name") || datei.name.replace(/\.[^.]+$/, "")} (ohne Zuordnung)`,
+      fileName: datei.name,
+      mimeType: datei.type || "application/pdf",
+      sizeBytes: puffer.byteLength,
+      driveFileId: abgelegt.fileId,
+      driveUrl: abgelegt.url,
+      driveFolder: abgelegt.folder,
+      localPath: abgelegt.localPath,
+      category: ABLAGE_KATEGORIE,
+    },
+  });
+
+  await audit(user.email, "upload", "Document", dokument.id, "Vertragsablage");
+  revalidatePath(ABLAGE);
+  redirect(flash(ABLAGE, "ok", "Vertrag liegt in der Ablage und kann zugeordnet werden."));
+}
+
+/**
+ * Beendet einen Vertrag: das Mietverhaeltnis endet, der Mieter gilt als
+ * ehemalig. Die Unterlagen bleiben vollstaendig erhalten.
+ */
+export async function endContract(formData: FormData) {
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = str(formData, "back") || "/vertraege";
+  const ende = str(formData, "endDate");
+
+  const contract = await prisma.contract.findUnique({
+    where: { id },
+    include: { tenancy: { include: { tenant: true } } },
+  });
+  if (!contract) redirect(flash(back, "fehler", "Vertrag nicht gefunden."));
+
+  const endDate = ende ? new Date(`${ende}T00:00:00.000Z`) : new Date();
+
+  await prisma.$transaction([
+    prisma.contract.update({ where: { id }, data: { status: "ENDED" } }),
+    prisma.tenancy.update({
+      where: { id: contract.tenancyId },
+      data: { status: "ENDED", endDate: contract.tenancy.endDate ?? endDate },
+    }),
+    prisma.tenant.update({
+      where: { id: contract.tenancy.tenantId },
+      data: { status: "EHEMALIG" },
+    }),
+  ]);
+
+  const name = `${contract.tenancy.tenant.firstName} ${contract.tenancy.tenant.lastName}`.trim();
+  await audit(user.email, "end", "Contract", id, name);
+  refresh(id);
+  redirect(flash(back, "ok", `Vertrag von ${name} ist beendet.`));
+}
+
+/** Markiert einen Mieter als ehemalig oder holt ihn zurueck. */
+export async function toggleTenantFormer(formData: FormData) {
+  const user = await requireAdmin();
+  const tenantId = str(formData, "tenantId");
+  const back = str(formData, "back") || "/mieter";
+
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) redirect(flash(back, "fehler", "Mieter nicht gefunden."));
+
+  const jetztEhemalig = tenant.status !== "EHEMALIG";
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { status: jetztEhemalig ? "EHEMALIG" : "AKTIV" },
+  });
+
+  const name = `${tenant.firstName} ${tenant.lastName}`.trim();
+  await audit(user.email, jetztEhemalig ? "mark-former" : "mark-active", "Tenant", tenantId, name);
+  revalidatePath("/mieter");
+  revalidatePath(`/mieter/${tenantId}`);
+  revalidatePath("/vertraege");
+  redirect(
+    flash(back, "ok", jetztEhemalig ? `${name} gilt als ehemaliger Mieter.` : `${name} ist wieder aktiv.`),
+  );
 }
 
 /**
