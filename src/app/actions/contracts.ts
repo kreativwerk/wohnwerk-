@@ -15,6 +15,7 @@ import { getAppUrl, getSettings } from "@/lib/settings";
 import { FOLDER, backendLabel, randomToken, uploadFile } from "@/lib/storage";
 import { formatDate } from "@/lib/dates";
 import { ensureRentCharges } from "@/lib/accounting";
+import { nextContractNumber } from "@/lib/tenancy";
 
 function refresh(contractId: string) {
   revalidatePath("/vertraege");
@@ -22,6 +23,43 @@ function refresh(contractId: string) {
   revalidatePath("/mieter");
   revalidatePath("/belegung");
   revalidatePath("/");
+}
+
+/**
+ * Legt fuer ein bestehendes Mietverhaeltnis ohne Vertrag einen
+ * Vertragsentwurf an - z. B. fuer die aus der Excel uebernommenen Mieter,
+ * die ohne Vertragsdokument importiert wurden.
+ */
+export async function createContractForTenancy(formData: FormData) {
+  const user = await requireAdmin();
+  const tenancyId = str(formData, "tenancyId");
+  const back = str(formData, "back") || "/vertraege";
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id: tenancyId },
+    include: { contract: true, tenant: true },
+  });
+  if (!tenancy) redirect(flash(back, "fehler", "Mietverhältnis nicht gefunden."));
+  if (tenancy.contract) redirect(`/vertraege/${tenancy.contract.id}`);
+
+  const contract = await prisma.contract.create({
+    data: {
+      tenancyId,
+      contractNumber: await nextContractNumber(tenancy.startDate),
+      token: randomToken(),
+      status: "DRAFT",
+    },
+  });
+
+  await audit(user.email, "create", "Contract", contract.id, tenancy.reference);
+  refresh(contract.id);
+  redirect(
+    flash(
+      `/vertraege/${contract.id}`,
+      "ok",
+      `Vertragsentwurf für ${tenancy.tenant.firstName} ${tenancy.tenant.lastName} wurde angelegt.`,
+    ),
+  );
 }
 
 /**
