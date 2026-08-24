@@ -20,6 +20,8 @@ const schritte = [
   ["node", ["scripts/pruefe-umgebung.mjs"]],
   ["npx", ["prisma", "generate"]],
   ["npx", ["prisma", "migrate", "deploy"]],
+  // Einmalige Uebernahme eingescannter Bestandsvertraege (no-op ohne Ordner)
+  ["node", ["scripts/uebernehme-vertraege.mjs"]],
   ["npx", ["next", "build"]],
 ];
 
