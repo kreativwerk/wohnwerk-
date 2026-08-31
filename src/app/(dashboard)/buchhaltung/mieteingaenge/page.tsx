@@ -117,33 +117,42 @@ export default async function RentIncomePage({
 
       <Flash ok={params.ok} fehler={params.fehler} />
 
-      {/* --- Monatswahl ----------------------------------------------------- */}
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      {/* --- Monatswahl -----------------------------------------------------
+          Am Handy eine Zeile: Pfeil, Monat, Pfeil. Ausgeschriebene
+          Monatsnamen in den Pfeilen brechen dort sonst um. */}
+      <div className="mb-5 flex items-center gap-2">
         <Link
           href={`/buchhaltung/mieteingaenge?monat=${monatsWert(zurueck.year, zurueck.month)}`}
-          className="btn btn-secondary btn-sm"
-          aria-label="Voriger Monat"
+          className="btn btn-secondary shrink-0"
+          aria-label={`Voriger Monat: ${formatMonth(zurueck.year, zurueck.month)}`}
         >
-          ← {formatMonth(zurueck.year, zurueck.month)}
+          <span aria-hidden="true">&larr;</span>
+          <span className="hidden sm:inline">{formatMonth(zurueck.year, zurueck.month)}</span>
         </Link>
-        <span className="min-w-40 text-center text-lg font-semibold text-ink-900">
+
+        <span className="flex-1 text-center text-lg font-semibold text-ink-900">
           {formatMonth(year, month)}
         </span>
+
         <Link
           href={`/buchhaltung/mieteingaenge?monat=${monatsWert(vor.year, vor.month)}`}
-          className="btn btn-secondary btn-sm"
-          aria-label="Nächster Monat"
+          className="btn btn-secondary shrink-0"
+          aria-label={`Nächster Monat: ${formatMonth(vor.year, vor.month)}`}
         >
-          {formatMonth(vor.year, vor.month)} →
+          <span className="hidden sm:inline">{formatMonth(vor.year, vor.month)}</span>
+          <span aria-hidden="true">&rarr;</span>
         </Link>
-        {!istAktuellerMonat && (
+      </div>
+
+      {!istAktuellerMonat && (
+        <div className="mb-5 -mt-2">
           <Link href="/buchhaltung/mieteingaenge" className="btn btn-ghost btn-sm">
             Zum aktuellen Monat
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Abgehakt"
           value={`${bezahltAnzahl} von ${relevante.length}`}

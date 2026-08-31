@@ -124,7 +124,7 @@ export default async function ContractsPage({
       <Flash ok={params.ok} fehler={params.fehler} />
 
       {/* Abgleich laufende Mietverhältnisse gegen vorhandene Verträge */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Laufende Mietverhältnisse" value={String(laufendeMietverhaeltnisse)} />
         <StatCard
           label="Vertrag hinterlegt"
@@ -146,7 +146,7 @@ export default async function ContractsPage({
         />
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Entwürfe" value={String(countFor("DRAFT"))} href="/vertraege?status=DRAFT" />
         <StatCard
           label="Versendet"

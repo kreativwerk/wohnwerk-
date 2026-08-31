@@ -341,3 +341,62 @@
     background: #fff;
   }
 }
+
+/* --- Handy: Daumen und Safari ---------------------------------------------
+   Zwei Dinge, die am Schreibtisch nicht auffallen:
+
+   1. Safari auf dem iPhone zoomt die ganze Seite, sobald ein Eingabefeld
+      kleiner als 16px beschriftet ist. Das Feld wird beim Antippen also
+      groesser gezogen und die Seite steht danach schief. Deshalb auf dem
+      Handy genau 16px.
+   2. Ein Knopf mit 36px Hoehe ist fuer einen Daumen zu klein; 44px sind
+      das ueblich empfohlene Mass. Am Schreibtisch bleibt alles wie es war.
+*/
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 1rem;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .btn {
+    min-height: 2.75rem;
+    padding-inline: 1.05rem;
+  }
+
+  .btn-sm {
+    min-height: 2.25rem;
+  }
+}
+
+/* --- Tabellen, die seitlich weitergehen ------------------------------------
+   Am Handy passen breite Tabellen nicht auf den Schirm. Sie lassen sich
+   schieben - man sieht es nur nicht. Dieser Schatten an der Kante zeigt,
+   dass dort noch etwas kommt, und verschwindet am Ende von selbst.
+   Reines CSS: die weissen Verlaeufe scrollen mit dem Inhalt mit
+   (background-attachment: local) und decken den Schatten ab, sobald man
+   am Rand angekommen ist. */
+.scroll-schatten {
+  background:
+    linear-gradient(to right, #fff 28%, rgb(255 255 255 / 0)) left center,
+    linear-gradient(to left, #fff 28%, rgb(255 255 255 / 0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgb(20 39 38 / 0.13), rgb(20 39 38 / 0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgb(20 39 38 / 0.13), rgb(20 39 38 / 0)) right center;
+  background-repeat: no-repeat;
+  background-size: 34px 100%, 34px 100%, 13px 100%, 13px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* --- Schwebende Menueleiste (Handy) --------------------------------------
+   Zwei kurze Bewegungen fuer das Aktionsblatt. Der globale
+   prefers-reduced-motion-Block weiter oben schaltet sie mit ab. */
+@keyframes einblenden {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes hochschieben {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}

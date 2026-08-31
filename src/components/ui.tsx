@@ -15,7 +15,7 @@ export function PageHeader({
   breadcrumb?: Array<{ label: string; href?: string }>;
 }) {
   return (
-    <div className="mb-7">
+    <div className="mb-5 sm:mb-7">
       {breadcrumb && breadcrumb.length > 0 && (
         <nav className="mb-2.5 flex flex-wrap items-center gap-1.5 text-[0.78rem] text-ink-500">
           {breadcrumb.map((crumb, index) => (
@@ -37,9 +37,11 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[1.7rem] font-semibold leading-tight text-ink-900">{title}</h1>
+          <h1 className="text-[1.35rem] font-semibold leading-tight text-ink-900 sm:text-[1.7rem]">
+            {title}
+          </h1>
           {description && (
-            <p className="mt-1.5 max-w-2xl text-[0.9rem] leading-relaxed text-ink-500">
+            <p className="mt-1.5 max-w-2xl text-[0.85rem] leading-relaxed text-ink-500 sm:text-[0.9rem]">
               {description}
             </p>
           )}
@@ -137,12 +139,21 @@ export function StatCard({
   };
 
   const body = (
-    <div className={`card h-full px-5 py-[1.15rem] ${href ? "card-link" : ""}`}>
-      <p className="text-[0.78rem] font-medium text-ink-500">{label}</p>
-      <p className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums ${accent[tone]}`}>
+    // Auf dem Handy stehen zwei Kacheln nebeneinander, deshalb hier
+    // etwas enger und kleiner - sonst braucht eine Kennzahl eine ganze
+    // Bildschirmhoehe.
+    <div className={`card h-full px-3.5 py-3 sm:px-5 sm:py-[1.15rem] ${href ? "card-link" : ""}`}>
+      <p className="text-[0.72rem] font-medium text-ink-500 sm:text-[0.78rem]">{label}</p>
+      <p
+        className={`mt-1.5 text-[1.3rem] font-semibold leading-none tabular-nums sm:mt-2 sm:text-[1.75rem] ${accent[tone]}`}
+      >
         {value}
       </p>
-      {hint && <p className="mt-2 text-[0.78rem] leading-snug text-ink-500">{hint}</p>}
+      {hint && (
+        <p className="mt-1.5 text-[0.72rem] leading-snug text-ink-500 sm:mt-2 sm:text-[0.78rem]">
+          {hint}
+        </p>
+      )}
     </div>
   );
 
@@ -177,7 +188,7 @@ export function EmptyState({
 
 export function Table({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <div className={`scroll-schatten overflow-x-auto ${className}`}>
       <table className="min-w-full text-sm">{children}</table>
     </div>
   );
