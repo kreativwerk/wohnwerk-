@@ -4,6 +4,7 @@ import { createSession, getSessionUser, login } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Alert } from "@/components/ui";
 import { LogoNavbar } from "@/components/logo";
+import { PasswortFeld } from "@/components/passwort-feld";
 
 export const metadata = { title: "Anmelden" };
 export const dynamic = "force-dynamic";
@@ -73,16 +74,7 @@ export default async function LoginPage({
               <label htmlFor="email">E-Mail</label>
               <input id="email" name="email" type="email" required autoComplete="username" autoFocus />
             </div>
-            <div>
-              <label htmlFor="password">Passwort</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </div>
+            <PasswortFeld />
             <button type="submit" className="btn btn-primary w-full">
               Anmelden
             </button>
