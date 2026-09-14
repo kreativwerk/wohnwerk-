@@ -132,6 +132,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Dateifelder bringen eine eigene Mindestbreite mit (in Chrome rund
+     344 px) und sprengen damit schmale Spalten. Deckeln statt umbauen -
+     das Feld bleibt bedienbar, die Seite ohne seitlichen Ueberlauf. */
+  input[type="file"] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   /* Alle textartigen Eingaben - auch <input> ohne type-Attribut, sonst
      stehen 100 Felder unsichtbar auf der Seite. */
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),

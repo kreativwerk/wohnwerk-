@@ -12,6 +12,7 @@ import { parseBankDate, monthsBetween, fromDateInput } from "../src/lib/dates";
 import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedupeHash, decodeBuffer } from "../src/lib/bank";
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
+import { liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -504,6 +505,36 @@ async function main() {
   await test("Markenfarben stammen unverändert aus den Logo-Dateien", () => {
     assert.equal(t["accent-500"].toLowerCase(), "#ee5627", "Orange der W-Marke");
     assert.equal(t["brand-200"].toLowerCase(), "#c9dddc", "Mint des Schriftzugs");
+  });
+
+  console.log("\nTickets");
+
+  await test("Der Statusknopf führt einmal im Kreis und bleibt dann stehen", () => {
+    assert.equal(naechsterStatus("OFFEN"), "IN_ARBEIT");
+    assert.equal(naechsterStatus("IN_ARBEIT"), "ERLEDIGT");
+    assert.equal(naechsterStatus("ERLEDIGT"), null);
+  });
+
+  await test("Offenes steht oben, Erledigtes unten", () => {
+    const tag = (n: number) => new Date(Date.UTC(2026, 0, n));
+    const liste = sortiereTickets([
+      { id: "erledigt", status: "ERLEDIGT", prioritaet: "HOCH", createdAt: tag(9) },
+      { id: "offen-alt", status: "OFFEN", prioritaet: "NORMAL", createdAt: tag(1) },
+      { id: "offen-dringend", status: "OFFEN", prioritaet: "HOCH", createdAt: tag(2) },
+      { id: "in-arbeit", status: "IN_ARBEIT", prioritaet: "HOCH", createdAt: tag(8) },
+    ]);
+    assert.deepEqual(
+      liste.map((eintrag) => eintrag.id),
+      ["offen-dringend", "offen-alt", "in-arbeit", "erledigt"],
+    );
+  });
+
+  await test("Ein neues Ticket liegt null Tage, keine negative Zahl", () => {
+    const jetzt = new Date(Date.UTC(2026, 8, 14, 12, 0, 0));
+    assert.equal(liegtSeitTagen(jetzt, jetzt), 0);
+    // Uhrzeit in der Zukunft (Zeitumstellung, ungenaue Uhr) bleibt 0.
+    assert.equal(liegtSeitTagen(new Date(Date.UTC(2026, 8, 14, 18, 0, 0)), jetzt), 0);
+    assert.equal(liegtSeitTagen(new Date(Date.UTC(2026, 8, 7, 12, 0, 0)), jetzt), 7);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

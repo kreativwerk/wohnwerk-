@@ -27,6 +27,12 @@ export type ChargeStatus = (typeof CHARGE_STATUS)[number];
 export const DOCUMENT_KIND = ["RECEIPT", "INVOICE", "CONTRACT", "STATEMENT", "OTHER"] as const;
 export type DocumentKind = (typeof DOCUMENT_KIND)[number];
 
+export const TICKET_STATUS = ["OFFEN", "IN_ARBEIT", "ERLEDIGT"] as const;
+export type TicketStatus = (typeof TICKET_STATUS)[number];
+
+export const TICKET_PRIORITAET = ["NIEDRIG", "NORMAL", "HOCH"] as const;
+export type TicketPrioritaet = (typeof TICKET_PRIORITAET)[number];
+
 type LabelMap = Record<string, string>;
 
 export const BED_STATUS_LABEL: LabelMap = {
@@ -97,3 +103,15 @@ export const EXPENSE_CATEGORIES = [
   "Bankgebühren",
   "Sonstiges",
 ] as const;
+
+export const TICKET_STATUS_LABEL: LabelMap = {
+  OFFEN: "Offen",
+  IN_ARBEIT: "In Arbeit",
+  ERLEDIGT: "Erledigt",
+};
+
+export const TICKET_PRIORITAET_LABEL: LabelMap = {
+  NIEDRIG: "Niedrig",
+  NORMAL: "Normal",
+  HOCH: "Hoch",
+};

@@ -18,6 +18,7 @@ import {
   TrayArrowDown,
   TrayArrowUp,
   User,
+  Wrench,
   X,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
@@ -39,6 +40,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
       { href: "/objekte", label: "Objekte", icon: Buildings },
       { href: "/mieter", label: "Mieter", icon: User },
       { href: "/vertraege", label: "Mietverträge", icon: PencilSimpleLine },
+      { href: "/tickets", label: "Tickets", icon: Wrench },
     ],
   },
   {

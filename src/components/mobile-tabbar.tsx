@@ -14,6 +14,7 @@ import {
   SquaresFour,
   TrayArrowUp,
   UserPlus,
+  Wrench,
   X,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
@@ -64,6 +65,12 @@ const AKTIONEN = [
     label: "Miete abhaken",
     hinweis: "Eingegangene Mieten des Monats bestätigen",
     icon: ListChecks,
+  },
+  {
+    href: "/tickets#ticket-anlegen",
+    label: "Ticket melden",
+    hinweis: "Schaden oder Anliegen mit Foto festhalten",
+    icon: Wrench,
   },
   {
     href: "/mieter/neu",

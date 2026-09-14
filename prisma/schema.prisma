@@ -60,6 +60,7 @@ model Property {
   transactions BankTransaction[]
   templates    PropertyTemplate[]
   costs        PropertyCost[]
+  tickets      Ticket[]
   bankAccount  BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
   @@index([active])
@@ -202,6 +203,7 @@ model Tenant {
 
   tenancies Tenancy[]
   documents Document[]
+  tickets   Ticket[]
 
   @@index([lastName])
   @@index([email])
@@ -446,6 +448,7 @@ model Document {
   propertyId        String?
   tenantId          String?
   contractId        String?
+  ticketId          String?
 
   uploadedAt DateTime @default(now())
 
@@ -453,10 +456,66 @@ model Document {
   property        Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  ticket          Ticket?          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([kind])
   @@index([bankTransactionId])
   @@index([documentDate])
+}
+
+// ---------------------------------------------------------------------------
+// Tickets: was im Haus zu tun ist
+// ---------------------------------------------------------------------------
+
+/// Ein Anliegen: kaputte Heizung, fehlender Schluessel, Rueckfrage eines
+/// Mieters. Entsteht mit einem Satz und wird dann bearbeitet, bis es
+/// erledigt ist. Fotos und Dokumente haengen als Document daran.
+model Ticket {
+  id     String @id @default(cuid())
+  /// Fortlaufende Nummer, damit man am Telefon darueber sprechen kann.
+  nummer Int    @unique @default(autoincrement())
+
+  titel        String
+  beschreibung String?
+
+  /// OFFEN = noch niemand dran, IN_ARBEIT = jemand kuemmert sich,
+  /// ERLEDIGT = abgeschlossen.
+  status     String @default("OFFEN")
+  /// NIEDRIG | NORMAL | HOCH
+  prioritaet String @default("NORMAL")
+
+  /// Woran haengt das Anliegen? Beides freiwillig.
+  propertyId String?
+  tenantId   String?
+
+  erstelltVon String
+  bearbeiter  String?
+  erledigtAm  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  property   Property?         @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  documents  Document[]
+  kommentare TicketKommentar[]
+
+  @@index([status])
+  @@index([propertyId])
+  @@index([tenantId])
+}
+
+/// Der Verlauf eines Tickets: wer wann was dazu gesagt hat.
+model TicketKommentar {
+  id       String   @id @default(cuid())
+  ticketId String
+  autor    String
+  text     String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }
 
 // ---------------------------------------------------------------------------
