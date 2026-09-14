@@ -12,7 +12,7 @@ import { parseBankDate, monthsBetween, fromDateInput } from "../src/lib/dates";
 import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedupeHash, decodeBuffer } from "../src/lib/bank";
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
-import { liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
+import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -535,6 +535,17 @@ async function main() {
     // Uhrzeit in der Zukunft (Zeitumstellung, ungenaue Uhr) bleibt 0.
     assert.equal(liegtSeitTagen(new Date(Date.UTC(2026, 8, 14, 18, 0, 0)), jetzt), 0);
     assert.equal(liegtSeitTagen(new Date(Date.UTC(2026, 8, 7, 12, 0, 0)), jetzt), 7);
+  });
+
+  await test("Support-Meldung nennt der IT Seite, Fenster und Browser", () => {
+    assert.equal(
+      kontextText({ seite: "/buchhaltung/belege", fenster: "390×844", browser: "Safari 18 · iPhone" }),
+      "Seite: /buchhaltung/belege · Fenster: 390×844 · Browser: Safari 18 · iPhone",
+    );
+    // Was fehlt, faellt weg statt als leeres "Fenster: " dazustehen.
+    assert.equal(kontextText({ seite: "/mieter" }), "Seite: /mieter");
+    assert.equal(kontextText({ seite: "", fenster: null }), null);
+    assert.equal(kontextText({}), null);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

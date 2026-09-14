@@ -13,12 +13,14 @@ import {
   Receipt,
   SquaresFour,
   TrayArrowUp,
+  Lifebuoy,
   UserPlus,
   Wrench,
   X,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 
+import { SupportAusloeser } from "./support-melden";
 import { uebersetzeIn, type Sprache } from "@/lib/i18n-gemeinsam";
 
 /**
@@ -169,6 +171,27 @@ export function MobileTabBar({ role, sprache }: { role: string; sprache: Sprache
                   </Link>
                 </li>
               ))}
+
+              {/* Kein gewoehnliches Ziel: das Meldeformular oeffnet sich
+                  ueber der Seite, auf der das Problem auftrat. */}
+              <li>
+                <SupportAusloeser
+                  onNavigate={() => setOffen(false)}
+                  className="flex min-h-14 items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors active:bg-ink-100"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-600">
+                    <Lifebuoy size={21} weight="regular" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.9rem] font-medium text-ink-900">
+                      {t("Problem melden")}
+                    </span>
+                    <span className="block truncate text-[0.75rem] text-ink-500">
+                      {t("Stimmt in der App etwas nicht? Ab zur IT.")}
+                    </span>
+                  </span>
+                </SupportAusloeser>
+              </li>
             </ul>
           </div>
         </div>

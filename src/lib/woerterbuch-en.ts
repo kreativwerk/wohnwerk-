@@ -121,6 +121,23 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   Tagen: "days",
   Ehemalig: "Former",
 
+  // --- Support-Meldungen an die IT -----------------------------------------
+  "Problem melden": "Report a problem",
+  "Stimmt etwas in dieser Anwendung nicht? Die Meldung geht an die IT.":
+    "Something wrong in this application? The report goes to IT.",
+  "Stimmt in der App etwas nicht? Ab zur IT.": "Something off in the app? Straight to IT.",
+  "Was stimmt nicht?": "What is wrong?",
+  "z. B. Beleg lässt sich nicht speichern": "e.g. receipt will not save",
+  "Was haben Sie gemacht?": "What were you doing?",
+  "Welcher Schritt, was war erwartet, was kam stattdessen?":
+    "Which step, what did you expect, what happened instead?",
+  Bildschirmfoto: "Screenshot",
+  "Mitgeschickt wird:": "Sent along:",
+  "Meldung senden": "Send report",
+  Art: "Kind",
+  "Alle Arten": "All kinds",
+  Support: "Support",
+
   // --- Wiederkehrende Schaltflaechen und Begriffe --------------------------
   Speichern: "Save",
   Abbrechen: "Cancel",

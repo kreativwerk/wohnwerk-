@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   const from = startOfMonth(now);
   const to = endOfMonth(now);
 
-  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets] =
+  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets, offeneMeldungen] =
     await Promise.all([
       occupancySummary(),
       periodSummary(from, to),
@@ -58,7 +58,8 @@ export default async function DashboardPage() {
         take: 8,
       }),
       // Neue Anliegen sollen hier auffallen, nicht in einer Unterseite versanden.
-      prisma.ticket.count({ where: { status: { not: "ERLEDIGT" } } }),
+      prisma.ticket.count({ where: { status: { not: "ERLEDIGT" }, art: "OBJEKT" } }),
+      prisma.ticket.count({ where: { status: { not: "ERLEDIGT" }, art: "SUPPORT" } }),
     ]);
 
   // Auslastung je Objekt für die Balken in der Übersicht
@@ -121,15 +122,25 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {(summary.unreviewedCount > 0 || summary.missingReceiptsCount > 0 || offeneTickets > 0) && (
+      {(summary.unreviewedCount > 0 || summary.missingReceiptsCount > 0 || offeneTickets > 0 || offeneMeldungen > 0) && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {offeneTickets > 0 && (
-            <Link href="/tickets" className="card block px-5 py-4 hover:border-amber-300">
+            <Link href="/tickets?art=OBJEKT" className="card block px-5 py-4 hover:border-amber-300">
               <p className="text-sm font-semibold text-amber-700">
                 {offeneTickets} offene(s) Ticket(s)
               </p>
               <p className="mt-0.5 text-xs text-ink-500">
                 Gemeldete Schäden und Anliegen aus den Objekten.
+              </p>
+            </Link>
+          )}
+          {offeneMeldungen > 0 && (
+            <Link href="/tickets?art=SUPPORT" className="card block px-5 py-4 hover:border-sky-300">
+              <p className="text-sm font-semibold text-sky-700">
+                {offeneMeldungen} offene(s) Support-Ticket(s)
+              </p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                Gemeldete Probleme mit dieser Anwendung – liegen bei der IT.
               </p>
             </Link>
           )}

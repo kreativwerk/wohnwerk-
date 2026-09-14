@@ -13,6 +13,7 @@ import {
   List,
   ListChecks,
   PencilSimpleLine,
+  Lifebuoy,
   Receipt,
   SquaresFour,
   TrayArrowDown,
@@ -24,6 +25,7 @@ import {
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 
 import { LogoMark, LogoNavbar } from "./logo";
+import { SupportAusloeser } from "./support-melden";
 import { uebersetzeIn, type Sprache } from "@/lib/i18n-gemeinsam";
 
 const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: PhosphorIcon }> }> = [
@@ -147,14 +149,25 @@ export function Sidebar({
         {sprachwahl && <div className="mb-3">{sprachwahl}</div>}
         <p className="truncate text-[0.82rem] font-medium text-white">{user.name}</p>
         <p className="truncate text-[0.72rem] text-brand-400">{user.email}</p>
-        <form action="/api/auth/logout" method="post" className="mt-2.5">
-          <button
-            type="submit"
-            className="text-[0.76rem] font-medium text-brand-300 transition-colors hover:text-white"
-          >
-            {t("Abmelden")}
-          </button>
-        </form>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <form action="/api/auth/logout" method="post">
+            <button
+              type="submit"
+              className="text-[0.76rem] font-medium text-brand-300 transition-colors hover:text-white"
+            >
+              {t("Abmelden")}
+            </button>
+          </form>
+          {/* Stimmt etwas an der Anwendung nicht, geht die Meldung von hier
+              aus direkt an die IT - ohne die Seite zu verlassen. Tickets
+              sind der Verwaltung vorbehalten, der Knopf deshalb auch. */}
+          {user.role !== "steuerberater" && (
+          <SupportAusloeser className="inline-flex items-center gap-1.5 text-[0.76rem] font-medium text-brand-300 transition-colors hover:text-white">
+            <Lifebuoy size={15} />
+            {t("Problem melden")}
+          </SupportAusloeser>
+          )}
+        </div>
       </div>
     </nav>
   );

@@ -2,11 +2,15 @@ import Link from "next/link";
 
 import { createTicket, setTicketStatus } from "@/app/actions/tickets";
 import { AdminOnly } from "@/components/admin-only";
+import { SupportAusloeser } from "@/components/support-melden";
 import { BelegDatei } from "@/components/beleg-datei";
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
+  TICKET_ART,
+  TICKET_ART_LABEL,
   TICKET_PRIORITAET,
   TICKET_PRIORITAET_LABEL,
   TICKET_STATUS,
@@ -22,22 +26,39 @@ export const dynamic = "force-dynamic";
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; fehler?: string; status?: string }>;
+  searchParams: Promise<{ ok?: string; fehler?: string; status?: string; art?: string }>;
 }) {
+  // Tickets gehen die Verwaltung an; ein Steuerberater-Konto
+  // landet wieder in der Buchhaltung.
+  await requireAdmin();
   const params = await searchParams;
   const t = await uebersetzer();
 
   // Ohne Auswahl zeigt die Liste alles, was noch nicht erledigt ist -
   // erledigte Tickets sucht man bewusst.
   const filter = params.status ?? "";
-  const where =
+  const statusFilter =
     filter && TICKET_STATUS.includes(filter as (typeof TICKET_STATUS)[number])
       ? { status: filter }
       : filter === "alle"
         ? {}
         : { status: { not: "ERLEDIGT" } };
 
-  const [rohdaten, properties, tenants, zaehler] = await Promise.all([
+  // Zwei Sorten Arbeit: Anliegen aus den Objekten und Meldungen zur
+  // Anwendung selbst. Ohne Auswahl stehen beide zusammen.
+  const art = TICKET_ART.includes(params.art as (typeof TICKET_ART)[number]) ? params.art! : "";
+  const where = { ...statusFilter, ...(art ? { art } : {}) };
+
+  /** Baut einen Link, der die jeweils andere Auswahl stehen laesst. */
+  const ziel = (naechsteArt: string, naechsterFilter: string) => {
+    const suche = new URLSearchParams();
+    if (naechsterFilter) suche.set("status", naechsterFilter);
+    if (naechsteArt) suche.set("art", naechsteArt);
+    const text = suche.toString();
+    return text ? `/tickets?${text}` : "/tickets";
+  };
+
+  const [rohdaten, properties, tenants, zaehler, artZaehler] = await Promise.all([
     prisma.ticket.findMany({
       where,
       include: {
@@ -54,7 +75,12 @@ export default async function TicketsPage({
       select: { id: true, firstName: true, lastName: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
-    prisma.ticket.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.ticket.groupBy({
+      by: ["status"],
+      where: art ? { art } : {},
+      _count: { _all: true },
+    }),
+    prisma.ticket.groupBy({ by: ["art"], _count: { _all: true } }),
   ]);
 
   // Offene zuerst, darin die dringenden, darin die neuesten.
@@ -64,7 +90,16 @@ export default async function TicketsPage({
     zaehler.find((eintrag) => eintrag.status === status)?._count._all ?? 0;
 
   // Nach dem Statuswechsel landet man wieder in derselben Ansicht.
-  const zurueck = filter ? `/tickets?status=${filter}` : "/tickets";
+  const zurueck = ziel(art, filter);
+
+  const artAnzahl = (wert: string) =>
+    artZaehler.find((eintrag) => eintrag.art === wert)?._count._all ?? 0;
+
+  const artZiele = [
+    { wert: "", label: t("Alle Arten"), zahl: artZaehler.reduce((summe, e) => summe + e._count._all, 0) },
+    { wert: "OBJEKT", label: t("Objekte"), zahl: artAnzahl("OBJEKT") },
+    { wert: "SUPPORT", label: t("Support"), zahl: artAnzahl("SUPPORT") },
+  ];
 
   const filterZiele = [
     { wert: "", label: t("Aktuell"), zahl: anzahl("OFFEN") + anzahl("IN_ARBEIT") },
@@ -83,6 +118,10 @@ export default async function TicketsPage({
         )}
         actions={
           <AdminOnly>
+            {/* Stimmt etwas an der Anwendung nicht, geht es hier zur IT. */}
+            <SupportAusloeser className="btn btn-secondary">
+              {t("Problem melden")}
+            </SupportAusloeser>
             <a href="#ticket-anlegen" className="btn btn-primary">
               {t("Ticket anlegen")}
             </a>
@@ -92,28 +131,13 @@ export default async function TicketsPage({
 
       <Flash ok={params.ok} fehler={params.fehler} />
 
-      {/* Die Filterzeile scrollt am Handy waagerecht statt umzubrechen. */}
-      <div className="scroll-schatten mb-5 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {filterZiele.map((ziel) => {
-          const aktiv = filter === ziel.wert;
-          return (
-            <Link
-              key={ziel.wert || "aktuell"}
-              href={ziel.wert ? `/tickets?status=${ziel.wert}` : "/tickets"}
-              aria-current={aktiv ? "page" : undefined}
-              className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.8rem] font-medium transition-colors ${
-                aktiv
-                  ? "bg-brand-700 text-white"
-                  : "bg-white text-ink-600 ring-1 ring-inset ring-ink-200 hover:text-brand-700"
-              }`}
-            >
-              {ziel.label}
-              <span className={aktiv ? "text-white/70 tabular-nums" : "text-ink-400 tabular-nums"}>
-                {ziel.zahl}
-              </span>
-            </Link>
-          );
-        })}
+      {/* Zwei Filterzeilen: erst welche Sorte Arbeit, dann welcher Stand.
+          Beide scrollen am Handy waagerecht statt umzubrechen. */}
+      <div className="mb-2">
+        <ChipReihe eintraege={artZiele} aktivWert={art} href={(wert) => ziel(wert, filter)} />
+      </div>
+      <div className="mb-5">
+        <ChipReihe eintraege={filterZiele} aktivWert={filter} href={(wert) => ziel(art, wert)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -153,6 +177,9 @@ export default async function TicketsPage({
                           </p>
                         </Link>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {ticket.art === "SUPPORT" && (
+                            <Badge tone="info">{t(TICKET_ART_LABEL.SUPPORT)}</Badge>
+                          )}
                           <Badge tone={statusTon(ticket.status)}>
                             {t(TICKET_STATUS_LABEL[ticket.status] ?? ticket.status)}
                           </Badge>
@@ -241,6 +268,9 @@ export default async function TicketsPage({
                           </Td>
                           <Td>
                             <div className="flex flex-wrap gap-1">
+                              {ticket.art === "SUPPORT" && (
+                                <Badge tone="info">{t(TICKET_ART_LABEL.SUPPORT)}</Badge>
+                              )}
                               <Badge tone={statusTon(ticket.status)}>
                                 {t(TICKET_STATUS_LABEL[ticket.status] ?? ticket.status)}
                               </Badge>
@@ -352,5 +382,41 @@ export default async function TicketsPage({
         </div>
       </div>
     </>
+  );
+}
+
+/** Eine Zeile runder Filterknoepfe mit Zahl dahinter. */
+function ChipReihe({
+  eintraege,
+  aktivWert,
+  href,
+}: {
+  eintraege: Array<{ wert: string; label: string; zahl: number }>;
+  aktivWert: string;
+  href: (wert: string) => string;
+}) {
+  return (
+    <div className="scroll-schatten -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      {eintraege.map((eintrag) => {
+        const aktiv = aktivWert === eintrag.wert;
+        return (
+          <Link
+            key={eintrag.wert || "alle"}
+            href={href(eintrag.wert)}
+            aria-current={aktiv ? "page" : undefined}
+            className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.8rem] font-medium transition-colors ${
+              aktiv
+                ? "bg-brand-700 text-white"
+                : "bg-white text-ink-600 ring-1 ring-inset ring-ink-200 hover:text-brand-700"
+            }`}
+          >
+            {eintrag.label}
+            <span className={aktiv ? "text-white/70 tabular-nums" : "text-ink-400 tabular-nums"}>
+              {eintrag.zahl}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }

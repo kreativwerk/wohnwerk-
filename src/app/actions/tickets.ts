@@ -8,7 +8,8 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { flash, optionalStr, str } from "@/lib/form";
 import { FOLDER, uploadFile } from "@/lib/storage";
-import { TICKET_PRIORITAET, TICKET_STATUS } from "@/lib/enums";
+import { TICKET_ART, TICKET_PRIORITAET, TICKET_STATUS } from "@/lib/enums";
+import { kontextText } from "@/lib/tickets";
 
 const LISTE = "/tickets";
 
@@ -73,6 +74,7 @@ export async function createTicket(formData: FormData) {
 
   const ticket = await prisma.ticket.create({
     data: {
+      art: "OBJEKT",
       titel,
       beschreibung: optionalStr(formData, "beschreibung"),
       prioritaet: geprueft(str(formData, "prioritaet"), TICKET_PRIORITAET, "NORMAL"),
@@ -101,6 +103,57 @@ export async function createTicket(formData: FormData) {
   );
 }
 
+/**
+ * Meldet ein Problem mit dieser Anwendung an die IT.
+ *
+ * Anders als ein Objekt-Anliegen braucht so eine Meldung keine Zuordnung
+ * zu Haus oder Mieter, dafuer aber den Kontext: auf welcher Seite es
+ * auftrat und mit welchem Geraet. Den schickt das Formular automatisch
+ * mit - sonst steht in jedem zweiten Ticket "geht nicht" und die IT muss
+ * erst nachfragen.
+ */
+export async function createSupportTicket(formData: FormData) {
+  const user = await requireAdmin();
+  const titel = str(formData, "titel");
+  const zurueck = str(formData, "back") || LISTE;
+  if (!titel) {
+    redirect(flash(zurueck, "fehler", "Bitte beschreiben Sie in einem Satz, was nicht stimmt."));
+  }
+
+  const ticket = await prisma.ticket.create({
+    data: {
+      art: "SUPPORT",
+      titel,
+      beschreibung: optionalStr(formData, "beschreibung"),
+      prioritaet: geprueft(str(formData, "prioritaet"), TICKET_PRIORITAET, "NORMAL"),
+      kontext: kontextText({
+        seite: optionalStr(formData, "seite"),
+        fenster: optionalStr(formData, "fenster"),
+        browser: optionalStr(formData, "browser"),
+      }),
+      erstelltVon: user.name,
+    },
+  });
+
+  let ablageFehler: string | null = null;
+  const datei = formData.get("datei");
+  if (datei instanceof File && datei.size > 0) {
+    ablageFehler = await haengeDateiAn(ticket.id, ticket.nummer, datei);
+  }
+
+  await audit(user.email, "create", "Ticket", ticket.id, `#${ticket.nummer} Support: ${titel}`);
+  refresh(ticket.id);
+  redirect(
+    flash(
+      `${LISTE}/${ticket.id}`,
+      ablageFehler ? "fehler" : "ok",
+      ablageFehler
+        ? `Meldung #${ticket.nummer} ging raus, der Anhang aber nicht: ${ablageFehler}`
+        : `Danke - Meldung #${ticket.nummer} liegt bei der IT.`,
+    ),
+  );
+}
+
 /** Aendert Text, Zuordnung, Dringlichkeit und Status eines Tickets. */
 export async function updateTicket(formData: FormData) {
   const user = await requireAdmin();
@@ -116,6 +169,7 @@ export async function updateTicket(formData: FormData) {
     data: {
       titel: str(formData, "titel") || vorher.titel,
       beschreibung: optionalStr(formData, "beschreibung"),
+      art: geprueft(str(formData, "art"), TICKET_ART, vorher.art),
       prioritaet: geprueft(str(formData, "prioritaet"), TICKET_PRIORITAET, vorher.prioritaet),
       propertyId: optionalStr(formData, "propertyId"),
       tenantId: optionalStr(formData, "tenantId"),

@@ -13,8 +13,11 @@ import { BelegDatei } from "@/components/beleg-datei";
 import { ConfirmButton } from "@/components/interactive";
 import { Badge, Card, Flash, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
+  TICKET_ART,
+  TICKET_ART_LABEL,
   TICKET_PRIORITAET,
   TICKET_PRIORITAET_LABEL,
   TICKET_STATUS,
@@ -33,6 +36,9 @@ export default async function TicketPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  // Tickets gehen die Verwaltung an; ein Steuerberater-Konto
+  // landet wieder in der Buchhaltung.
+  await requireAdmin();
   const { id } = await params;
   const suche = await searchParams;
   const t = await uebersetzer();
@@ -92,6 +98,7 @@ export default async function TicketPage({
       <Flash ok={suche.ok} fehler={suche.fehler} />
 
       <div className="mb-5 flex flex-wrap gap-2">
+        {ticket.art === "SUPPORT" && <Badge tone="info">{t(TICKET_ART_LABEL.SUPPORT)}</Badge>}
         <Badge tone={statusTon(ticket.status)}>
           {t(TICKET_STATUS_LABEL[ticket.status] ?? ticket.status)}
         </Badge>
@@ -127,6 +134,14 @@ export default async function TicketPage({
               </p>
             ) : (
               <p className="text-[0.875rem] text-ink-500">{t("Keine weitere Beschreibung.")}</p>
+            )}
+
+            {/* Bei Support-Meldungen schickt die App mit, wo es passierte -
+                das erspart der IT die erste Rückfrage. */}
+            {ticket.kontext && (
+              <p className="mt-4 border-t border-ink-200 pt-3 text-[0.75rem] leading-relaxed text-ink-500">
+                {ticket.kontext}
+              </p>
             )}
           </Card>
 
@@ -228,6 +243,17 @@ export default async function TicketPage({
                     rows={5}
                     defaultValue={ticket.beschreibung ?? ""}
                   />
+                </div>
+
+                <div className="min-w-0">
+                  <label htmlFor="art">{t("Art")}</label>
+                  <select id="art" name="art" defaultValue={ticket.art}>
+                    {TICKET_ART.map((wert) => (
+                      <option key={wert} value={wert}>
+                        {t(TICKET_ART_LABEL[wert])}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">

@@ -475,8 +475,16 @@ model Ticket {
   /// Fortlaufende Nummer, damit man am Telefon darueber sprechen kann.
   nummer Int    @unique @default(autoincrement())
 
+  /// OBJEKT = etwas in einer Unterkunft, SUPPORT = etwas in dieser
+  /// Anwendung. Zwei Sorten Arbeit, zwei Zustaendige - deshalb getrennt.
+  art String @default("OBJEKT")
+
   titel        String
   beschreibung String?
+
+  /// Nur bei Support: auf welcher Seite, mit welchem Geraet. Wird beim
+  /// Melden automatisch mitgeschickt, damit die IT nicht danach fragen muss.
+  kontext String?
 
   /// OFFEN = noch niemand dran, IN_ARBEIT = jemand kuemmert sich,
   /// ERLEDIGT = abgeschlossen.
@@ -501,6 +509,7 @@ model Ticket {
   kommentare TicketKommentar[]
 
   @@index([status])
+  @@index([art])
   @@index([propertyId])
   @@index([tenantId])
 }

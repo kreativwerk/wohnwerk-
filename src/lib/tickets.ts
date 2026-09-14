@@ -51,3 +51,24 @@ export function sortiereTickets<T extends { status: string; prioritaet: string; 
 export function liegtSeitTagen(createdAt: Date, jetzt = new Date()): number {
   return Math.max(0, Math.floor((jetzt.getTime() - createdAt.getTime()) / 86_400_000));
 }
+
+/**
+ * Die Zeile, die einer Support-Meldung beiliegt: wo es passierte, in
+ * welchem Fenster, mit welchem Browser.
+ *
+ * Was der Browser nicht hergibt, faellt weg statt als leeres "Seite: "
+ * dazustehen. Gibt es gar nichts, ist die Zeile null - die Meldung geht
+ * trotzdem raus, denn der Text ist das Wesentliche.
+ */
+export function kontextText(teile: {
+  seite?: string | null;
+  fenster?: string | null;
+  browser?: string | null;
+}): string | null {
+  const zeilen = [
+    teile.seite && `Seite: ${teile.seite}`,
+    teile.fenster && `Fenster: ${teile.fenster}`,
+    teile.browser && `Browser: ${teile.browser}`,
+  ].filter(Boolean);
+  return zeilen.length > 0 ? zeilen.join(" · ") : null;
+}

@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/nav";
 import { MobileTabBar } from "@/components/mobile-tabbar";
 import { aktuelleSprache } from "@/lib/i18n";
 import { Sprachwahl } from "@/components/sprachwahl";
+import { SupportBlatt } from "@/components/support-melden";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, sprache] = await Promise.all([requireUser(), aktuelleSprache()]);
@@ -24,6 +25,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </main>
       <MobileTabBar role={user.role} sprache={sprache} />
+      {/* Liegt still, bis ein "Problem melden" es ruft - von jeder Seite aus. */}
+      <SupportBlatt sprache={sprache} />
     </div>
   );
 }

@@ -27,6 +27,9 @@ export type ChargeStatus = (typeof CHARGE_STATUS)[number];
 export const DOCUMENT_KIND = ["RECEIPT", "INVOICE", "CONTRACT", "STATEMENT", "OTHER"] as const;
 export type DocumentKind = (typeof DOCUMENT_KIND)[number];
 
+export const TICKET_ART = ["OBJEKT", "SUPPORT"] as const;
+export type TicketArt = (typeof TICKET_ART)[number];
+
 export const TICKET_STATUS = ["OFFEN", "IN_ARBEIT", "ERLEDIGT"] as const;
 export type TicketStatus = (typeof TICKET_STATUS)[number];
 
@@ -103,6 +106,11 @@ export const EXPENSE_CATEGORIES = [
   "Bankgebühren",
   "Sonstiges",
 ] as const;
+
+export const TICKET_ART_LABEL: LabelMap = {
+  OBJEKT: "Objekt",
+  SUPPORT: "Support",
+};
 
 export const TICKET_STATUS_LABEL: LabelMap = {
   OFFEN: "Offen",
