@@ -23,6 +23,7 @@ import {
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 
 import { LogoMark, LogoNavbar } from "./logo";
+import { uebersetzeIn, type Sprache } from "@/lib/i18n-gemeinsam";
 
 const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: PhosphorIcon }> }> = [
   {
@@ -63,9 +64,20 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar({ user }: { user: { name: string; email: string; role: string } }) {
+export function Sidebar({
+  user,
+  sprache,
+  sprachwahl,
+}: {
+  user: { name: string; email: string; role: string };
+  sprache: Sprache;
+  /** Der Sprachschalter ist eine Server-Komponente und wird hereingereicht. */
+  sprachwahl?: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Client-Komponente: die Sprache kommt vom Layout, uebersetzt wird hier.
+  const t = uebersetzeIn(sprache);
 
   // Ein Steuerberater-Konto sieht nur die Buchhaltung; die Startseite ist
   // dann die Buchungsuebersicht statt des Dashboards.
@@ -80,17 +92,17 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
   const nav = (
     <nav className="flex h-full flex-col">
       <div className="px-5 pb-6 pt-6">
-        <Link href="/" aria-label="Zum Dashboard">
+        <Link href="/" aria-label={t("Zum Dashboard")}>
           <LogoNavbar className="h-9 w-auto" />
         </Link>
-        <p className="mt-2.5 text-[0.7rem] tracking-wide text-brand-300">Monteurunterkünfte</p>
+        <p className="mt-2.5 text-[0.7rem] tracking-wide text-brand-300">{t("Monteurunterkünfte")}</p>
       </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
         {sections.map((section) => (
           <div key={section.group}>
             <p className="px-3 pb-2 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-brand-400">
-              {section.group}
+              {t(section.group)}
             </p>
             <ul className="space-y-0.5">
               {section.items.map((item) => {
@@ -119,7 +131,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
                         weight={active ? "fill" : "regular"}
                         className={active ? "text-accent-400" : "text-brand-400 group-hover:text-brand-200"}
                       />
-                      {item.label}
+                      {t(item.label)}
                     </Link>
                   </li>
                 );
@@ -130,6 +142,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
       </div>
 
       <div className="border-t border-white/[0.08] px-5 py-4">
+        {sprachwahl && <div className="mb-3">{sprachwahl}</div>}
         <p className="truncate text-[0.82rem] font-medium text-white">{user.name}</p>
         <p className="truncate text-[0.72rem] text-brand-400">{user.email}</p>
         <form action="/api/auth/logout" method="post" className="mt-2.5">
@@ -137,7 +150,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
             type="submit"
             className="text-[0.76rem] font-medium text-brand-300 transition-colors hover:text-white"
           >
-            Abmelden
+            {t("Abmelden")}
           </button>
         </form>
       </div>
@@ -148,7 +161,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
     <>
       {/* Mobil: Kopfzeile, die beim Scrollen stehen bleibt. */}
       <div className="glass-dark sticky top-0 z-30 flex items-center justify-between px-4 py-3 lg:hidden">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Zum Dashboard">
+        <Link href="/" className="flex items-center gap-2.5" aria-label={t("Zum Dashboard")}>
           <LogoMark className="h-6 w-auto" />
           <span className="text-sm font-semibold tracking-tight text-white">Wohnwerk</span>
         </Link>
@@ -156,7 +169,7 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
-          aria-label="Menü umschalten"
+          aria-label={t("Menü umschalten")}
           className="flex h-9 w-9 items-center justify-center rounded-[0.6rem] text-brand-200 transition-colors hover:bg-white/10 hover:text-white"
         >
           {open ? <X size={20} /> : <List size={20} />}

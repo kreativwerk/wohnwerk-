@@ -18,6 +18,8 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 
+import { uebersetzeIn, type Sprache } from "@/lib/i18n-gemeinsam";
+
 /**
  * Schwebende Menueleiste fuer das Handy.
  *
@@ -84,7 +86,7 @@ function istAktiv(pathname: string, href: string): boolean {
   return pathname === ziel || pathname.startsWith(`${ziel}/`);
 }
 
-function Tab({ ziel, aktiv }: { ziel: Ziel; aktiv: boolean }) {
+function Tab({ ziel, aktiv, label }: { ziel: Ziel; aktiv: boolean; label: string }) {
   return (
     <Link
       href={ziel.href}
@@ -95,14 +97,15 @@ function Tab({ ziel, aktiv }: { ziel: Ziel; aktiv: boolean }) {
     >
       <ziel.icon size={22} weight={aktiv ? "fill" : "regular"} />
       <span className="w-full truncate text-center text-[0.63rem] font-medium leading-tight">
-        {ziel.label}
+        {label}
       </span>
     </Link>
   );
 }
 
-export function MobileTabBar({ role }: { role: string }) {
+export function MobileTabBar({ role, sprache }: { role: string; sprache: Sprache }) {
   const pathname = usePathname();
+  const t = uebersetzeIn(sprache);
   const [offen, setOffen] = useState(false);
   const ersterEintrag = useRef<HTMLAnchorElement>(null);
 
@@ -130,16 +133,16 @@ export function MobileTabBar({ role }: { role: string }) {
   return (
     <>
       {offen && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Schnellaktionen">
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={t("Schnell erledigen")}>
           <button
             type="button"
-            aria-label="Schließen"
+            aria-label={t("Schließen")}
             onClick={() => setOffen(false)}
             className="absolute inset-0 bg-ink-900/45 backdrop-blur-[2px] motion-safe:animate-[einblenden_150ms_ease-out]"
           />
           <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_40px_rgb(20_39_38/0.18)] motion-safe:animate-[hochschieben_200ms_cubic-bezier(0.16,1,0.3,1)]">
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-ink-300" aria-hidden="true" />
-            <p className="px-1 pb-2 text-[0.82rem] font-semibold text-ink-900">Schnell erledigen</p>
+            <p className="px-1 pb-2 text-[0.82rem] font-semibold text-ink-900">{t("Schnell erledigen")}</p>
             <ul className="space-y-1">
               {AKTIONEN.map((aktion, index) => (
                 <li key={aktion.href}>
@@ -153,8 +156,8 @@ export function MobileTabBar({ role }: { role: string }) {
                       <aktion.icon size={21} weight="regular" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[0.9rem] font-medium text-ink-900">{aktion.label}</span>
-                      <span className="block truncate text-[0.75rem] text-ink-500">{aktion.hinweis}</span>
+                      <span className="block text-[0.9rem] font-medium text-ink-900">{t(aktion.label)}</span>
+                      <span className="block truncate text-[0.75rem] text-ink-500">{t(aktion.hinweis)}</span>
                     </span>
                   </Link>
                 </li>
@@ -165,16 +168,16 @@ export function MobileTabBar({ role }: { role: string }) {
       )}
 
       <nav
-        aria-label="Schnellzugriff"
+        aria-label={t("Schnellzugriff")}
         className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center gap-0.5 rounded-2xl border border-ink-200/80 bg-white/95 px-1.5 py-1.5 shadow-[0_6px_28px_rgb(20_39_38/0.18)] backdrop-blur-xl backdrop-saturate-150">
           {kanzlei ? (
-            KANZLEI.map((ziel) => <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} />)
+            KANZLEI.map((ziel) => <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} label={t(ziel.label)} />)
           ) : (
             <>
               {LINKS.map((ziel) => (
-                <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} />
+                <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} label={t(ziel.label)} />
               ))}
 
               {/* Das Plus ist bewusst groesser: es ist der Grund, warum man
@@ -183,14 +186,14 @@ export function MobileTabBar({ role }: { role: string }) {
                 type="button"
                 onClick={() => setOffen((wert) => !wert)}
                 aria-expanded={offen}
-                aria-label={offen ? "Schnellaktionen schließen" : "Schnellaktionen öffnen"}
+                aria-label={offen ? t("Schnellaktionen schließen") : t("Schnellaktionen öffnen")}
                 className="-mt-6 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent-500 text-white shadow-[0_6px_20px_rgb(238_86_39/0.42)] ring-4 ring-white transition-transform active:scale-95"
               >
                 {offen ? <X size={26} weight="bold" /> : <Plus size={26} weight="bold" />}
               </button>
 
               {RECHTS.map((ziel) => (
-                <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} />
+                <Tab key={ziel.href} ziel={ziel} aktiv={istAktiv(pathname, ziel.href)} label={t(ziel.label)} />
               ))}
             </>
           )}

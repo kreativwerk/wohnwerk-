@@ -16,12 +16,17 @@ import { Eye, EyeSlash } from "@phosphor-icons/react/dist/ssr";
 export function PasswortFeld({
   name = "password",
   label = "Passwort",
+  anzeigenLabel = "Passwort anzeigen",
+  verbergenLabel = "Passwort verbergen",
   autoComplete = "current-password",
   required = true,
   autoFocus = false,
 }: {
   name?: string;
   label?: string;
+  /** Beschriftungen kommen von aussen, damit das Feld zweisprachig ist. */
+  anzeigenLabel?: string;
+  verbergenLabel?: string;
   autoComplete?: string;
   required?: boolean;
   autoFocus?: boolean;
@@ -50,8 +55,8 @@ export function PasswortFeld({
           type="button"
           onClick={() => setSichtbar((wert) => !wert)}
           aria-pressed={sichtbar}
-          aria-label={sichtbar ? "Passwort verbergen" : "Passwort anzeigen"}
-          title={sichtbar ? "Passwort verbergen" : "Passwort anzeigen"}
+          aria-label={sichtbar ? verbergenLabel : anzeigenLabel}
+          title={sichtbar ? verbergenLabel : anzeigenLabel}
           // -translate-y-1/2 statt inset-y-0: der Schalter bleibt mittig,
           // auch wenn das Feld am Handy hoeher ist.
           className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
