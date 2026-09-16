@@ -8,11 +8,16 @@ import { prisma } from "@/lib/db";
 import { periodSummary } from "@/lib/accounting";
 import { EXPENSE_CATEGORIES } from "@/lib/enums";
 import { propertyOptions } from "@/lib/options";
-import { centsToInput, formatCents } from "@/lib/money";
-import { endOfMonth, formatDate, startOfMonth, toDateInput } from "@/lib/dates";
+import { centsToInput } from "@/lib/money";
+import { endOfMonth, startOfMonth, toDateInput } from "@/lib/dates";
 import { AdminOnly } from "@/components/admin-only";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Buchungen" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Buchungen") };
+}
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 60;
@@ -31,6 +36,7 @@ export default async function AccountingPage({
     bis?: string;
   }>;
 }) {
+  const { t, datum, geld } = await oberflaeche();
   const params = await searchParams;
 
   const now = new Date();
@@ -84,15 +90,15 @@ export default async function AccountingPage({
   return (
     <>
       <PageHeader
-        title="Buchungen"
-        description="Alle Umsätze aus den importierten Kontoauszügen."
+        title={t("Buchungen")}
+        description={t("Alle Umsätze aus den importierten Kontoauszügen.")}
         actions={
           <>
             <Link href="/buchhaltung/kontoauszuege" className="btn btn-primary">
-              Kontoauszug hochladen
+              {t("Kontoauszug hochladen")}
             </Link>
             <Link href="/buchhaltung/export" className="btn btn-secondary">
-              Steuerberater-Export
+              {t("Steuerberater-Export")}
             </Link>
           </>
         }
@@ -101,15 +107,15 @@ export default async function AccountingPage({
       <Flash ok={params.ok} fehler={params.fehler} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard label="Einnahmen (Monat)" value={formatCents(summary.incomeCents)} tone="success" />
-        <StatCard label="Ausgaben (Monat)" value={formatCents(summary.expenseCents)} tone="danger" />
+        <StatCard label={t("Einnahmen (Monat)")} value={geld(summary.incomeCents)} tone="success" />
+        <StatCard label={t("Ausgaben (Monat)")} value={geld(summary.expenseCents)} tone="danger" />
         <StatCard
-          label="Saldo (Monat)"
-          value={formatCents(summary.balanceCents)}
+          label={t("Saldo (Monat)")}
+          value={geld(summary.balanceCents)}
           tone={summary.balanceCents >= 0 ? "success" : "danger"}
         />
         <StatCard
-          label="Ohne Beleg"
+          label={t("Ohne Beleg")}
           value={String(summary.missingReceiptsCount)}
           tone={summary.missingReceiptsCount > 0 ? "warning" : "success"}
           href="/buchhaltung?fehlend=1"
@@ -121,40 +127,40 @@ export default async function AccountingPage({
           <AdminOnly>
             <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
               <div className="min-w-52 flex-1">
-                <label htmlFor="q">Suche</label>
-                <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Zweck, Name, Kategorie" />
+                <label htmlFor="q">{t("Suche")}</label>
+                <input id="q" name="q" defaultValue={params.q ?? ""} placeholder={t("Zweck, Name, Kategorie")} />
               </div>
               <div className="w-40">
-                <label htmlFor="richtung">Richtung</label>
+                <label htmlFor="richtung">{t("Richtung")}</label>
                 <select id="richtung" name="richtung" defaultValue={params.richtung ?? ""}>
-                  <option value="">Alle</option>
-                  <option value="CREDIT">Eingang</option>
-                  <option value="DEBIT">Ausgang</option>
+                  <option value="">{t("Alle")}</option>
+                  <option value="CREDIT">{t("Eingang")}</option>
+                  <option value="DEBIT">{t("Ausgang")}</option>
                 </select>
               </div>
               <div className="w-40">
-                <label htmlFor="status">Status</label>
+                <label htmlFor="status">{t("Status")}</label>
                 <select id="status" name="status" defaultValue={params.status ?? ""}>
-                  <option value="">Alle</option>
-                  <option value="OPEN">Offen</option>
-                  <option value="MATCHED">Zugeordnet</option>
-                  <option value="BOOKED">Gebucht</option>
-                  <option value="IGNORED">Ignoriert</option>
+                  <option value="">{t("Alle")}</option>
+                  <option value="OPEN">{t("Offen")}</option>
+                  <option value="MATCHED">{t("Zugeordnet")}</option>
+                  <option value="BOOKED">{t("Gebucht")}</option>
+                  <option value="IGNORED">{t("Ignoriert")}</option>
                 </select>
               </div>
               <div className="w-40">
-                <label htmlFor="von">Von</label>
+                <label htmlFor="von">{t("Von")}</label>
                 <input id="von" name="von" type="date" defaultValue={params.von ?? ""} />
               </div>
               <div className="w-40">
-                <label htmlFor="bis">Bis</label>
+                <label htmlFor="bis">{t("Bis")}</label>
                 <input id="bis" name="bis" type="date" defaultValue={params.bis ?? ""} />
               </div>
               <button type="submit" className="btn btn-secondary">
-                Filtern
+                {t("Filtern")}
               </button>
               <Link href="/buchhaltung" className="btn btn-ghost">
-                Zurücksetzen
+                {t("Zurücksetzen")}
               </Link>
             </form>
           </AdminOnly>
@@ -162,15 +168,15 @@ export default async function AccountingPage({
           {transactions.length === 0 ? (
             <div className="p-5">
               <EmptyState
-                title={accounts === 0 ? "Noch kein Bankkonto" : "Keine Buchungen gefunden"}
+                title={accounts === 0 ? t("Noch kein Bankkonto") : t("Keine Buchungen gefunden")}
                 description={
                   accounts === 0
-                    ? "Legen Sie zuerst ein Bankkonto an und laden Sie dann einen Kontoauszug hoch."
-                    : "Passen Sie die Filter an oder laden Sie einen weiteren Kontoauszug hoch."
+                    ? t("Legen Sie zuerst ein Bankkonto an und laden Sie dann einen Kontoauszug hoch.")
+                    : t("Passen Sie die Filter an oder laden Sie einen weiteren Kontoauszug hoch.")
                 }
                 action={
                   <Link href="/buchhaltung/kontoauszuege" className="btn btn-primary">
-                    Zu den Kontoauszügen
+                    {t("Zu den Kontoauszügen")}
                   </Link>
                 }
               />
@@ -180,19 +186,19 @@ export default async function AccountingPage({
               <Table>
                 <thead>
                   <tr>
-                    <Th>Datum</Th>
-                    <Th>Gegenpartei / Zweck</Th>
-                    <Th>Kategorie</Th>
-                    <Th>Beleg</Th>
-                    <Th align="right">Betrag</Th>
-                    <Th align="right">Status</Th>
+                    <Th>{t("Datum")}</Th>
+                    <Th>{t("Gegenpartei / Zweck")}</Th>
+                    <Th>{t("Kategorie")}</Th>
+                    <Th>{t("Beleg")}</Th>
+                    <Th align="right">{t("Betrag")}</Th>
+                    <Th align="right">{t("Status")}</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap text-ink-600">
-                        {formatDate(tx.bookingDate)}
+                        {datum(tx.bookingDate)}
                         <p className="text-xs text-ink-500">{tx.bankAccount.name}</p>
                       </Td>
                       <Td>
@@ -211,30 +217,30 @@ export default async function AccountingPage({
                           </p>
                         )}
                         <div className="mt-1.5">
-                          <Disclosure summary="Bearbeiten">
+                          <Disclosure summary={t("Bearbeiten")}>
                             <AdminOnly>
                               <form action={updateTransaction} className="grid gap-3 sm:grid-cols-3">
                                 <input type="hidden" name="id" value={tx.id} />
                                 <input type="hidden" name="back" value="/buchhaltung" />
                                 <div>
-                                  <label htmlFor={`cat-${tx.id}`}>Kategorie</label>
+                                  <label htmlFor={`cat-${tx.id}`}>{t("Kategorie")}</label>
                                   <select id={`cat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
-                                    <option value="">– keine –</option>
+                                    <option value="">{t("– keine –")}</option>
                                     {EXPENSE_CATEGORIES.map((category) => (
                                       <option key={category} value={category}>
-                                        {category}
+                                        {t(category)}
                                       </option>
                                     ))}
                                   </select>
                                 </div>
                                 <div>
-                                  <label htmlFor={`prop-${tx.id}`}>Objekt</label>
+                                  <label htmlFor={`prop-${tx.id}`}>{t("Objekt")}</label>
                                   <select
                                     id={`prop-${tx.id}`}
                                     name="propertyId"
                                     defaultValue={tx.propertyId ?? ""}
                                   >
-                                    <option value="">– keins –</option>
+                                    <option value="">{t("– keins –")}</option>
                                     {properties.map((property) => (
                                       <option key={property.id} value={property.id}>
                                         {property.name}
@@ -243,39 +249,39 @@ export default async function AccountingPage({
                                   </select>
                                 </div>
                                 <div>
-                                  <label htmlFor={`rev-${tx.id}`}>Status</label>
+                                  <label htmlFor={`rev-${tx.id}`}>{t("Status")}</label>
                                   <select
                                     id={`rev-${tx.id}`}
                                     name="reviewStatus"
                                     defaultValue={tx.reviewStatus}
                                   >
-                                    <option value="OPEN">Offen</option>
-                                    <option value="MATCHED">Zugeordnet</option>
-                                    <option value="BOOKED">Gebucht</option>
-                                    <option value="IGNORED">Ignorieren</option>
+                                    <option value="OPEN">{t("Offen")}</option>
+                                    <option value="MATCHED">{t("Zugeordnet")}</option>
+                                    <option value="BOOKED">{t("Gebucht")}</option>
+                                    <option value="IGNORED">{t("Ignorieren")}</option>
                                   </select>
                                 </div>
                                 <div className="sm:col-span-3">
-                                  <label htmlFor={`note-${tx.id}`}>Notiz</label>
+                                  <label htmlFor={`note-${tx.id}`}>{t("Notiz")}</label>
                                   <input id={`note-${tx.id}`} name="notes" defaultValue={tx.notes ?? ""} />
                                 </div>
                                 <div className="sm:col-span-3">
                                   <button type="submit" className="btn btn-primary">
-                                    Speichern
+                                    {t("Speichern")}
                                   </button>
                                 </div>
                               </form>
                             </AdminOnly>
                           </Disclosure>
 
-                          <Disclosure summary="Beleg hochladen">
+                          <Disclosure summary={t("Beleg hochladen")}>
                             <AdminOnly>
                               <form action={uploadDocument} className="grid gap-3 sm:grid-cols-3">
                                 <input type="hidden" name="bankTransactionId" value={tx.id} />
                                 <input type="hidden" name="back" value="/buchhaltung" />
                                 <input type="hidden" name="kind" value="RECEIPT" />
                                 <div className="sm:col-span-3">
-                                  <label htmlFor={`file-${tx.id}`}>Datei *</label>
+                                  <label htmlFor={`file-${tx.id}`}>{t("Datei *")}</label>
                                   <input
                                     id={`file-${tx.id}`}
                                     name="file"
@@ -285,7 +291,7 @@ export default async function AccountingPage({
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`title-${tx.id}`}>Titel</label>
+                                  <label htmlFor={`title-${tx.id}`}>{t("Titel")}</label>
                                   <input
                                     id={`title-${tx.id}`}
                                     name="title"
@@ -293,7 +299,7 @@ export default async function AccountingPage({
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`date-${tx.id}`}>Belegdatum</label>
+                                  <label htmlFor={`date-${tx.id}`}>{t("Belegdatum")}</label>
                                   <input
                                     id={`date-${tx.id}`}
                                     name="documentDate"
@@ -302,7 +308,7 @@ export default async function AccountingPage({
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`amount-${tx.id}`}>Betrag</label>
+                                  <label htmlFor={`amount-${tx.id}`}>{t("Betrag")}</label>
                                   <input
                                     id={`amount-${tx.id}`}
                                     name="amountCents"
@@ -311,7 +317,7 @@ export default async function AccountingPage({
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`supplier-${tx.id}`}>Lieferant</label>
+                                  <label htmlFor={`supplier-${tx.id}`}>{t("Lieferant")}</label>
                                   <input
                                     id={`supplier-${tx.id}`}
                                     name="supplier"
@@ -319,23 +325,23 @@ export default async function AccountingPage({
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`vat-${tx.id}`}>USt-Satz %</label>
+                                  <label htmlFor={`vat-${tx.id}`}>{t("USt-Satz %")}</label>
                                   <input id={`vat-${tx.id}`} name="vatRatePct" inputMode="decimal" placeholder="19" />
                                 </div>
                                 <div>
-                                  <label htmlFor={`dcat-${tx.id}`}>Kategorie</label>
+                                  <label htmlFor={`dcat-${tx.id}`}>{t("Kategorie")}</label>
                                   <select id={`dcat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
-                                    <option value="">– keine –</option>
+                                    <option value="">{t("– keine –")}</option>
                                     {EXPENSE_CATEGORIES.map((category) => (
                                       <option key={category} value={category}>
-                                        {category}
+                                        {t(category)}
                                       </option>
                                     ))}
                                   </select>
                                 </div>
                                 <div className="sm:col-span-3">
                                   <button type="submit" className="btn btn-primary">
-                                    Beleg speichern
+                                    {t("Beleg speichern")}
                                   </button>
                                 </div>
                               </form>
@@ -344,13 +350,13 @@ export default async function AccountingPage({
                         </div>
                       </Td>
                       <Td className="text-ink-600">
-                        {tx.category ?? <span className="text-ink-500">–</span>}
+                        {tx.category ? t(tx.category) : <span className="text-ink-500">–</span>}
                         {tx.property && <p className="text-xs text-ink-500">{tx.property.name}</p>}
                       </Td>
                       <Td>
                         {tx.documents.length === 0 ? (
                           tx.direction === "DEBIT" ? (
-                            <span className="text-xs font-semibold text-amber-600">fehlt</span>
+                            <span className="text-xs font-semibold text-amber-600">{t("fehlt")}</span>
                           ) : (
                             <span className="text-ink-500">–</span>
                           )
@@ -377,7 +383,7 @@ export default async function AccountingPage({
                           tx.amountCents >= 0 ? "text-emerald-600" : "text-ink-900"
                         }`}
                       >
-                        {formatCents(tx.amountCents)}
+                        {geld(tx.amountCents)}
                       </Td>
                       <Td align="right">
                         <ReviewBadge status={tx.reviewStatus} />
@@ -389,8 +395,7 @@ export default async function AccountingPage({
 
               {total > transactions.length && (
                 <p className="border-t border-ink-200 px-4 py-3 text-xs text-ink-500">
-                  {transactions.length} von {total} Buchungen angezeigt. Bitte die Filter verwenden, um
-                  die Auswahl einzugrenzen.
+                  {t("{gezeigt} von {gesamt} Buchungen angezeigt. Bitte die Filter verwenden, um die Auswahl einzugrenzen.", { gezeigt: transactions.length, gesamt: total })}
                 </p>
               )}
             </>

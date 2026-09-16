@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOberflaeche } from "./sprache-kontext";
 
 /**
  * Unterschriftenfeld fuer den Mieter.
@@ -16,6 +17,7 @@ export function SignaturePad({
   name?: string;
   required?: boolean;
 }) {
+  const { t } = useOberflaeche();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
@@ -124,21 +126,21 @@ export function SignaturePad({
           onPointerCancel={end}
           onPointerLeave={end}
           className="h-40 w-full cursor-crosshair touch-none rounded-lg border border-dashed border-ink-300 bg-white"
-          aria-label="Unterschriftenfeld"
+          aria-label={t("Unterschriftenfeld")}
         />
         {!hasSignature && (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-ink-500">
-            Hier mit Maus oder Finger unterschreiben
+            {t("Hier mit Maus oder Finger unterschreiben")}
           </p>
         )}
       </div>
 
       <div className="mt-2 flex items-center justify-between">
         <p className="text-xs text-ink-500">
-          {hasSignature ? "Unterschrift erfasst." : "Noch keine Unterschrift."}
+          {hasSignature ? t("Unterschrift erfasst.") : t("Noch keine Unterschrift.")}
         </p>
         <button type="button" className="btn btn-ghost" onClick={clear}>
-          Löschen
+          {t("Löschen")}
         </button>
       </div>
 

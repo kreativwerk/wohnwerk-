@@ -5,7 +5,7 @@ import { AdminOnly } from "@/components/admin-only";
 import { SupportAusloeser } from "@/components/support-melden";
 import { BelegDatei } from "@/components/beleg-datei";
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
-import { formatDateTime } from "@/lib/dates";
+
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -16,11 +16,15 @@ import {
   TICKET_STATUS,
   TICKET_STATUS_LABEL,
 } from "@/lib/enums";
-import { uebersetzer } from "@/lib/i18n";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
 import { propertyOptions } from "@/lib/options";
 import { liegtSeitTagen, naechsterStatus, prioritaetsTon, sortiereTickets, statusTon } from "@/lib/tickets";
 
-export const metadata = { title: "Tickets" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Tickets") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function TicketsPage({
@@ -32,7 +36,7 @@ export default async function TicketsPage({
   // landet wieder in der Buchhaltung.
   await requireAdmin();
   const params = await searchParams;
-  const t = await uebersetzer();
+  const { t, datumZeit } = await oberflaeche();
 
   // Ohne Auswahl zeigt die Liste alles, was noch nicht erledigt ist -
   // erledigte Tickets sucht man bewusst.
@@ -168,7 +172,7 @@ export default async function TicketsPage({
                           </p>
                           <p className="mt-1 text-xs text-ink-500">
                             {[
-                              formatDateTime(ticket.createdAt),
+                              datumZeit(ticket.createdAt),
                               ticket.property?.name,
                               ticket.tenant && `${ticket.tenant.firstName} ${ticket.tenant.lastName}`,
                             ]
@@ -245,7 +249,7 @@ export default async function TicketsPage({
                               {ticket.titel}
                             </Link>
                             <p className="mt-0.5 text-xs text-ink-500">
-                              {formatDateTime(ticket.createdAt)} · {ticket.erstelltVon}
+                              {datumZeit(ticket.createdAt)} · {ticket.erstelltVon}
                               {ticket._count.documents > 0 &&
                                 ` · ${ticket._count.documents} ${t("Anhänge")}`}
                               {ticket._count.kommentare > 0 &&

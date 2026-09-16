@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useOberflaeche } from "./sprache-kontext";
 
 /**
  * Dateiauswahl fuer Belege - unterwegs mit der Kamera.
@@ -56,6 +57,7 @@ async function verkleinern(datei: File): Promise<File> {
 }
 
 export function BelegDatei({ name = "file", required = true }: { name?: string; required?: boolean }) {
+  const { t } = useOberflaeche();
   const feld = useRef<HTMLInputElement>(null);
   const [vorschau, setVorschau] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
@@ -119,7 +121,7 @@ export function BelegDatei({ name = "file", required = true }: { name?: string; 
           Foto aufnehmen
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => oeffnen(false)}>
-          Datei wählen
+          {t("Datei wählen")}
         </button>
       </div>
 
@@ -134,13 +136,13 @@ export function BelegDatei({ name = "file", required = true }: { name?: string; 
         className="mt-2"
       />
 
-      {laeuft && <p className="field-hint">Foto wird vorbereitet …</p>}
+      {laeuft && <p className="field-hint">{t("Foto wird vorbereitet …")}</p>}
 
       {vorschau && (
         <div className="mt-2 overflow-hidden rounded-lg border border-ink-200">
           {/* Ortsbezogene Vorschau aus dem Browser - kein externes Bild. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={vorschau} alt="Vorschau des aufgenommenen Belegs" className="max-h-56 w-full object-contain" />
+          <img src={vorschau} alt={t("Vorschau des aufgenommenen Belegs")} className="max-h-56 w-full object-contain" />
         </div>
       )}
 

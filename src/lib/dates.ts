@@ -1,25 +1,48 @@
-const DATE = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-const DATETIME = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const MONTH = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
+/**
+ * Datums- und Zeitformate.
+ *
+ * Das Locale entscheidet ueber mehr als Kosmetik: "05.09.2026" liest ein
+ * englischsprachiger Mensch als 9. Mai. Deshalb nimmt jede Formatierung
+ * ein Locale entgegen, das die Oberflaeche aus der gewaehlten Sprache
+ * ableitet. Ohne Angabe bleibt es beim Deutschen.
+ */
 
-export function formatDate(d: Date | string | null | undefined): string {
-  if (!d) return "–";
-  return DATE.format(typeof d === "string" ? new Date(d) : d);
+export type Locale = "de-DE" | "en-GB";
+
+// Formatierer sind teuer, deshalb einmal je Locale bauen und behalten.
+const zwischenspeicher = new Map<string, Intl.DateTimeFormat>();
+
+function formatierer(locale: Locale, optionen: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const schluessel = `${locale}|${JSON.stringify(optionen)}`;
+  let f = zwischenspeicher.get(schluessel);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, optionen);
+    zwischenspeicher.set(schluessel, f);
+  }
+  return f;
 }
 
-export function formatDateTime(d: Date | string | null | undefined): string {
+const TAG = { day: "2-digit", month: "2-digit", year: "numeric" } as const;
+const TAG_ZEIT = { ...TAG, hour: "2-digit", minute: "2-digit" } as const;
+const MONAT = { month: "long", year: "numeric" } as const;
+
+export function formatDate(d: Date | string | null | undefined, locale: Locale = "de-DE"): string {
   if (!d) return "–";
-  return DATETIME.format(typeof d === "string" ? new Date(d) : d);
+  return formatierer(locale, TAG).format(typeof d === "string" ? new Date(d) : d);
 }
 
-export function formatMonth(year: number, month: number): string {
-  return MONTH.format(new Date(Date.UTC(year, month - 1, 1)));
+export function formatDateTime(d: Date | string | null | undefined, locale: Locale = "de-DE"): string {
+  if (!d) return "–";
+  return formatierer(locale, TAG_ZEIT).format(typeof d === "string" ? new Date(d) : d);
+}
+
+export function formatMonth(year: number, month: number, locale: Locale = "de-DE"): string {
+  return formatierer(locale, MONAT).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+/** Kurzform fuer Achsenbeschriftungen: "Sep 26" / "Sep 26". */
+export function formatMonthShort(d: Date, locale: Locale = "de-DE"): string {
+  return formatierer(locale, { month: "short", year: "2-digit" }).format(d);
 }
 
 /** yyyy-mm-dd fuer <input type="date"> */

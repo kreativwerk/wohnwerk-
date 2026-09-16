@@ -7,11 +7,15 @@ import {
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatCents } from "@/lib/money";
-import { formatDate, formatDateTime } from "@/lib/dates";
-import { AdminOnly } from "@/components/admin-only";
 
-export const metadata = { title: "Kontoauszüge" };
+import { AdminOnly } from "@/components/admin-only";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Kontoauszüge") };
+}
 export const dynamic = "force-dynamic";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -25,6 +29,7 @@ export default async function StatementsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, datum, datumZeit, geld } = await oberflaeche();
   const params = await searchParams;
 
   const [accounts, statements] = await Promise.all([
@@ -43,27 +48,26 @@ export default async function StatementsPage({
   return (
     <>
       <PageHeader
-        title="Kontoauszüge"
-        description="Bankdatei hochladen – die Buchungen werden eingelesen, Duplikate übersprungen und Mietzahlungen automatisch zugeordnet."
-        breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Kontoauszüge" }]}
+        title={t("Kontoauszüge")}
+        description={t("Bankdatei hochladen – die Buchungen werden eingelesen, Duplikate übersprungen und Mietzahlungen automatisch zugeordnet.")}
+        breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Kontoauszüge") }]}
       />
 
       <Flash ok={params.ok} fehler={params.fehler} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 lg:col-span-2">
-          <Card title="Kontoauszug hochladen">
+          <Card title={t("Kontoauszug hochladen")}>
             {accounts.length === 0 ? (
-              <Alert tone="warning" title="Zuerst ein Bankkonto anlegen">
-                Rechts können Sie das Geschäftskonto mit IBAN hinterlegen. Danach lassen sich Auszüge
-                hochladen.
+              <Alert tone="warning" title={t("Zuerst ein Bankkonto anlegen")}>
+                {t("Rechts können Sie das Geschäftskonto mit IBAN hinterlegen. Danach lassen sich Auszüge hochladen.")}
               </Alert>
             ) : (
               <AdminOnly>
                 <form action={importStatement} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="bankAccountId">Bankkonto *</label>
+                      <label htmlFor="bankAccountId">{t("Bankkonto *")}</label>
                       <select id="bankAccountId" name="bankAccountId" required>
                         {accounts.map((account) => (
                           <option key={account.id} value={account.id}>
@@ -73,7 +77,7 @@ export default async function StatementsPage({
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="file">Datei *</label>
+                      <label htmlFor="file">{t("Datei *")}</label>
                       <input
                         id="file"
                         name="file"
@@ -84,29 +88,26 @@ export default async function StatementsPage({
                     </div>
                   </div>
 
-                  <Alert tone="info" title="Unterstützte Formate">
+                  <Alert tone="info" title={t("Unterstützte Formate")}>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
                       <li>
-                        <strong>CSV</strong> – der übliche Export aus dem Online-Banking (Sparkasse, DKB,
-                        ING, Comdirect, Volksbank, Qonto, N26). Spalten werden automatisch erkannt.
+                        <strong>CSV</strong> {t("– der übliche Export aus dem Online-Banking (Sparkasse, DKB, ING, Comdirect, Volksbank, Qonto, N26). Spalten werden automatisch erkannt.")}
                       </li>
                       <li>
-                        <strong>PDF</strong> – der gedruckte Kontoauszug (VR-Bank, Sparkasse und
-                        verwandte Layouts). Buchungen werden aus dem Text gelesen; gescannte
-                        Bilder ohne Textebene funktionieren nicht. CSV oder CAMT bleiben die
-                        verlässlichere Wahl, wo das Online-Banking sie anbietet.
+                        <strong>PDF</strong>{" "}
+                        {t("– der gedruckte Kontoauszug (VR-Bank, Sparkasse und verwandte Layouts). Buchungen werden aus dem Text gelesen; gescannte Bilder ohne Textebene funktionieren nicht. CSV oder CAMT bleiben die verlässlichere Wahl, wo das Online-Banking sie anbietet.")}
                       </li>
                       <li>
-                        <strong>CAMT.053</strong> – XML-Auszug, enthält auch den Schlusssaldo.
+                        <strong>CAMT.053</strong> {t("– XML-Auszug, enthält auch den Schlusssaldo.")}
                       </li>
                       <li>
-                        <strong>MT940</strong> – klassisches SWIFT-Format (.sta).
+                        <strong>{t("MT940")}</strong> {t("– klassisches SWIFT-Format (.sta).")}
                       </li>
                     </ul>
                   </Alert>
 
                   <button type="submit" className="btn btn-primary">
-                    Hochladen und einlesen
+                    {t("Hochladen und einlesen")}
                   </button>
                 </form>
               </AdminOnly>
@@ -114,9 +115,9 @@ export default async function StatementsPage({
           </Card>
         </div>
 
-        <Card title="Bankkonten">
+        <Card title={t("Bankkonten")}>
           {accounts.length === 0 ? (
-            <p className="mb-4 text-sm text-ink-500">Noch kein Konto hinterlegt.</p>
+            <p className="mb-4 text-sm text-ink-500">{t("Noch kein Konto hinterlegt.")}</p>
           ) : (
             <ul className="mb-4 space-y-3">
               {accounts.map((account) => (
@@ -124,7 +125,7 @@ export default async function StatementsPage({
                   <p className="text-sm font-semibold text-ink-900">{account.name}</p>
                   <p className="font-mono text-xs text-ink-500">{account.iban}</p>
                   <p className="mt-1 text-xs text-ink-500">
-                    {account._count.transactions} Buchung(en)
+                    {t("{anzahl} Buchung(en)", { anzahl: account._count.transactions })}
                   </p>
                   {account._count.transactions === 0 && (
                     <AdminOnly>
@@ -132,9 +133,9 @@ export default async function StatementsPage({
                         <input type="hidden" name="id" value={account.id} />
                         <ConfirmButton
                           className="btn btn-ghost"
-                          message={`Konto „${account.name}“ löschen?`}
+                          message={t("Konto „{name}“ löschen?", { name: account.name })}
                         >
-                          Löschen
+                          {t("Löschen")}
                         </ConfirmButton>
                       </form>
                     </AdminOnly>
@@ -144,27 +145,27 @@ export default async function StatementsPage({
             </ul>
           )}
 
-          <Disclosure summary="Bankkonto hinzufügen" defaultOpen={accounts.length === 0}>
+          <Disclosure summary={t("Bankkonto hinzufügen")} defaultOpen={accounts.length === 0}>
             <AdminOnly>
               <form action={createBankAccount} className="space-y-3">
                 <div>
-                  <label htmlFor="name">Bezeichnung *</label>
-                  <input id="name" name="name" required placeholder="Geschäftskonto" />
+                  <label htmlFor="name">{t("Bezeichnung *")}</label>
+                  <input id="name" name="name" required placeholder={t("Geschäftskonto")} />
                 </div>
                 <div>
-                  <label htmlFor="iban">IBAN *</label>
-                  <input id="iban" name="iban" required placeholder="DE00 0000 0000 0000 0000 00" />
+                  <label htmlFor="iban">{t("IBAN *")}</label>
+                  <input id="iban" name="iban" required placeholder={t("DE00 0000 0000 0000 0000 00")} />
                 </div>
                 <div>
                   <label htmlFor="bic">BIC</label>
                   <input id="bic" name="bic" />
                 </div>
                 <div>
-                  <label htmlFor="openingBalanceCents">Anfangssaldo</label>
+                  <label htmlFor="openingBalanceCents">{t("Anfangssaldo")}</label>
                   <input id="openingBalanceCents" name="openingBalanceCents" inputMode="decimal" defaultValue="0,00" />
                 </div>
                 <button type="submit" className="btn btn-primary w-full">
-                  Konto anlegen
+                  {t("Konto anlegen")}
                 </button>
               </form>
             </AdminOnly>
@@ -173,24 +174,24 @@ export default async function StatementsPage({
       </div>
 
       <div className="mt-6">
-        <Card title="Importierte Auszüge" padded={false}>
+        <Card title={t("Importierte Auszüge")} padded={false}>
           {statements.length === 0 ? (
             <div className="p-5">
               <EmptyState
-                title="Noch kein Auszug importiert"
-                description="Nach dem ersten Import sehen Sie hier alle Läufe mit Zeitraum und Trefferzahl."
+                title={t("Noch kein Auszug importiert")}
+                description={t("Nach dem ersten Import sehen Sie hier alle Läufe mit Zeitraum und Trefferzahl.")}
               />
             </div>
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <Th>Importiert</Th>
-                  <Th>Konto</Th>
-                  <Th>Zeitraum</Th>
-                  <Th>Format</Th>
-                  <Th align="right">Buchungen</Th>
-                  <Th align="right">Schlusssaldo</Th>
+                  <Th>{t("Importiert")}</Th>
+                  <Th>{t("Konto")}</Th>
+                  <Th>{t("Zeitraum")}</Th>
+                  <Th>{t("Format")}</Th>
+                  <Th align="right">{t("Buchungen")}</Th>
+                  <Th align="right">{t("Schlusssaldo")}</Th>
                   <Th align="right"></Th>
                 </tr>
               </thead>
@@ -198,12 +199,12 @@ export default async function StatementsPage({
                 {statements.map((statement) => (
                   <tr key={statement.id} className="hover:bg-ink-50">
                     <Td className="text-ink-600">
-                      {formatDateTime(statement.importedAt)}
+                      {datumZeit(statement.importedAt)}
                       <p className="max-w-56 truncate text-xs text-ink-500">{statement.fileName}</p>
                     </Td>
                     <Td className="text-ink-600">{statement.bankAccount.name}</Td>
                     <Td className="text-ink-600">
-                      {formatDate(statement.periodStart)} – {formatDate(statement.periodEnd)}
+                      {datum(statement.periodStart)} – {datum(statement.periodEnd)}
                     </Td>
                     <Td className="text-ink-600">
                       {FORMAT_LABEL[statement.sourceFormat] ?? statement.sourceFormat}
@@ -219,7 +220,7 @@ export default async function StatementsPage({
                     <Td align="right" className="tabular-nums">
                       {statement.closingBalanceCents === null
                         ? "–"
-                        : formatCents(statement.closingBalanceCents)}
+                        : geld(statement.closingBalanceCents)}
                     </Td>
                     <Td align="right">
                       <div className="flex justify-end gap-2">
@@ -230,7 +231,7 @@ export default async function StatementsPage({
                             rel="noreferrer"
                             className="btn btn-ghost"
                           >
-                            Datei
+                            {t("Datei")}
                           </a>
                         )}
                         <AdminOnly>
@@ -238,9 +239,9 @@ export default async function StatementsPage({
                             <input type="hidden" name="id" value={statement.id} />
                             <ConfirmButton
                               className="btn btn-ghost"
-                              message="Auszug und alle daraus importierten Buchungen entfernen?"
+                              message={t("Auszug und alle daraus importierten Buchungen entfernen?")}
                             >
-                              Entfernen
+                              {t("Entfernen")}
                             </ConfirmButton>
                           </form>
                         </AdminOnly>

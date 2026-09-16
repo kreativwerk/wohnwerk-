@@ -17,6 +17,7 @@ import {
   isPlaceholder,
   parseFieldNames,
 } from "@/lib/pdf-template";
+import { uebersetzer } from "@/lib/i18n";
 
 function refresh(propertyId?: string) {
   revalidatePath("/objekte");
@@ -28,6 +29,7 @@ function refresh(propertyId?: string) {
 // --- Objekte ---------------------------------------------------------------
 
 export async function createProperty(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const name = str(formData, "name");
@@ -36,7 +38,7 @@ export async function createProperty(formData: FormData) {
   const city = str(formData, "city");
 
   if (!name || !street || !zip || !city) {
-    redirect(flash("/objekte/neu", "fehler", "Name, Straße, PLZ und Ort sind Pflichtfelder."));
+    redirect(flash("/objekte/neu", "fehler", t("Name, Straße, PLZ und Ort sind Pflichtfelder.")));
   }
 
   const property = await prisma.property.create({
@@ -77,6 +79,7 @@ export async function createProperty(formData: FormData) {
 }
 
 export async function updateProperty(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
@@ -103,7 +106,7 @@ export async function updateProperty(formData: FormData) {
 
   await audit(user.email, "update", "Property", id, property.name);
   refresh(id);
-  redirect(flash(`/objekte/${id}`, "ok", "Objektdaten wurden gespeichert."));
+  redirect(flash(`/objekte/${id}`, "ok", t("Objektdaten wurden gespeichert.")));
 }
 
 /**
@@ -112,11 +115,12 @@ export async function updateProperty(formData: FormData) {
  * bleiben aber mit ihrer ganzen Historie in der Buchhaltung erhalten.
  */
 export async function togglePropertyActive(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const property = await prisma.property.findUnique({ where: { id } });
-  if (!property) redirect(flash("/objekte", "fehler", "Objekt nicht gefunden."));
+  if (!property) redirect(flash("/objekte", "fehler", t("Objekt nicht gefunden.")));
 
   if (property.active) {
     // Solange noch jemand dort wohnt, wuerde Inaktivstellen Daten verstecken.
@@ -149,6 +153,7 @@ export async function togglePropertyActive(formData: FormData) {
 }
 
 export async function deleteProperty(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
@@ -168,18 +173,19 @@ export async function deleteProperty(formData: FormData) {
   await prisma.property.delete({ where: { id } });
   await audit(user.email, "delete", "Property", id);
   refresh();
-  redirect(flash("/objekte", "ok", "Objekt wurde gelöscht."));
+  redirect(flash("/objekte", "ok", t("Objekt wurde gelöscht.")));
 }
 
 // --- Zimmer ----------------------------------------------------------------
 
 export async function createRoom(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
   const name = str(formData, "name");
 
   if (!name) {
-    redirect(flash(`/objekte/${propertyId}`, "fehler", "Das Zimmer braucht eine Bezeichnung."));
+    redirect(flash(`/objekte/${propertyId}`, "fehler", t("Das Zimmer braucht eine Bezeichnung.")));
   }
 
   const defaultBedRentCents = cents(formData, "defaultBedRentCents", 35000);
@@ -225,6 +231,7 @@ export async function createRoom(formData: FormData) {
 }
 
 export async function updateRoom(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
@@ -242,10 +249,11 @@ export async function updateRoom(formData: FormData) {
 
   await audit(user.email, "update", "Room", id);
   refresh(propertyId);
-  redirect(flash(`/objekte/${propertyId}`, "ok", "Zimmer wurde gespeichert."));
+  redirect(flash(`/objekte/${propertyId}`, "ok", t("Zimmer wurde gespeichert.")));
 }
 
 export async function deleteRoom(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
@@ -258,7 +266,7 @@ export async function deleteRoom(formData: FormData) {
       flash(
         `/objekte/${propertyId}`,
         "fehler",
-        "Im Zimmer wohnen noch Mieter. Bitte zuerst die Mietverhältnisse beenden.",
+        t("Im Zimmer wohnen noch Mieter. Bitte zuerst die Mietverhältnisse beenden."),
       ),
     );
   }
@@ -266,12 +274,13 @@ export async function deleteRoom(formData: FormData) {
   await prisma.room.delete({ where: { id } });
   await audit(user.email, "delete", "Room", id);
   refresh(propertyId);
-  redirect(flash(`/objekte/${propertyId}`, "ok", "Zimmer wurde gelöscht."));
+  redirect(flash(`/objekte/${propertyId}`, "ok", t("Zimmer wurde gelöscht.")));
 }
 
 // --- Betten ----------------------------------------------------------------
 
 export async function createBed(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const roomId = str(formData, "roomId");
   const propertyId = str(formData, "propertyId");
@@ -280,7 +289,7 @@ export async function createBed(formData: FormData) {
     where: { id: roomId },
     include: { beds: { orderBy: { sortOrder: "desc" }, take: 1 } },
   });
-  if (!room) redirect(flash(`/objekte/${propertyId}`, "fehler", "Zimmer nicht gefunden."));
+  if (!room) redirect(flash(`/objekte/${propertyId}`, "fehler", t("Zimmer nicht gefunden.")));
 
   const count = await prisma.bed.count({ where: { roomId } });
   const label = str(formData, "label") || `Bett ${String.fromCharCode(65 + count)}`;
@@ -297,10 +306,11 @@ export async function createBed(formData: FormData) {
 
   await audit(user.email, "create", "Bed", bed.id, label);
   refresh(propertyId);
-  redirect(flash(`/objekte/${propertyId}`, "ok", `„${label}“ wurde angelegt.`));
+  redirect(flash(`/objekte/${propertyId}`, "ok", t("„{name}“ wurde angelegt.", { name: label })));
 }
 
 export async function updateBed(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
@@ -319,10 +329,11 @@ export async function updateBed(formData: FormData) {
 
   await audit(user.email, "update", "Bed", id);
   refresh(propertyId);
-  redirect(flash(`/objekte/${propertyId}`, "ok", "Bett wurde gespeichert."));
+  redirect(flash(`/objekte/${propertyId}`, "ok", t("Bett wurde gespeichert.")));
 }
 
 export async function deleteBed(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const propertyId = str(formData, "propertyId");
@@ -332,14 +343,14 @@ export async function deleteBed(formData: FormData) {
   });
   if (tenancyCount > 0) {
     redirect(
-      flash(`/objekte/${propertyId}`, "fehler", "Das Bett ist belegt und kann nicht gelöscht werden."),
+      flash(`/objekte/${propertyId}`, "fehler", t("Das Bett ist belegt und kann nicht gelöscht werden.")),
     );
   }
 
   await prisma.bed.delete({ where: { id } });
   await audit(user.email, "delete", "Bed", id);
   refresh(propertyId);
-  redirect(flash(`/objekte/${propertyId}`, "ok", "Bett wurde gelöscht."));
+  redirect(flash(`/objekte/${propertyId}`, "ok", t("Bett wurde gelöscht.")));
 }
 
 // --- Vordrucke des Objekts -------------------------------------------------
@@ -356,24 +367,25 @@ const MAX_TEMPLATE_BYTES = 12 * 1024 * 1024;
  * ersetzt, damit nie zwei gleichartige Vordrucke im Umlauf sind.
  */
 export async function uploadPropertyTemplate(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
   const kind = str(formData, "kind");
   const ziel = `/objekte/${propertyId}`;
 
   if (!coversContract(kind) && !coversLandlordConfirmation(kind)) {
-    redirect(flash(ziel, "fehler", "Unbekannte Art des Vordrucks."));
+    redirect(flash(ziel, "fehler", t("Unbekannte Art des Vordrucks.")));
   }
 
   const datei = formData.get("file");
   if (!(datei instanceof File) || datei.size === 0) {
-    redirect(flash(ziel, "fehler", "Bitte eine PDF-Datei auswählen."));
+    redirect(flash(ziel, "fehler", t("Bitte eine PDF-Datei auswählen.")));
   }
   if (datei.type && datei.type !== "application/pdf") {
-    redirect(flash(ziel, "fehler", "Der Vordruck muss eine PDF-Datei sein."));
+    redirect(flash(ziel, "fehler", t("Der Vordruck muss eine PDF-Datei sein.")));
   }
   if (datei.size > MAX_TEMPLATE_BYTES) {
-    redirect(flash(ziel, "fehler", "Die Datei ist größer als 12 MB."));
+    redirect(flash(ziel, "fehler", t("Die Datei ist größer als 12 MB.")));
   }
 
   const bytes = Buffer.from(await datei.arrayBuffer());
@@ -382,7 +394,7 @@ export async function uploadPropertyTemplate(formData: FormData) {
   try {
     info = await inspectTemplate(bytes);
   } catch {
-    redirect(flash(ziel, "fehler", "Die Datei konnte nicht als PDF gelesen werden."));
+    redirect(flash(ziel, "fehler", t("Die Datei konnte nicht als PDF gelesen werden.")));
   }
 
   const namen = info.fields.filter((f) => f.type !== "sonstiges").map((f) => f.name);
@@ -416,11 +428,12 @@ export async function uploadPropertyTemplate(formData: FormData) {
 
 /** Speichert die vom Anwender geprüfte Zuordnung der Formularfelder. */
 export async function savePropertyTemplateMapping(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const template = await prisma.propertyTemplate.findUnique({ where: { id } });
-  if (!template) redirect(flash("/objekte", "fehler", "Vordruck nicht gefunden."));
+  if (!template) redirect(flash("/objekte", "fehler", t("Vordruck nicht gefunden.")));
 
   const felder = parseFieldNames(template.fieldNames);
   const map: Record<string, string> = {};
@@ -437,22 +450,23 @@ export async function savePropertyTemplateMapping(formData: FormData) {
   await audit(user.email, "map-template", "Property", template.propertyId, template.kind);
   refresh(template.propertyId);
   redirect(
-    flash(`/objekte/${template.propertyId}`, "ok", "Zuordnung der Formularfelder gespeichert."),
+    flash(`/objekte/${template.propertyId}`, "ok", t("Zuordnung der Formularfelder gespeichert.")),
   );
 }
 
 /** Entfernt einen Vordruck wieder. */
 export async function deletePropertyTemplate(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const template = await prisma.propertyTemplate.findUnique({ where: { id } });
-  if (!template) redirect(flash("/objekte", "fehler", "Vordruck nicht gefunden."));
+  if (!template) redirect(flash("/objekte", "fehler", t("Vordruck nicht gefunden.")));
 
   await prisma.propertyTemplate.delete({ where: { id } });
   await audit(user.email, "delete-template", "Property", template.propertyId, template.kind);
   refresh(template.propertyId);
-  redirect(flash(`/objekte/${template.propertyId}`, "ok", "Vordruck wurde entfernt."));
+  redirect(flash(`/objekte/${template.propertyId}`, "ok", t("Vordruck wurde entfernt.")));
 }
 
 
@@ -511,6 +525,7 @@ async function attachTemplateOnCreate(
 // --- Laufende Kosten des Objekts -------------------------------------------
 
 export async function createPropertyCost(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
   const ziel = `/objekte/${propertyId}`;
@@ -520,7 +535,7 @@ export async function createPropertyCost(formData: FormData) {
   const interval = str(formData, "interval") === "YEARLY" ? "YEARLY" : "MONTHLY";
 
   if (!label || amountCents === null || amountCents <= 0) {
-    redirect(flash(ziel, "fehler", "Bezeichnung und ein Betrag über 0 sind nötig."));
+    redirect(flash(ziel, "fehler", t("Bezeichnung und ein Betrag über 0 sind nötig.")));
   }
 
   await prisma.propertyCost.create({
@@ -528,20 +543,21 @@ export async function createPropertyCost(formData: FormData) {
   });
   await audit(user.email, "create", "PropertyCost", propertyId, label);
   refresh(propertyId);
-  redirect(flash(ziel, "ok", `Kostenposten „${label}“ wurde angelegt.`));
+  redirect(flash(ziel, "ok", t("Kostenposten „{name}“ wurde angelegt.", { name: label })));
 }
 
 export async function updatePropertyCost(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const kosten = await prisma.propertyCost.findUnique({ where: { id } });
-  if (!kosten) redirect(flash("/objekte", "fehler", "Kostenposten nicht gefunden."));
+  if (!kosten) redirect(flash("/objekte", "fehler", t("Kostenposten nicht gefunden.")));
   const ziel = `/objekte/${kosten.propertyId}`;
 
   const label = str(formData, "label");
   const amountCents = cents(formData, "amount");
   if (!label || amountCents === null || amountCents <= 0) {
-    redirect(flash(ziel, "fehler", "Bezeichnung und ein Betrag über 0 sind nötig."));
+    redirect(flash(ziel, "fehler", t("Bezeichnung und ein Betrag über 0 sind nötig.")));
   }
 
   await prisma.propertyCost.update({
@@ -555,17 +571,18 @@ export async function updatePropertyCost(formData: FormData) {
   });
   await audit(user.email, "update", "PropertyCost", kosten.propertyId, label);
   refresh(kosten.propertyId);
-  redirect(flash(ziel, "ok", "Kostenposten wurde gespeichert."));
+  redirect(flash(ziel, "ok", t("Kostenposten wurde gespeichert.")));
 }
 
 export async function deletePropertyCost(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const kosten = await prisma.propertyCost.findUnique({ where: { id } });
-  if (!kosten) redirect(flash("/objekte", "fehler", "Kostenposten nicht gefunden."));
+  if (!kosten) redirect(flash("/objekte", "fehler", t("Kostenposten nicht gefunden.")));
 
   await prisma.propertyCost.delete({ where: { id } });
   await audit(user.email, "delete", "PropertyCost", kosten.propertyId, kosten.label);
   refresh(kosten.propertyId);
-  redirect(flash(`/objekte/${kosten.propertyId}`, "ok", "Kostenposten wurde entfernt."));
+  redirect(flash(`/objekte/${kosten.propertyId}`, "ok", t("Kostenposten wurde entfernt.")));
 }

@@ -15,7 +15,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "postinstall": "prisma generate",
-    "test": "tsx tests/run.ts"
+    "test": "tsx tests/run.ts",
+    "i18n:check": "node scripts/uebersetzung-pruefen.mjs"
   },
   "prisma": {
     "seed": "tsx --env-file-if-exists=.env prisma/seed.ts"

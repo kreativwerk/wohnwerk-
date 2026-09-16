@@ -3,11 +3,15 @@ import Link from "next/link";
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { TenancyBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
-import { formatCents } from "@/lib/money";
-import { formatDate } from "@/lib/dates";
-import { requireAdmin } from "@/lib/auth";
 
-export const metadata = { title: "Mieter" };
+import { requireAdmin } from "@/lib/auth";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Mieter") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function TenantsPage({
@@ -15,6 +19,7 @@ export default async function TenantsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; q?: string; status?: string }>;
 }) {
+  const { t, datum, geld } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
   const query = (params.q ?? "").trim();
@@ -56,11 +61,11 @@ export default async function TenantsPage({
   return (
     <>
       <PageHeader
-        title="Mieter"
-        description="Monteure und Mitarbeiter mit ihren Mietverhältnissen."
+        title={t("Mieter")}
+        description={t("Monteure und Mitarbeiter mit ihren Mietverhältnissen.")}
         actions={
           <Link href="/mieter/neu" className="btn btn-primary">
-            Neuer Mieter
+            {t("Neuer Mieter")}
           </Link>
         }
       />
@@ -70,26 +75,26 @@ export default async function TenantsPage({
       <Card padded={false}>
         <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
           <div className="min-w-56 flex-1">
-            <label htmlFor="q">Suche</label>
-            <input id="q" name="q" defaultValue={query} placeholder="Name, E-Mail oder Firma" />
+            <label htmlFor="q">{t("Suche")}</label>
+            <input id="q" name="q" defaultValue={query} placeholder={t("Name, E-Mail oder Firma")} />
           </div>
           <div className="w-48">
-            <label htmlFor="status">Status</label>
+            <label htmlFor="status">{t("Status")}</label>
             <select id="status" name="status" defaultValue={statusFilter}>
-              <option value="">Alle außer ehemaligen</option>
-              <option value="ACTIVE">Aktiv</option>
-              <option value="SENT">Vertrag versendet</option>
-              <option value="DRAFT">Entwurf</option>
-              <option value="ENDED">Beendet</option>
-              <option value="EHEMALIG">Nur ehemalige Mieter</option>
+              <option value="">{t("Alle außer ehemaligen")}</option>
+              <option value="ACTIVE">{t("Aktiv")}</option>
+              <option value="SENT">{t("Vertrag versendet")}</option>
+              <option value="DRAFT">{t("Entwurf")}</option>
+              <option value="ENDED">{t("Beendet")}</option>
+              <option value="EHEMALIG">{t("Nur ehemalige Mieter")}</option>
             </select>
           </div>
           <button type="submit" className="btn btn-secondary">
-            Filtern
+            {t("Filtern")}
           </button>
           {(query || statusFilter) && (
             <Link href="/mieter" className="btn btn-ghost">
-              Zurücksetzen
+              {t("Zurücksetzen")}
             </Link>
           )}
         </form>
@@ -97,15 +102,15 @@ export default async function TenantsPage({
         {tenants.length === 0 ? (
           <div className="p-5">
             <EmptyState
-              title={query || statusFilter ? "Keine Treffer" : "Noch keine Mieter"}
+              title={query || statusFilter ? t("Keine Treffer") : t("Noch keine Mieter")}
               description={
                 query || statusFilter
-                  ? "Passen Sie Suche oder Filter an."
-                  : "Legen Sie einen Mieter an und weisen Sie ihm direkt ein Bett zu. Anschließend erhält er den Vertragslink."
+                  ? t("Passen Sie Suche oder Filter an.")
+                  : t("Legen Sie einen Mieter an und weisen Sie ihm direkt ein Bett zu. Anschließend erhält er den Vertragslink.")
               }
               action={
                 <Link href="/mieter/neu" className="btn btn-primary">
-                  Mieter anlegen
+                  {t("Mieter anlegen")}
                 </Link>
               }
             />
@@ -114,14 +119,14 @@ export default async function TenantsPage({
           <Table>
             <thead>
               <tr>
-                <Th>Name</Th>
-                <Th>Kontakt</Th>
-                <Th>Firma</Th>
-                <Th>Unterkunft</Th>
-                <Th>Zeitraum</Th>
-                <Th align="right">Miete</Th>
-                <Th>Mietvertrag</Th>
-                <Th align="right">Status</Th>
+                <Th>{t("Name")}</Th>
+                <Th>{t("Kontakt")}</Th>
+                <Th>{t("Firma")}</Th>
+                <Th>{t("Unterkunft")}</Th>
+                <Th>{t("Zeitraum")}</Th>
+                <Th align="right">{t("Miete")}</Th>
+                <Th>{t("Mietvertrag")}</Th>
+                <Th align="right">{t("Status")}</Th>
               </tr>
             </thead>
             <tbody>
@@ -143,7 +148,7 @@ export default async function TenantsPage({
                       </Link>
                       {tenant.status === "EHEMALIG" && (
                         <span className="ml-2">
-                          <Badge tone="neutral">Ehemalig</Badge>
+                          <Badge tone="neutral">{t("Ehemalig")}</Badge>
                         </span>
                       )}
                     </Td>
@@ -163,15 +168,15 @@ export default async function TenantsPage({
                           </p>
                         </>
                       ) : (
-                        <span className="text-ink-500">nicht zugewiesen</span>
+                        <span className="text-ink-500">{t("nicht zugewiesen")}</span>
                       )}
                     </Td>
                     <Td className="text-ink-600">
                       {current ? (
                         <>
-                          {formatDate(current.startDate)}
+                          {datum(current.startDate)}
                           <p className="text-xs text-ink-500">
-                            {current.endDate ? `bis ${formatDate(current.endDate)}` : "unbefristet"}
+                            {current.endDate ? `bis ${datum(current.endDate)}` : "unbefristet"}
                           </p>
                         </>
                       ) : (
@@ -179,7 +184,7 @@ export default async function TenantsPage({
                       )}
                     </Td>
                     <Td align="right" className="tabular-nums">
-                      {current ? formatCents(current.monthlyRentCents) : "–"}
+                      {current ? geld(current.monthlyRentCents) : "–"}
                     </Td>
                     <Td>
                       {!current ? (
@@ -189,10 +194,10 @@ export default async function TenantsPage({
                           href={`/vertraege/${current.contract.id}`}
                           className="text-brand-700 hover:underline"
                         >
-                          vorhanden
+                          {t("vorhanden")}
                         </Link>
                       ) : (
-                        <Badge tone="danger">Vertrag fehlt</Badge>
+                        <Badge tone="danger">{t("Vertrag fehlt")}</Badge>
                       )}
                     </Td>
                     <Td align="right">

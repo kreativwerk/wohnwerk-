@@ -11,6 +11,7 @@ import { randomToken } from "@/lib/storage";
 import { findConflictingTenancy, nextContractNumber, nextReference } from "@/lib/tenancy";
 import { ensureRentCharges } from "@/lib/accounting";
 import { formatDate } from "@/lib/dates";
+import { uebersetzer } from "@/lib/i18n";
 
 function refresh(tenantId?: string) {
   revalidatePath("/mieter");
@@ -50,6 +51,7 @@ function tenantData(formData: FormData) {
  * Hausverwaltung taeglich geht: Person erfassen, Bett zuweisen, Link schicken.
  */
 export async function createTenant(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const data = tenantData(formData);
 
@@ -58,7 +60,7 @@ export async function createTenant(formData: FormData) {
   // statt versendet. Nachname darf fehlen, solange ein Vorname da ist -
   // manche stehen nur mit Rufnamen in den Unterlagen.
   if (!data.firstName) {
-    redirect(flash("/mieter/neu", "fehler", "Mindestens der Vorname muss angegeben werden."));
+    redirect(flash("/mieter/neu", "fehler", t("Mindestens der Vorname muss angegeben werden.")));
   }
 
   const bedId = str(formData, "bedId");
@@ -67,10 +69,10 @@ export async function createTenant(formData: FormData) {
 
   if (bedId) {
     if (!startDate) {
-      redirect(flash("/mieter/neu", "fehler", "Für die Bettzuweisung wird ein Mietbeginn benötigt."));
+      redirect(flash("/mieter/neu", "fehler", t("Für die Bettzuweisung wird ein Mietbeginn benötigt.")));
     }
     if (endDate && endDate < startDate) {
-      redirect(flash("/mieter/neu", "fehler", "Das Mietende darf nicht vor dem Mietbeginn liegen."));
+      redirect(flash("/mieter/neu", "fehler", t("Das Mietende darf nicht vor dem Mietbeginn liegen.")));
     }
 
     const conflict = await findConflictingTenancy({ bedId, startDate, endDate });
@@ -120,16 +122,17 @@ export async function createTenant(formData: FormData) {
       flash(
         `/vertraege/${tenancy.contract!.id}`,
         "ok",
-        "Mieter und Vertragsentwurf wurden angelegt. Jetzt den Link an den Mieter senden.",
+        t("Mieter und Vertragsentwurf wurden angelegt. Jetzt den Link an den Mieter senden."),
       ),
     );
   }
 
   refresh(tenant.id);
-  redirect(flash(`/mieter/${tenant.id}`, "ok", "Mieter wurde angelegt."));
+  redirect(flash(`/mieter/${tenant.id}`, "ok", t("Mieter wurde angelegt.")));
 }
 
 export async function updateTenant(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
@@ -137,10 +140,11 @@ export async function updateTenant(formData: FormData) {
   await audit(user.email, "update", "Tenant", id);
 
   refresh(id);
-  redirect(flash(`/mieter/${id}`, "ok", "Mieterdaten wurden gespeichert."));
+  redirect(flash(`/mieter/${id}`, "ok", t("Mieterdaten wurden gespeichert.")));
 }
 
 export async function deleteTenant(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
@@ -152,7 +156,7 @@ export async function deleteTenant(formData: FormData) {
       flash(
         `/mieter/${id}`,
         "fehler",
-        "Der Mieter hat ein laufendes Mietverhältnis. Bitte dieses zuerst beenden.",
+        t("Der Mieter hat ein laufendes Mietverhältnis. Bitte dieses zuerst beenden."),
       ),
     );
   }
@@ -160,13 +164,14 @@ export async function deleteTenant(formData: FormData) {
   await prisma.tenant.delete({ where: { id } });
   await audit(user.email, "delete", "Tenant", id);
   refresh();
-  redirect(flash("/mieter", "ok", "Mieter wurde gelöscht."));
+  redirect(flash("/mieter", "ok", t("Mieter wurde gelöscht.")));
 }
 
 // --- Mietverhaeltnisse -----------------------------------------------------
 
 /** Weist einem bestehenden Mieter ein (weiteres) Bett zu. */
 export async function createTenancy(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const tenantId = str(formData, "tenantId");
@@ -176,10 +181,10 @@ export async function createTenancy(formData: FormData) {
 
   const back = `/mieter/${tenantId}`;
   if (!bedId || !startDate) {
-    redirect(flash(back, "fehler", "Bitte Bett und Mietbeginn auswählen."));
+    redirect(flash(back, "fehler", t("Bitte Bett und Mietbeginn auswählen.")));
   }
   if (endDate && endDate < startDate) {
-    redirect(flash(back, "fehler", "Das Mietende darf nicht vor dem Mietbeginn liegen."));
+    redirect(flash(back, "fehler", t("Das Mietende darf nicht vor dem Mietbeginn liegen.")));
   }
 
   const conflict = await findConflictingTenancy({ bedId, startDate, endDate });
@@ -219,22 +224,23 @@ export async function createTenancy(formData: FormData) {
 
   await audit(user.email, "create", "Tenancy", tenancy.id, tenancy.reference);
   refresh(tenantId);
-  redirect(flash(`/vertraege/${tenancy.contract!.id}`, "ok", "Vertragsentwurf wurde angelegt."));
+  redirect(flash(`/vertraege/${tenancy.contract!.id}`, "ok", t("Vertragsentwurf wurde angelegt.")));
 }
 
 export async function updateTenancy(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const tenancy = await prisma.tenancy.findUnique({ where: { id }, include: { contract: true } });
-  if (!tenancy) redirect(flash("/vertraege", "fehler", "Mietverhältnis nicht gefunden."));
+  if (!tenancy) redirect(flash("/vertraege", "fehler", t("Mietverhältnis nicht gefunden.")));
 
   const back = tenancy.contract ? `/vertraege/${tenancy.contract.id}` : `/mieter/${tenancy.tenantId}`;
   const startDate = date(formData, "startDate") ?? tenancy.startDate;
   const endDate = date(formData, "endDate");
 
   if (endDate && endDate < startDate) {
-    redirect(flash(back, "fehler", "Das Mietende darf nicht vor dem Mietbeginn liegen."));
+    redirect(flash(back, "fehler", t("Das Mietende darf nicht vor dem Mietbeginn liegen.")));
   }
 
   const conflict = await findConflictingTenancy({
@@ -279,7 +285,7 @@ export async function updateTenancy(formData: FormData) {
   await ensureRentCharges({ tenancyId: id });
   await audit(user.email, "update", "Tenancy", id);
   refresh(tenancy.tenantId);
-  redirect(flash(back, "ok", "Mietverhältnis wurde aktualisiert."));
+  redirect(flash(back, "ok", t("Mietverhältnis wurde aktualisiert.")));
 }
 
 /** Beendet ein Mietverhaeltnis zum angegebenen Datum. */

@@ -19,9 +19,10 @@ import { PropertyTemplates } from "@/components/template-card";
 import { PropertyCosts } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
 import { bedOccupancy, occupancySummary } from "@/lib/tenancy";
-import { centsToInput, formatCents } from "@/lib/money";
-import { formatDate } from "@/lib/dates";
+import { centsToInput } from "@/lib/money";
+
 import { requireAdmin } from "@/lib/auth";
+import { oberflaeche } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function PropertyDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, datum, geld } = await oberflaeche();
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -82,7 +84,7 @@ export default async function PropertyDetailPage({
       <PageHeader
         title={property.active ? property.name : `${property.name} (inaktiv)`}
         description={`${property.street}, ${property.zip} ${property.city}`}
-        breadcrumb={[{ label: "Objekte", href: "/objekte" }, { label: property.name }]}
+        breadcrumb={[{ label: t("Objekte"), href: "/objekte" }, { label: property.name }]}
         actions={
           <>
             <form action={togglePropertyActive}>
@@ -90,18 +92,18 @@ export default async function PropertyDetailPage({
               {property.active ? (
                 <ConfirmButton
                   className="btn btn-secondary"
-                  message={`„${property.name}“ inaktiv stellen? Es verschwindet aus Belegungsplan, Bettauswahl und Kennzahlen – Buchhaltung und Historie bleiben erhalten.`}
+                  message={t("„{name}“ inaktiv stellen? Es verschwindet aus Belegungsplan, Bettauswahl und Kennzahlen – Buchhaltung und Historie bleiben erhalten.", { name: property.name })}
                 >
-                  Inaktiv stellen
+                  {t("Inaktiv stellen")}
                 </ConfirmButton>
               ) : (
                 <button type="submit" className="btn btn-primary">
-                  Wieder aktivieren
+                  {t("Wieder aktivieren")}
                 </button>
               )}
             </form>
             <Link href={`/belegung?objekt=${property.id}`} className="btn btn-secondary">
-              Belegungsplan
+              {t("Belegungsplan")}
             </Link>
           </>
         }
@@ -111,26 +113,24 @@ export default async function PropertyDetailPage({
 
       {!property.active && (
         <div className="mb-5">
-          <Alert tone="warning" title="Dieses Objekt ist inaktiv">
-            Es erscheint nicht mehr im Belegungsplan, in der Bettauswahl für neue Mieter und in
-            den Kennzahlen. Alle Buchungen, Verträge und Dokumente bleiben erhalten. Über
-            „Wieder aktivieren“ kommt es jederzeit zurück.
+          <Alert tone="warning" title={t("Dieses Objekt ist inaktiv")}>
+            {t("Es erscheint nicht mehr im Belegungsplan, in der Bettauswahl für neue Mieter und in den Kennzahlen. Alle Buchungen, Verträge und Dokumente bleiben erhalten. Über „Wieder aktivieren“ kommt es jederzeit zurück.")}
           </Alert>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard label="Zimmer" value={String(property.rooms.length)} />
-        <StatCard label="Betten" value={String(summary.beds)} hint={`${summary.blocked} gesperrt`} />
+        <StatCard label={t("Zimmer")} value={String(property.rooms.length)} />
+        <StatCard label={t("Betten")} value={String(summary.beds)} hint={t("{anzahl} gesperrt", { anzahl: summary.blocked })} />
         <StatCard
-          label="Belegt"
+          label={t("Belegt")}
           value={`${summary.occupied} / ${summary.beds - summary.blocked}`}
           tone={summary.rate >= 0.8 ? "success" : summary.rate >= 0.5 ? "warning" : "danger"}
         />
         <StatCard
-          label="Miete / Monat"
-          value={formatCents(summary.actualRentCents)}
-          hint={`max. ${formatCents(summary.potentialRentCents)}`}
+          label={t("Miete / Monat")}
+          value={geld(summary.actualRentCents)}
+          hint={`max. ${geld(summary.potentialRentCents)}`}
           tone="brand"
         />
       </div>
@@ -145,13 +145,13 @@ export default async function PropertyDetailPage({
       {/* --- Zimmer und Betten ------------------------------------------- */}
       <div className="mt-8">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink-900">Zimmer und Betten</h2>
+          <h2 className="text-lg font-semibold text-ink-900">{t("Zimmer und Betten")}</h2>
         </div>
 
         {property.rooms.length === 0 ? (
           <EmptyState
-            title="Noch keine Zimmer"
-            description="Legen Sie unten das erste Zimmer an. Die Betten können Sie direkt mit erzeugen."
+            title={t("Noch keine Zimmer")}
+            description={t("Legen Sie unten das erste Zimmer an. Die Betten können Sie direkt mit erzeugen.")}
           />
         ) : (
           <div className="space-y-4">
@@ -165,14 +165,14 @@ export default async function PropertyDetailPage({
                   description={[
                     room.floor,
                     room.sizeSqm ? `${room.sizeSqm} m²` : null,
-                    `${room.beds.length} Bett(en), ${occupiedInRoom} belegt`,
+                    t("{anzahl} Bett(en), {belegt} belegt", { anzahl: room.beds.length, belegt: occupiedInRoom }),
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                 >
                   {room.beds.length === 0 ? (
                     <p className="mb-4 text-sm text-ink-500">
-                      In diesem Zimmer ist noch kein Bett angelegt.
+                      {t("In diesem Zimmer ist noch kein Bett angelegt.")}
                     </p>
                   ) : (
                     <ul className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -192,7 +192,7 @@ export default async function PropertyDetailPage({
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-ink-900">{bed.label}</p>
                                 <p className="text-xs tabular-nums text-ink-500">
-                                  {formatCents(bed.monthlyRentCents)} / Monat
+                                  {t("{betrag} / Monat", { betrag: geld(bed.monthlyRentCents) })}
                                 </p>
                               </div>
                               <BedBadge
@@ -210,23 +210,23 @@ export default async function PropertyDetailPage({
                                   {state.tenancy.tenantName}
                                 </Link>
                                 <br />
-                                seit {formatDate(state.tenancy.startDate)}
-                                {state.tenancy.endDate ? ` bis ${formatDate(state.tenancy.endDate)}` : ""}
+                                seit {datum(state.tenancy.startDate)}
+                                {state.tenancy.endDate ? ` bis ${datum(state.tenancy.endDate)}` : ""}
                               </p>
                             ) : (
-                              <p className="mt-2 text-xs text-ink-500">Kein Mietverhältnis</p>
+                              <p className="mt-2 text-xs text-ink-500">{t("Kein Mietverhältnis")}</p>
                             )}
 
                             {bed.notes && <p className="mt-2 text-xs text-ink-500">{bed.notes}</p>}
 
                             <div className="mt-3">
-                              <Disclosure summary="Bearbeiten">
+                              <Disclosure summary={t("Bearbeiten")}>
                                 <form action={updateBed} className="space-y-3">
                                   <input type="hidden" name="id" value={bed.id} />
                                   <input type="hidden" name="propertyId" value={property.id} />
                                   <div className="grid gap-3 sm:grid-cols-2">
                                     <div>
-                                      <label htmlFor={`label-${bed.id}`}>Bezeichnung</label>
+                                      <label htmlFor={`label-${bed.id}`}>{t("Bezeichnung")}</label>
                                       <input
                                         id={`label-${bed.id}`}
                                         name="label"
@@ -235,7 +235,7 @@ export default async function PropertyDetailPage({
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor={`rent-${bed.id}`}>Miete / Monat</label>
+                                      <label htmlFor={`rent-${bed.id}`}>{t("Miete / Monat")}</label>
                                       <input
                                         id={`rent-${bed.id}`}
                                         name="monthlyRentCents"
@@ -244,18 +244,18 @@ export default async function PropertyDetailPage({
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor={`status-${bed.id}`}>Status</label>
+                                      <label htmlFor={`status-${bed.id}`}>{t("Status")}</label>
                                       <select
                                         id={`status-${bed.id}`}
                                         name="status"
                                         defaultValue={bed.status}
                                       >
-                                        <option value="FREE">Vermietbar</option>
-                                        <option value="BLOCKED">Gesperrt</option>
+                                        <option value="FREE">{t("Vermietbar")}</option>
+                                        <option value="BLOCKED">{t("Gesperrt")}</option>
                                       </select>
                                     </div>
                                     <div>
-                                      <label htmlFor={`notes-${bed.id}`}>Notiz</label>
+                                      <label htmlFor={`notes-${bed.id}`}>{t("Notiz")}</label>
                                       <input
                                         id={`notes-${bed.id}`}
                                         name="notes"
@@ -265,7 +265,7 @@ export default async function PropertyDetailPage({
                                   </div>
                                   <div className="flex gap-2">
                                     <button type="submit" className="btn btn-primary">
-                                      Speichern
+                                      {t("Speichern")}
                                     </button>
                                   </div>
                                 </form>
@@ -273,8 +273,8 @@ export default async function PropertyDetailPage({
                                 <form action={deleteBed} className="mt-2">
                                   <input type="hidden" name="id" value={bed.id} />
                                   <input type="hidden" name="propertyId" value={property.id} />
-                                  <ConfirmButton message={`„${bed.label}“ wirklich löschen?`}>
-                                    Bett löschen
+                                  <ConfirmButton message={t("„{name}“ wirklich löschen?", { name: bed.label })}>
+                                    {t("Bett löschen")}
                                   </ConfirmButton>
                                 </form>
                               </Disclosure>
@@ -286,20 +286,20 @@ export default async function PropertyDetailPage({
                   )}
 
                   <div className="space-y-3 border-t border-ink-200 pt-4">
-                    <Disclosure summary="Bett hinzufügen">
+                    <Disclosure summary={t("Bett hinzufügen")}>
                       <form action={createBed} className="grid gap-3 sm:grid-cols-4">
                         <input type="hidden" name="roomId" value={room.id} />
                         <input type="hidden" name="propertyId" value={property.id} />
                         <div>
-                          <label htmlFor={`newbed-label-${room.id}`}>Bezeichnung</label>
+                          <label htmlFor={`newbed-label-${room.id}`}>{t("Bezeichnung")}</label>
                           <input
                             id={`newbed-label-${room.id}`}
                             name="label"
-                            placeholder={`Bett ${String.fromCharCode(65 + room.beds.length)}`}
+                            placeholder={t("Bett {buchstabe}", { buchstabe: String.fromCharCode(65 + room.beds.length) })}
                           />
                         </div>
                         <div>
-                          <label htmlFor={`newbed-rent-${room.id}`}>Miete / Monat</label>
+                          <label htmlFor={`newbed-rent-${room.id}`}>{t("Miete / Monat")}</label>
                           <input
                             id={`newbed-rent-${room.id}`}
                             name="monthlyRentCents"
@@ -308,31 +308,31 @@ export default async function PropertyDetailPage({
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label htmlFor={`newbed-notes-${room.id}`}>Notiz</label>
+                          <label htmlFor={`newbed-notes-${room.id}`}>{t("Notiz")}</label>
                           <input id={`newbed-notes-${room.id}`} name="notes" />
                         </div>
                         <div className="sm:col-span-4">
                           <button type="submit" className="btn btn-primary">
-                            Bett anlegen
+                            {t("Bett anlegen")}
                           </button>
                         </div>
                       </form>
                     </Disclosure>
 
-                    <Disclosure summary="Zimmer bearbeiten">
+                    <Disclosure summary={t("Zimmer bearbeiten")}>
                       <form action={updateRoom} className="grid gap-3 sm:grid-cols-4">
                         <input type="hidden" name="id" value={room.id} />
                         <input type="hidden" name="propertyId" value={property.id} />
                         <div>
-                          <label htmlFor={`room-name-${room.id}`}>Bezeichnung</label>
+                          <label htmlFor={`room-name-${room.id}`}>{t("Bezeichnung")}</label>
                           <input id={`room-name-${room.id}`} name="name" defaultValue={room.name} required />
                         </div>
                         <div>
-                          <label htmlFor={`room-floor-${room.id}`}>Etage</label>
+                          <label htmlFor={`room-floor-${room.id}`}>{t("Etage")}</label>
                           <input id={`room-floor-${room.id}`} name="floor" defaultValue={room.floor ?? ""} />
                         </div>
                         <div>
-                          <label htmlFor={`room-size-${room.id}`}>Größe (m²)</label>
+                          <label htmlFor={`room-size-${room.id}`}>{t("Größe (m²)")}</label>
                           <input
                             id={`room-size-${room.id}`}
                             name="sizeSqm"
@@ -341,7 +341,7 @@ export default async function PropertyDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`room-rent-${room.id}`}>Standardmiete je Bett</label>
+                          <label htmlFor={`room-rent-${room.id}`}>{t("Standardmiete je Bett")}</label>
                           <input
                             id={`room-rent-${room.id}`}
                             name="defaultBedRentCents"
@@ -350,12 +350,12 @@ export default async function PropertyDetailPage({
                           />
                         </div>
                         <div className="sm:col-span-4">
-                          <label htmlFor={`room-notes-${room.id}`}>Notiz</label>
+                          <label htmlFor={`room-notes-${room.id}`}>{t("Notiz")}</label>
                           <input id={`room-notes-${room.id}`} name="notes" defaultValue={room.notes ?? ""} />
                         </div>
                         <div className="flex gap-2 sm:col-span-4">
                           <button type="submit" className="btn btn-primary">
-                            Zimmer speichern
+                            {t("Zimmer speichern")}
                           </button>
                         </div>
                       </form>
@@ -364,9 +364,9 @@ export default async function PropertyDetailPage({
                         <input type="hidden" name="id" value={room.id} />
                         <input type="hidden" name="propertyId" value={property.id} />
                         <ConfirmButton
-                          message={`Zimmer „${room.name}“ mit allen Betten wirklich löschen?`}
+                          message={t("Zimmer „{name}“ mit allen Betten wirklich löschen?", { name: room.name })}
                         >
-                          Zimmer löschen
+                          {t("Zimmer löschen")}
                         </ConfirmButton>
                       </form>
                     </Disclosure>
@@ -381,25 +381,25 @@ export default async function PropertyDetailPage({
       {/* --- Neues Zimmer -------------------------------------------------- */}
       <div className="mt-6">
         <Card
-          title="Zimmer hinzufügen"
-          description="Betten können direkt mit angelegt werden – das spart den zweiten Schritt."
+          title={t("Zimmer hinzufügen")}
+          description={t("Betten können direkt mit angelegt werden – das spart den zweiten Schritt.")}
         >
           <form action={createRoom} className="grid gap-4 sm:grid-cols-5">
             <input type="hidden" name="propertyId" value={property.id} />
             <div className="sm:col-span-2">
-              <label htmlFor="new-room-name">Bezeichnung *</label>
-              <input id="new-room-name" name="name" required placeholder="Zimmer 1" />
+              <label htmlFor="new-room-name">{t("Bezeichnung *")}</label>
+              <input id="new-room-name" name="name" required placeholder={t("Zimmer 1")} />
             </div>
             <div>
-              <label htmlFor="new-room-floor">Etage</label>
+              <label htmlFor="new-room-floor">{t("Etage")}</label>
               <input id="new-room-floor" name="floor" placeholder="EG" />
             </div>
             <div>
-              <label htmlFor="new-room-size">Größe (m²)</label>
+              <label htmlFor="new-room-size">{t("Größe (m²)")}</label>
               <input id="new-room-size" name="sizeSqm" inputMode="decimal" />
             </div>
             <div>
-              <label htmlFor="new-room-beds">Betten anlegen</label>
+              <label htmlFor="new-room-beds">{t("Betten anlegen")}</label>
               <input
                 id="new-room-beds"
                 name="bedCount"
@@ -410,16 +410,16 @@ export default async function PropertyDetailPage({
               />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="new-room-rent">Miete je Bett / Monat</label>
+              <label htmlFor="new-room-rent">{t("Miete je Bett / Monat")}</label>
               <input id="new-room-rent" name="defaultBedRentCents" defaultValue="350,00" inputMode="decimal" />
             </div>
             <div className="sm:col-span-3">
-              <label htmlFor="new-room-notes">Notiz</label>
+              <label htmlFor="new-room-notes">{t("Notiz")}</label>
               <input id="new-room-notes" name="notes" />
             </div>
             <div className="sm:col-span-5">
               <button type="submit" className="btn btn-primary">
-                Zimmer anlegen
+                {t("Zimmer anlegen")}
               </button>
             </div>
           </form>
@@ -443,16 +443,16 @@ export default async function PropertyDetailPage({
 
       {/* --- Objektstammdaten ---------------------------------------------- */}
       <div className="mt-6">
-        <Card title="Objektdaten bearbeiten">
+        <Card title={t("Objektdaten bearbeiten")}>
           <form action={updateProperty} className="space-y-4">
             <input type="hidden" name="id" value={property.id} />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label htmlFor="name">Bezeichnung</label>
+                <label htmlFor="name">{t("Bezeichnung")}</label>
                 <input id="name" name="name" defaultValue={property.name} required />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="street">Straße und Hausnummer</label>
+                <label htmlFor="street">{t("Straße und Hausnummer")}</label>
                 <input id="street" name="street" defaultValue={property.street} required />
               </div>
               <div>
@@ -460,21 +460,21 @@ export default async function PropertyDetailPage({
                 <input id="zip" name="zip" defaultValue={property.zip} required />
               </div>
               <div>
-                <label htmlFor="city">Ort</label>
+                <label htmlFor="city">{t("Ort")}</label>
                 <input id="city" name="city" defaultValue={property.city} required />
               </div>
               <div>
-                <label htmlFor="country">Land</label>
+                <label htmlFor="country">{t("Land")}</label>
                 <input id="country" name="country" defaultValue={property.country} />
               </div>
               <div>
-                <label htmlFor="shortCode">Kürzel</label>
+                <label htmlFor="shortCode">{t("Kürzel")}</label>
                 <input id="shortCode" name="shortCode" defaultValue={property.shortCode ?? ""} />
               </div>
               <div>
-                <label htmlFor="bankAccountId">Bankkonto des Objekts</label>
+                <label htmlFor="bankAccountId">{t("Bankkonto des Objekts")}</label>
                 <select id="bankAccountId" name="bankAccountId" defaultValue={property.bankAccountId ?? ""}>
-                  <option value="">– kein Konto zugeordnet –</option>
+                  <option value="">{t("– kein Konto zugeordnet –")}</option>
                   {bankAccounts.map((konto) => (
                     <option key={konto.id} value={konto.id}>
                       {konto.name} · {konto.iban}
@@ -482,61 +482,61 @@ export default async function PropertyDetailPage({
                   ))}
                 </select>
                 <p className="field-hint">
-                  Eingänge auf diesem Konto werden beim Import automatisch dem Objekt zugeordnet.
+                  {t("Eingänge auf diesem Konto werden beim Import automatisch dem Objekt zugeordnet.")}
                 </p>
               </div>
               <div>
-                <label htmlFor="tenure">Eigentumsverhältnis</label>
+                <label htmlFor="tenure">{t("Eigentumsverhältnis")}</label>
                 <select id="tenure" name="tenure" defaultValue={property.tenure}>
-                  <option value="ANGEMIETET">Angemietet – wir sind Zwischenmieter</option>
-                  <option value="EIGENTUM">Eigentum von Wohnwerk</option>
+                  <option value="ANGEMIETET">{t("Angemietet – wir sind Zwischenmieter")}</option>
+                  <option value="EIGENTUM">{t("Eigentum von Wohnwerk")}</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="ownerName">Vermieter / Eigentümer</label>
+                <label htmlFor="ownerName">{t("Vermieter / Eigentümer")}</label>
                 <input id="ownerName" name="ownerName" defaultValue={property.ownerName ?? ""} />
               </div>
               <div>
-                <label htmlFor="managerName">Betreuung</label>
+                <label htmlFor="managerName">{t("Betreuung")}</label>
                 <input id="managerName" name="managerName" defaultValue={property.managerName ?? ""} />
               </div>
               <div>
-                <label htmlFor="managerPhone">Telefon Betreuung</label>
+                <label htmlFor="managerPhone">{t("Telefon Betreuung")}</label>
                 <input id="managerPhone" name="managerPhone" defaultValue={property.managerPhone ?? ""} />
               </div>
               <div>
-                <label htmlFor="managerEmail">E-Mail Betreuung</label>
+                <label htmlFor="managerEmail">{t("E-Mail Betreuung")}</label>
                 <input id="managerEmail" name="managerEmail" defaultValue={property.managerEmail ?? ""} />
               </div>
               <div>
-                <label htmlFor="wifiSsid">WLAN-Name</label>
+                <label htmlFor="wifiSsid">{t("WLAN-Name")}</label>
                 <input id="wifiSsid" name="wifiSsid" defaultValue={property.wifiSsid ?? ""} />
               </div>
               <div>
-                <label htmlFor="wifiPassword">WLAN-Passwort</label>
+                <label htmlFor="wifiPassword">{t("WLAN-Passwort")}</label>
                 <input id="wifiPassword" name="wifiPassword" defaultValue={property.wifiPassword ?? ""} />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="notes">Notizen</label>
+                <label htmlFor="notes">{t("Notizen")}</label>
                 <textarea id="notes" name="notes" rows={3} defaultValue={property.notes ?? ""} />
               </div>
             </div>
 
             <button type="submit" className="btn btn-primary">
-              Objektdaten speichern
+              {t("Objektdaten speichern")}
             </button>
           </form>
         </Card>
       </div>
 
       <div className="mt-6">
-        <Card title="Objekt löschen" description="Nur möglich, wenn keine laufenden Mietverhältnisse bestehen.">
+        <Card title={t("Objekt löschen")} description={t("Nur möglich, wenn keine laufenden Mietverhältnisse bestehen.")}>
           <form action={deleteProperty}>
             <input type="hidden" name="id" value={property.id} />
             <ConfirmButton
-              message={`Objekt „${property.name}“ mit allen Zimmern und Betten wirklich löschen?`}
+              message={t("Objekt „{name}“ mit allen Zimmern und Betten wirklich löschen?", { name: property.name })}
             >
-              Objekt endgültig löschen
+              {t("Objekt endgültig löschen")}
             </ConfirmButton>
           </form>
         </Card>

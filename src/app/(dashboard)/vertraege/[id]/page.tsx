@@ -14,8 +14,9 @@ import { ContractBadge } from "@/components/status";
 import { Alert, Card, Flash, PageHeader } from "@/components/ui";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { getAppUrl } from "@/lib/settings";
-import { formatDate, formatDateTime } from "@/lib/dates";
+
 import { requireAdmin } from "@/lib/auth";
+import { oberflaeche } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function ContractDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, datum, datumZeit } = await oberflaeche();
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -53,7 +55,7 @@ export default async function ContractDetailPage({
     `Hallo ${tenant.firstName},\n\n` +
       `anbei der Link zu Ihrem Mietvertrag für ${data.propertyName}, ${data.roomName}, ${data.bedLabel}.\n` +
       `Bitte prüfen Sie Ihre Daten und unterschreiben Sie direkt im Browser:\n\n${link}\n\n` +
-      `Mietbeginn: ${formatDate(contract.tenancy.startDate)}\n\n` +
+      `Mietbeginn: ${datum(contract.tenancy.startDate)}\n\n` +
       `Viele Grüße\n${data.landlordName}`,
   );
 
@@ -63,7 +65,7 @@ export default async function ContractDetailPage({
         title={`Mietvertrag ${contract.contractNumber}`}
         description={`${tenant.firstName} ${tenant.lastName} · ${data.propertyName}, ${data.roomName}, ${data.bedLabel}`}
         breadcrumb={[
-          { label: "Mietverträge", href: "/vertraege" },
+          { label: t("Mietverträge"), href: "/vertraege" },
           { label: contract.contractNumber },
         ]}
         actions={
@@ -75,10 +77,10 @@ export default async function ContractDetailPage({
               rel="noreferrer"
               className="btn btn-secondary"
             >
-              PDF ansehen
+              {t("PDF ansehen")}
             </a>
             <Link href={`/mieter/${tenant.id}`} className="btn btn-secondary">
-              Zum Mieter
+              {t("Zum Mieter")}
             </Link>
           </>
         }
@@ -88,44 +90,44 @@ export default async function ContractDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
-          <Card title="Vertragsinhalt" description="Genau dieser Text erscheint im PDF und beim Mieter.">
+          <Card title={t("Vertragsinhalt")} description={t("Genau dieser Text erscheint im PDF und beim Mieter.")}>
             <ContractView data={data} />
           </Card>
         </div>
 
         <div className="space-y-6">
           {/* --- Ablauf ---------------------------------------------------- */}
-          <Card title="Status">
+          <Card title={t("Status")}>
             <ol className="space-y-3 text-sm">
-              <Step done label="Angelegt" detail={formatDateTime(contract.createdAt)} />
+              <Step done label={t("Angelegt")} detail={datumZeit(contract.createdAt)} />
               <Step
                 done={Boolean(contract.sentAt)}
-                label="Freigegeben und Link erzeugt"
-                detail={contract.sentAt ? formatDateTime(contract.sentAt) : "noch offen"}
+                label={t("Freigegeben und Link erzeugt")}
+                detail={contract.sentAt ? datumZeit(contract.sentAt) : t("noch offen")}
               />
               <Step
                 done={Boolean(contract.viewedAt)}
-                label="Vom Mieter geöffnet"
-                detail={contract.viewedAt ? formatDateTime(contract.viewedAt) : "noch offen"}
+                label={t("Vom Mieter geöffnet")}
+                detail={contract.viewedAt ? datumZeit(contract.viewedAt) : t("noch offen")}
               />
               <Step
                 done={Boolean(contract.signedAt)}
-                label="Unterschrieben"
-                detail={contract.signedAt ? formatDateTime(contract.signedAt) : "noch offen"}
+                label={t("Unterschrieben")}
+                detail={contract.signedAt ? datumZeit(contract.signedAt) : t("noch offen")}
               />
             </ol>
 
             {contract.signedAt && (
               <div className="mt-4 rounded-lg bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
-                Unterschrieben von <strong>{contract.signerName}</strong>
+                {t("Unterschrieben von")} <strong>{contract.signerName}</strong>
                 {contract.signerIp ? ` · IP ${contract.signerIp}` : ""}
                 <br />
                 {contract.pdfUrl ? (
                   <a href={contract.pdfUrl} target="_blank" rel="noreferrer" className="underline">
-                    Abgelegtes PDF öffnen
+                    {t("Abgelegtes PDF öffnen")}
                   </a>
                 ) : (
-                  "PDF wurde noch nicht abgelegt."
+                  t("PDF wurde noch nicht abgelegt.")
                 )}
               </div>
             )}
@@ -134,24 +136,23 @@ export default async function ContractDetailPage({
           {/* --- Link ------------------------------------------------------ */}
           {!isCancelled && !isSigned && (
             <Card
-              title="Link für den Mieter"
+              title={t("Link für den Mieter")}
               description={
                 isDraft
-                  ? "Der Link wird erst nach der Freigabe gültig."
+                  ? t("Der Link wird erst nach der Freigabe gültig.")
                   : expired
-                    ? "Der Link ist abgelaufen – bitte einen neuen erzeugen."
-                    : `Gültig bis ${formatDate(contract.tokenExpiresAt)}`
+                    ? t("Der Link ist abgelaufen – bitte einen neuen erzeugen.")
+                    : t("Gültig bis {datum}", { datum: datum(contract.tokenExpiresAt) })
               }
             >
               {isDraft ? (
                 <form action={sendContract} className="space-y-3">
                   <input type="hidden" name="id" value={contract.id} />
                   <Alert tone="info">
-                    Mit der Freigabe wird der Vertragstext eingefroren und der Link aktiviert. Ist ein
-                    E-Mail-Versand eingerichtet, geht die Nachricht direkt an {tenant.email}.
+                    {t("Mit der Freigabe wird der Vertragstext eingefroren und der Link aktiviert. Ist ein E-Mail-Versand eingerichtet, geht die Nachricht direkt an {email}.", { email: tenant.email })}
                   </Alert>
                   <button type="submit" className="btn btn-primary w-full">
-                    Vertrag freigeben und versenden
+                    {t("Vertrag freigeben und versenden")}
                   </button>
                 </form>
               ) : (
@@ -164,21 +165,21 @@ export default async function ContractDetailPage({
                       )}&body=${mailtoBody}`}
                       className="btn btn-secondary"
                     >
-                      Per E-Mail-Programm senden
+                      {t("Per E-Mail-Programm senden")}
                     </a>
                     <form action={sendContract}>
                       <input type="hidden" name="id" value={contract.id} />
                       <button type="submit" className="btn btn-secondary">
-                        Erneut versenden
+                        {t("Erneut versenden")}
                       </button>
                     </form>
                     <form action={renewContractToken}>
                       <input type="hidden" name="id" value={contract.id} />
                       <ConfirmButton
                         className="btn btn-ghost"
-                        message="Neuen Link erzeugen? Der bisherige Link wird sofort ungültig."
+                        message={t("Neuen Link erzeugen? Der bisherige Link wird sofort ungültig.")}
                       >
-                        Neuen Link erzeugen
+                        {t("Neuen Link erzeugen")}
                       </ConfirmButton>
                     </form>
                   </div>
@@ -188,24 +189,24 @@ export default async function ContractDetailPage({
           )}
 
           {/* --- Weitere Schritte ------------------------------------------ */}
-          <Card title="Weitere Schritte">
+          <Card title={t("Weitere Schritte")}>
             <div className="space-y-3">
               <form action={regenerateContractPdf}>
                 <input type="hidden" name="id" value={contract.id} />
                 <button type="submit" className="btn btn-secondary w-full">
-                  PDF neu erzeugen und ablegen
+                  {t("PDF neu erzeugen und ablegen")}
                 </button>
                 <p className="field-hint">
-                  Legt das PDF in der Dokumentenablage unter „Mietverträge“ ab.
+                  {t("Legt das PDF in der Dokumentenablage unter „Mietverträge“ ab.")}
                 </p>
               </form>
 
               {!isSigned && !isCancelled && (
-                <Disclosure summary="Vor Ort unterschrieben erfassen">
+                <Disclosure summary={t("Vor Ort unterschrieben erfassen")}>
                   <form action={markContractSignedManually} className="space-y-3">
                     <input type="hidden" name="id" value={contract.id} />
                     <div>
-                      <label htmlFor="signerName">Name der unterschreibenden Person</label>
+                      <label htmlFor="signerName">{t("Name der unterschreibenden Person")}</label>
                       <input
                         id="signerName"
                         name="signerName"
@@ -214,11 +215,10 @@ export default async function ContractDetailPage({
                       />
                     </div>
                     <button type="submit" className="btn btn-secondary w-full">
-                      Als unterschrieben markieren
+                      {t("Als unterschrieben markieren")}
                     </button>
                     <p className="field-hint">
-                      Für Verträge, die auf Papier unterschrieben wurden. Es wird kein Unterschriftsbild
-                      hinterlegt.
+                      {t("Für Verträge, die auf Papier unterschrieben wurden. Es wird kein Unterschriftsbild hinterlegt.")}
                     </p>
                   </form>
                 </Disclosure>
@@ -229,9 +229,9 @@ export default async function ContractDetailPage({
                   <input type="hidden" name="id" value={contract.id} />
                   <ConfirmButton
                     className="btn btn-danger w-full"
-                    message="Vertrag stornieren? Das Bett wird wieder als frei geführt."
+                    message={t("Vertrag stornieren? Das Bett wird wieder als frei geführt.")}
                   >
-                    Vertrag stornieren
+                    {t("Vertrag stornieren")}
                   </ConfirmButton>
                 </form>
               )}

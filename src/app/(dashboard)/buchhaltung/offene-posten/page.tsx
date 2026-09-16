@@ -13,11 +13,16 @@ import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { centsToInput, formatCents } from "@/lib/money";
-import { formatDate, formatMonth } from "@/lib/dates";
-import { AdminOnly } from "@/components/admin-only";
+import { centsToInput } from "@/lib/money";
 
-export const metadata = { title: "Offene Posten" };
+import { AdminOnly } from "@/components/admin-only";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Offene Posten") };
+}
 export const dynamic = "force-dynamic";
 
 const BACK = "/buchhaltung/offene-posten";
@@ -27,6 +32,7 @@ export default async function OpenItemsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; status?: string }>;
 }) {
+  const { t, datum, monat, geld } = await oberflaeche();
   const params = await searchParams;
   const statusFilter = params.status ?? "OFFEN";
 
@@ -89,16 +95,16 @@ export default async function OpenItemsPage({
   return (
     <>
       <PageHeader
-        title="Offene Posten"
-        description="Monatliche Mietforderungen und ihre Zahlungseingänge."
-        breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Offene Posten" }]}
+        title={t("Offene Posten")}
+        description={t("Monatliche Mietforderungen und ihre Zahlungseingänge.")}
+        breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Offene Posten") }]}
         actions={
           <>
             <AdminOnly>
               <form action={generateCharges}>
                 <input type="hidden" name="back" value={BACK} />
                 <button type="submit" className="btn btn-secondary">
-                  Forderungen erzeugen
+                  {t("Forderungen erzeugen")}
                 </button>
               </form>
             </AdminOnly>
@@ -106,7 +112,7 @@ export default async function OpenItemsPage({
               <form action={runAutoMatch}>
                 <input type="hidden" name="back" value={BACK} />
                 <button type="submit" className="btn btn-primary">
-                  Zahlungen automatisch zuordnen
+                  {t("Zahlungen automatisch zuordnen")}
                 </button>
               </form>
             </AdminOnly>
@@ -118,14 +124,14 @@ export default async function OpenItemsPage({
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          label="Offener Betrag"
-          value={formatCents(openTotal)}
+          label={t("Offener Betrag")}
+          value={geld(openTotal)}
           tone={openTotal > 0 ? "warning" : "success"}
         />
-        <StatCard label="Überfällig" value={String(overdue.length)} tone={overdue.length > 0 ? "danger" : "success"} />
-        <StatCard label="Forderungen angezeigt" value={String(charges.length)} />
+        <StatCard label={t("Überfällig")} value={String(overdue.length)} tone={overdue.length > 0 ? "danger" : "success"} />
+        <StatCard label={t("Forderungen angezeigt")} value={String(charges.length)} />
         <StatCard
-          label="Nicht zugeordnete Eingänge"
+          label={t("Nicht zugeordnete Eingänge")}
           value={String(unallocatedPayments.length)}
           tone={unallocatedPayments.length > 0 ? "info" : "neutral"}
         />
@@ -136,15 +142,15 @@ export default async function OpenItemsPage({
           <AdminOnly>
             <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
               <div className="w-56">
-                <label htmlFor="status">Anzeigen</label>
+                <label htmlFor="status">{t("Anzeigen")}</label>
                 <select id="status" name="status" defaultValue={statusFilter}>
-                  <option value="OFFEN">Nur offene und Teilzahlungen</option>
-                  <option value="PAID">Nur bezahlte</option>
-                  <option value="ALLE">Alle</option>
+                  <option value="OFFEN">{t("Nur offene und Teilzahlungen")}</option>
+                  <option value="PAID">{t("Nur bezahlte")}</option>
+                  <option value="ALLE">{t("Alle")}</option>
                 </select>
               </div>
               <button type="submit" className="btn btn-secondary">
-                Anzeigen
+                {t("Anzeigen")}
               </button>
             </form>
           </AdminOnly>
@@ -152,21 +158,21 @@ export default async function OpenItemsPage({
           {charges.length === 0 ? (
             <div className="p-5">
               <EmptyState
-                title="Keine Forderungen"
-                description="Forderungen entstehen automatisch für jedes laufende Mietverhältnis. Über „Forderungen erzeugen“ können Sie fehlende Monate nachholen."
+                title={t("Keine Forderungen")}
+                description={t("Forderungen entstehen automatisch für jedes laufende Mietverhältnis. Über „Forderungen erzeugen“ können Sie fehlende Monate nachholen.")}
               />
             </div>
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <Th>Monat</Th>
-                  <Th>Mieter</Th>
-                  <Th>Unterkunft</Th>
-                  <Th>Fällig</Th>
-                  <Th align="right">Soll</Th>
-                  <Th align="right">Offen</Th>
-                  <Th align="right">Status</Th>
+                  <Th>{t("Monat")}</Th>
+                  <Th>{t("Mieter")}</Th>
+                  <Th>{t("Unterkunft")}</Th>
+                  <Th>{t("Fällig")}</Th>
+                  <Th align="right">{t("Soll")}</Th>
+                  <Th align="right">{t("Offen")}</Th>
+                  <Th align="right">{t("Status")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -178,10 +184,10 @@ export default async function OpenItemsPage({
                   return (
                     <tr key={charge.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap">
-                        {formatMonth(charge.periodYear, charge.periodMonth)}
+                        {monat(charge.periodYear, charge.periodMonth)}
                         {charge.kind === "DEPOSIT" && (
                           <span className="ml-2">
-                            <Badge tone="brand">Kaution</Badge>
+                            <Badge tone="brand">{t("Kaution")}</Badge>
                           </span>
                         )}
                       </Td>
@@ -199,8 +205,8 @@ export default async function OpenItemsPage({
                             {charge.allocations.map((allocation) => (
                               <li key={allocation.id} className="flex items-center gap-2 text-xs text-ink-600">
                                 <span>
-                                  {formatDate(allocation.bankTransaction.bookingDate)} ·{" "}
-                                  {formatCents(allocation.amountCents)}
+                                  {datum(allocation.bankTransaction.bookingDate)} ·{" "}
+                                  {geld(allocation.amountCents)}
                                 </span>
                                 <AdminOnly>
                                   <form action={removeAllocation}>
@@ -209,7 +215,7 @@ export default async function OpenItemsPage({
                                     <button
                                       type="submit"
                                       className="text-ink-500 hover:text-rose-600"
-                                      title="Zuordnung aufheben"
+                                      title={t("Zuordnung aufheben")}
                                     >
                                       ×
                                     </button>
@@ -222,10 +228,10 @@ export default async function OpenItemsPage({
 
                         {open > 0 && charge.status !== "WAIVED" && (
                           <div className="mt-1.5">
-                            <Disclosure summary="Zahlung zuordnen">
+                            <Disclosure summary={t("Zahlung zuordnen")}>
                               {unallocatedPayments.length === 0 ? (
                                 <p className="text-xs text-ink-500">
-                                  Kein offener Zahlungseingang vorhanden.
+                                  {t("Kein offener Zahlungseingang vorhanden.")}
                                 </p>
                               ) : (
                                 <AdminOnly>
@@ -233,18 +239,18 @@ export default async function OpenItemsPage({
                                     <input type="hidden" name="rentChargeId" value={charge.id} />
                                     <input type="hidden" name="back" value={BACK} />
                                     <div>
-                                      <label htmlFor={`tx-${charge.id}`}>Zahlungseingang</label>
+                                      <label htmlFor={`tx-${charge.id}`}>{t("Zahlungseingang")}</label>
                                       <select id={`tx-${charge.id}`} name="bankTransactionId" required>
                                         {unallocatedPayments.map((tx) => (
                                           <option key={tx.id} value={tx.id}>
-                                            {formatDate(tx.bookingDate)} · {formatCents(tx.free)} ·{" "}
+                                            {datum(tx.bookingDate)} · {geld(tx.free)} ·{" "}
                                             {(tx.counterpartyName ?? "").slice(0, 30)}
                                           </option>
                                         ))}
                                       </select>
                                     </div>
                                     <div>
-                                      <label htmlFor={`amt-${charge.id}`}>Betrag</label>
+                                      <label htmlFor={`amt-${charge.id}`}>{t("Betrag")}</label>
                                       <input
                                         id={`amt-${charge.id}`}
                                         name="amountCents"
@@ -253,7 +259,7 @@ export default async function OpenItemsPage({
                                       />
                                     </div>
                                     <button type="submit" className="btn btn-primary">
-                                      Zuordnen
+                                      {t("Zuordnen")}
                                     </button>
                                   </form>
                                 </AdminOnly>
@@ -265,9 +271,9 @@ export default async function OpenItemsPage({
                                   <input type="hidden" name="back" value={BACK} />
                                   <ConfirmButton
                                     className="btn btn-ghost"
-                                    message="Forderung als erlassen markieren?"
+                                    message={t("Forderung als erlassen markieren?")}
                                   >
-                                    Forderung erlassen
+                                    {t("Forderung erlassen")}
                                   </ConfirmButton>
                                 </form>
                               </AdminOnly>
@@ -282,16 +288,16 @@ export default async function OpenItemsPage({
                         </p>
                       </Td>
                       <Td className={`whitespace-nowrap ${isOverdue ? "font-semibold text-rose-600" : "text-ink-600"}`}>
-                        {formatDate(charge.dueDate)}
+                        {datum(charge.dueDate)}
                       </Td>
                       <Td align="right" className="tabular-nums">
-                        {formatCents(charge.amountCents)}
+                        {geld(charge.amountCents)}
                       </Td>
                       <Td
                         align="right"
                         className={`font-semibold tabular-nums ${open > 0 ? "text-rose-600" : "text-emerald-600"}`}
                       >
-                        {formatCents(Math.max(0, open))}
+                        {geld(Math.max(0, open))}
                       </Td>
                       <Td align="right">
                         <ChargeBadge status={charge.status} />
@@ -303,9 +309,9 @@ export default async function OpenItemsPage({
                               <button
                                 type="submit"
                                 className="btn btn-secondary btn-sm"
-                                title="Eingang im Online-Banking gesehen – als bezahlt vermerken"
+                                title={t("Eingang im Online-Banking gesehen – als bezahlt vermerken")}
                               >
-                                ✓ Bezahlt
+                                {t("✓ Bezahlt")}
                               </button>
                             </form>
                           )}
@@ -316,9 +322,9 @@ export default async function OpenItemsPage({
                               <button
                                 type="submit"
                                 className="btn btn-ghost btn-sm"
-                                title="Handbestätigung zurücknehmen"
+                                title={t("Handbestätigung zurücknehmen")}
                               >
-                                Rückgängig
+                                {t("Rückgängig")}
                               </button>
                             </form>
                           )}
@@ -336,27 +342,27 @@ export default async function OpenItemsPage({
       {unallocatedPayments.length > 0 && (
         <div className="mt-6">
           <Card
-            title="Nicht zugeordnete Zahlungseingänge"
-            description="Diese Eingänge konnten keiner Mietforderung zugeordnet werden."
+            title={t("Nicht zugeordnete Zahlungseingänge")}
+            description={t("Diese Eingänge konnten keiner Mietforderung zugeordnet werden.")}
             padded={false}
           >
             <Table>
               <thead>
                 <tr>
-                  <Th>Datum</Th>
-                  <Th>Zahler</Th>
-                  <Th>Verwendungszweck</Th>
-                  <Th align="right">Offen</Th>
+                  <Th>{t("Datum")}</Th>
+                  <Th>{t("Zahler")}</Th>
+                  <Th>{t("Verwendungszweck")}</Th>
+                  <Th align="right">{t("Offen")}</Th>
                 </tr>
               </thead>
               <tbody>
                 {unallocatedPayments.map((tx) => (
                   <tr key={tx.id}>
-                    <Td className="whitespace-nowrap text-ink-600">{formatDate(tx.bookingDate)}</Td>
+                    <Td className="whitespace-nowrap text-ink-600">{datum(tx.bookingDate)}</Td>
                     <Td>{tx.counterpartyName ?? "–"}</Td>
                     <Td className="max-w-md text-xs text-ink-500">{tx.purpose ?? ""}</Td>
                     <Td align="right" className="font-semibold tabular-nums text-emerald-600">
-                      {formatCents(tx.free)}
+                      {geld(tx.free)}
                     </Td>
                   </tr>
                 ))}

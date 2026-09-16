@@ -13,6 +13,7 @@ import {
   savePropertyTemplateMapping,
   uploadPropertyTemplate,
 } from "@/app/actions/properties";
+import { oberflaeche } from "@/lib/i18n";
 
 type Template = {
   id: string;
@@ -31,26 +32,26 @@ const GRUPPEN = [...new Set(PLACEHOLDERS.map((p) => p.group))];
  * Vordrucke eines Objekts. Die Wohnungsgeberbestaetigung wird nie nachgebaut,
  * sondern als Datei der zustaendigen Kommune hinterlegt und nur ausgefuellt.
  */
-export function PropertyTemplates({
+export async function PropertyTemplates({
   propertyId,
   templates,
 }: {
   propertyId: string;
   templates: Template[];
 }) {
+  const { t } = await oberflaeche();
   const hatBestaetigung = templates.some((t) => coversLandlordConfirmation(t.kind));
 
   return (
     <Card
-      title="Vordrucke"
-      description="Mietvertrag und Wohnungsgeberbestätigung als PDF. Wohnwerk füllt nur die Formularfelder aus – am Layout ändert sich nichts."
+      title={t("Vordrucke")}
+      description={t("Mietvertrag und Wohnungsgeberbestätigung als PDF. Wohnwerk füllt nur die Formularfelder aus – am Layout ändert sich nichts.")}
     >
       {!hatBestaetigung && (
         <div className="mb-5 rounded-xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-[0.875rem] leading-relaxed text-amber-900">
-          <p className="font-semibold">Wohnungsgeberbestätigung fehlt</p>
+          <p className="font-semibold">{t("Wohnungsgeberbestätigung fehlt")}</p>
           <p className="mt-0.5">
-            Ohne sie kann sich ein Mieter nicht anmelden. Der Vordruck unterscheidet sich je
-            Kommune, deshalb gehört hier die Datei des zuständigen Meldeamts hinterlegt.
+            {t("Ohne sie kann sich ein Mieter nicht anmelden. Der Vordruck unterscheidet sich je Kommune, deshalb gehört hier die Datei des zuständigen Meldeamts hinterlegt.")}
           </p>
         </div>
       )}
@@ -66,48 +67,48 @@ export function PropertyTemplates({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-[0.9rem] font-semibold text-ink-900">
-                      {TEMPLATE_KIND_LABEL[template.kind] ?? template.kind}
+                      {t(TEMPLATE_KIND_LABEL[template.kind] ?? template.kind)}
                     </p>
                     {coversLandlordConfirmation(template.kind) && (
-                      <Badge tone="success">§ 19 BMG erfüllt</Badge>
+                      <Badge tone="success">{t("§ 19 BMG erfüllt")}</Badge>
                     )}
                   </div>
                   <p className="mt-1 text-[0.8rem] text-ink-500">
-                    {template.fileName} · {template.pageCount} Seiten ·{" "}
-                    {Math.round(template.sizeBytes / 1024)} KB · {felder.length} Formularfeld
-                    {felder.length === 1 ? "" : "er"}
+                    {t("{datei} · {seiten} Seiten · {kb} KB · {felder} Formularfelder", {
+                      datei: template.fileName,
+                      seiten: template.pageCount,
+                      kb: Math.round(template.sizeBytes / 1024),
+                      felder: felder.length,
+                    })}
                   </p>
                 </div>
                 <form action={deletePropertyTemplate}>
                   <input type="hidden" name="id" value={template.id} />
                   <ConfirmButton
                     className="btn btn-danger btn-sm"
-                    message={`Vordruck „${template.fileName}“ wirklich entfernen?`}
+                    message={t("Vordruck „{name}“ wirklich entfernen?", { name: template.fileName })}
                   >
-                    Entfernen
+                    {t("Entfernen")}
                   </ConfirmButton>
                 </form>
               </div>
 
               {felder.length === 0 ? (
                 <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-800">
-                  Diese PDF enthält keine Formularfelder. Wohnwerk kann sie deshalb nicht
-                  ausfüllen – sie lässt sich nur als Blankovordruck ausdrucken. Felder lassen
-                  sich in Acrobat oder LibreOffice ergänzen.
+                  {t("Diese PDF enthält keine Formularfelder. Wohnwerk kann sie deshalb nicht ausfüllen – sie lässt sich nur als Blankovordruck ausdrucken. Felder lassen sich in Acrobat oder LibreOffice ergänzen.")}
                 </p>
               ) : (
                 <form action={savePropertyTemplateMapping} className="mt-4">
                   <input type="hidden" name="id" value={template.id} />
                   <p className="mb-2 text-[0.8rem] text-ink-600">
-                    Welcher Wert gehört in welches Feld? Wohnwerk hat vorbelegt, was es aus den
-                    Feldnamen ableiten konnte.
+                    {t("Welcher Wert gehört in welches Feld? Wohnwerk hat vorbelegt, was es aus den Feldnamen ableiten konnte.")}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {felder.map((feld) => (
                       <Field
                         key={feld.name}
                         label={feld.name}
-                        hint={feld.pages.length ? `Seite ${feld.pages.join(", ")}` : undefined}
+                        hint={feld.pages.length ? t("Seite {seiten}", { seiten: feld.pages.join(", ") }) : undefined}
                         htmlFor={`${template.id}-${feld.name}`}
                       >
                         <select
@@ -115,12 +116,12 @@ export function PropertyTemplates({
                           name={`feld:${feld.name}`}
                           defaultValue={map[feld.name] ?? ""}
                         >
-                          <option value="">leer lassen</option>
+                          <option value="">{t("leer lassen")}</option>
                           {GRUPPEN.map((gruppe) => (
-                            <optgroup key={gruppe} label={gruppe}>
+                            <optgroup key={gruppe} label={t(gruppe)}>
                               {PLACEHOLDERS.filter((p) => p.group === gruppe).map((p) => (
                                 <option key={p.key} value={p.key}>
-                                  {p.label}
+                                  {t(p.label)}
                                 </option>
                               ))}
                             </optgroup>
@@ -130,7 +131,7 @@ export function PropertyTemplates({
                     ))}
                   </div>
                   <button type="submit" className="btn btn-secondary mt-4">
-                    Zuordnung speichern
+                    {t("Zuordnung speichern")}
                   </button>
                 </form>
               )}
@@ -146,30 +147,30 @@ export function PropertyTemplates({
       >
         <input type="hidden" name="propertyId" value={propertyId} />
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Art des Vordrucks" htmlFor="kind">
+          <Field label={t("Art des Vordrucks")} htmlFor="kind">
             <select id="kind" name="kind" defaultValue={TEMPLATE_KIND.COMBINED}>
               <option value={TEMPLATE_KIND.COMBINED}>
-                {TEMPLATE_KIND_LABEL[TEMPLATE_KIND.COMBINED]}
+                {t(TEMPLATE_KIND_LABEL[TEMPLATE_KIND.COMBINED])}
               </option>
               <option value={TEMPLATE_KIND.LANDLORD_CONFIRMATION}>
-                {TEMPLATE_KIND_LABEL[TEMPLATE_KIND.LANDLORD_CONFIRMATION]}
+                {t(TEMPLATE_KIND_LABEL[TEMPLATE_KIND.LANDLORD_CONFIRMATION])}
               </option>
               <option value={TEMPLATE_KIND.CONTRACT}>
-                {TEMPLATE_KIND_LABEL[TEMPLATE_KIND.CONTRACT]}
+                {t(TEMPLATE_KIND_LABEL[TEMPLATE_KIND.CONTRACT])}
               </option>
             </select>
           </Field>
           <Field
-            label="PDF-Datei"
+            label={t("PDF-Datei")}
             htmlFor="file"
-            hint="Höchstens 12 MB"
+            hint={t("Höchstens 12 MB")}
             className="sm:col-span-2"
           >
             <input id="file" name="file" type="file" accept="application/pdf" required />
           </Field>
         </div>
         <button type="submit" className="btn btn-primary mt-4">
-          Vordruck hochladen
+          {t("Vordruck hochladen")}
         </button>
       </form>
     </Card>

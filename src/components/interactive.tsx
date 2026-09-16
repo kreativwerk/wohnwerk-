@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useOberflaeche } from "./sprache-kontext";
 
 /** Absenden mit Rückfrage – für Löschvorgänge und andere endgültige Schritte. */
 export function ConfirmButton({
@@ -33,6 +34,7 @@ export function ConfirmButton({
 
 /** Link mit Kopierschaltfläche – für den persönlichen Vertragslink. */
 export function CopyField({ value, label }: { value: string; label?: string }) {
+  const { t } = useOberflaeche();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function CopyField({ value, label }: { value: string; label?: string }) {
       <div className="flex gap-2">
         <input readOnly value={value} onFocus={(event) => event.currentTarget.select()} />
         <button type="button" className="btn btn-secondary shrink-0" onClick={copy}>
-          {copied ? "Kopiert" : "Kopieren"}
+          {copied ? t("Kopiert") : t("Kopieren")}
         </button>
       </div>
     </div>
@@ -91,6 +93,7 @@ export function BedPicker({
   rentFieldId?: string;
   required?: boolean;
 }) {
+  const { t } = useOberflaeche();
   const initial = beds.find((bed) => bed.id === defaultBedId);
   const [propertyId, setPropertyId] = useState(initial?.propertyId ?? "");
   const [roomId, setRoomId] = useState(initial?.roomId ?? "");
@@ -123,7 +126,7 @@ export function BedPicker({
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <div>
-        <label htmlFor="propertyPicker">Objekt</label>
+        <label htmlFor="propertyPicker">{t("Objekt")}</label>
         <select
           id="propertyPicker"
           value={propertyId}
@@ -134,7 +137,7 @@ export function BedPicker({
             setBedId("");
           }}
         >
-          <option value="">– bitte wählen –</option>
+          <option value="">{t("– bitte wählen –")}</option>
           {properties.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -144,7 +147,7 @@ export function BedPicker({
       </div>
 
       <div>
-        <label htmlFor="roomPicker">Zimmer</label>
+        <label htmlFor="roomPicker">{t("Zimmer")}</label>
         <select
           id="roomPicker"
           value={roomId}
@@ -155,7 +158,7 @@ export function BedPicker({
             setBedId("");
           }}
         >
-          <option value="">– bitte wählen –</option>
+          <option value="">{t("– bitte wählen –")}</option>
           {rooms.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -165,7 +168,7 @@ export function BedPicker({
       </div>
 
       <div>
-        <label htmlFor="bedId">Bett</label>
+        <label htmlFor="bedId">{t("Bett")}</label>
         <select
           id="bedId"
           name="bedId"
@@ -174,7 +177,7 @@ export function BedPicker({
           disabled={!roomId}
           onChange={(event) => selectBed(event.target.value)}
         >
-          <option value="">– bitte wählen –</option>
+          <option value="">{t("– bitte wählen –")}</option>
           {roomBeds.map((bed) => (
             <option key={bed.id} value={bed.id} disabled={bed.occupied || bed.blocked}>
               {bed.label}

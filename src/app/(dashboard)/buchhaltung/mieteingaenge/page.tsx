@@ -4,10 +4,14 @@ import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/a
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatCents } from "@/lib/money";
-import { formatDate, formatMonth } from "@/lib/dates";
 
-export const metadata = { title: "Mieteingänge" };
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Mieteingänge") };
+}
 export const dynamic = "force-dynamic";
 
 /** "2026-08" → { year, month }; alles Unlesbare fällt auf den aktuellen Monat zurück. */
@@ -36,6 +40,7 @@ export default async function RentIncomePage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; monat?: string }>;
 }) {
+  const { t, datum, monat, geld } = await oberflaeche();
   const params = await searchParams;
   const { year, month } = parseMonat(params.monat);
   const back = `/buchhaltung/mieteingaenge?monat=${monatsWert(year, month)}`;
@@ -100,15 +105,15 @@ export default async function RentIncomePage({
   return (
     <>
       <PageHeader
-        title="Mieteingänge"
-        description="Monat für Monat abhaken, welche Mieten schon da sind – von Hand oder automatisch per Kontoauszug."
-        breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Mieteingänge" }]}
+        title={t("Mieteingänge")}
+        description={t("Monat für Monat abhaken, welche Mieten schon da sind – von Hand oder automatisch per Kontoauszug.")}
+        breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Mieteingänge") }]}
         actions={
           <AdminOnly>
             <form action={runAutoMatch}>
               <input type="hidden" name="back" value={back} />
               <button type="submit" className="btn btn-secondary">
-                Zahlungen automatisch zuordnen
+                {t("Zahlungen automatisch zuordnen")}
               </button>
             </form>
           </AdminOnly>
@@ -124,22 +129,22 @@ export default async function RentIncomePage({
         <Link
           href={`/buchhaltung/mieteingaenge?monat=${monatsWert(zurueck.year, zurueck.month)}`}
           className="btn btn-secondary shrink-0"
-          aria-label={`Voriger Monat: ${formatMonth(zurueck.year, zurueck.month)}`}
+          aria-label={t("Voriger Monat: {monat}", { monat: monat(zurueck.year, zurueck.month) })}
         >
           <span aria-hidden="true">&larr;</span>
-          <span className="hidden sm:inline">{formatMonth(zurueck.year, zurueck.month)}</span>
+          <span className="hidden sm:inline">{monat(zurueck.year, zurueck.month)}</span>
         </Link>
 
         <span className="flex-1 text-center text-lg font-semibold text-ink-900">
-          {formatMonth(year, month)}
+          {monat(year, month)}
         </span>
 
         <Link
           href={`/buchhaltung/mieteingaenge?monat=${monatsWert(vor.year, vor.month)}`}
           className="btn btn-secondary shrink-0"
-          aria-label={`Nächster Monat: ${formatMonth(vor.year, vor.month)}`}
+          aria-label={t("Nächster Monat: {monat}", { monat: monat(vor.year, vor.month) })}
         >
-          <span className="hidden sm:inline">{formatMonth(vor.year, vor.month)}</span>
+          <span className="hidden sm:inline">{monat(vor.year, vor.month)}</span>
           <span aria-hidden="true">&rarr;</span>
         </Link>
       </div>
@@ -147,34 +152,34 @@ export default async function RentIncomePage({
       {!istAktuellerMonat && (
         <div className="mb-5 -mt-2">
           <Link href="/buchhaltung/mieteingaenge" className="btn btn-ghost btn-sm">
-            Zum aktuellen Monat
+            {t("Zum aktuellen Monat")}
           </Link>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          label="Abgehakt"
-          value={`${bezahltAnzahl} von ${relevante.length}`}
+          label={t("Abgehakt")}
+          value={t("{bezahlt} von {gesamt}", { bezahlt: bezahltAnzahl, gesamt: relevante.length })}
           tone={relevante.length > 0 && bezahltAnzahl === relevante.length ? "success" : "neutral"}
         />
-        <StatCard label="Eingegangen" value={formatCents(eingegangen)} tone="success" />
-        <StatCard label="Noch offen" value={formatCents(offen)} tone={offen > 0 ? "warning" : "success"} />
-        <StatCard label="Soll gesamt" value={formatCents(sollGesamt)} />
+        <StatCard label={t("Eingegangen")} value={geld(eingegangen)} tone="success" />
+        <StatCard label={t("Noch offen")} value={geld(offen)} tone={offen > 0 ? "warning" : "success"} />
+        <StatCard label={t("Soll gesamt")} value={geld(sollGesamt)} />
       </div>
 
       {charges.length === 0 ? (
         <div className="mt-6">
           <Card>
             <EmptyState
-              title={`Keine Forderungen für ${formatMonth(year, month)}`}
-              description="Für diesen Monat sind noch keine Mietforderungen erzeugt. Forderungen entstehen automatisch für jedes laufende Mietverhältnis."
+              title={t("Keine Forderungen für {monat}", { monat: monat(year, month) })}
+              description={t("Für diesen Monat sind noch keine Mietforderungen erzeugt. Forderungen entstehen automatisch für jedes laufende Mietverhältnis.")}
             />
             <AdminOnly>
               <form action={generateCharges} className="mt-4 text-center">
                 <input type="hidden" name="back" value={back} />
                 <button type="submit" className="btn btn-primary">
-                  Forderungen erzeugen
+                  {t("Forderungen erzeugen")}
                 </button>
               </form>
             </AdminOnly>
@@ -195,8 +200,8 @@ export default async function RentIncomePage({
                 <div className="flex flex-wrap items-center gap-4 border-b border-ink-200 p-4">
                   <h2 className="text-base font-semibold text-ink-900">{gruppe.name}</h2>
                   <span className="text-sm text-ink-600">
-                    {bezahltImObjekt} von {relevanteImObjekt.length} abgehakt
-                    {offenImObjekt > 0 && <> · {formatCents(offenImObjekt)} offen</>}
+                    {t("{bezahlt} von {gesamt} abgehakt", { bezahlt: bezahltImObjekt, gesamt: relevanteImObjekt.length })}
+                    {offenImObjekt > 0 && <> · {geld(offenImObjekt)} offen</>}
                   </span>
                   <div className="ml-auto w-40">
                     <Meter
@@ -209,12 +214,12 @@ export default async function RentIncomePage({
                 <Table>
                   <thead>
                     <tr>
-                      <Th className="w-12">Bezahlt</Th>
-                      <Th>Mieter</Th>
-                      <Th>Unterkunft</Th>
-                      <Th align="right">Miete</Th>
-                      <Th>Eingang</Th>
-                      <Th align="right">Aktion</Th>
+                      <Th className="w-12">{t("Bezahlt")}</Th>
+                      <Th>{t("Mieter")}</Th>
+                      <Th>{t("Unterkunft")}</Th>
+                      <Th align="right">{t("Miete")}</Th>
+                      <Th>{t("Eingang")}</Th>
+                      <Th align="right">{t("Aktion")}</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -253,12 +258,12 @@ export default async function RentIncomePage({
                             </Link>
                             {charge.kind === "DEPOSIT" && (
                               <span className="ml-2">
-                                <Badge tone="brand">Kaution</Badge>
+                                <Badge tone="brand">{t("Kaution")}</Badge>
                               </span>
                             )}
                             {istErlassen && (
                               <span className="ml-2">
-                                <Badge tone="neutral">Erlassen</Badge>
+                                <Badge tone="neutral">{t("Erlassen")}</Badge>
                               </span>
                             )}
                           </Td>
@@ -266,10 +271,10 @@ export default async function RentIncomePage({
                             {charge.tenancy.bed.room.name} · {charge.tenancy.bed.label}
                           </Td>
                           <Td align="right" className="tabular-nums">
-                            {formatCents(charge.amountCents)}
+                            {geld(charge.amountCents)}
                             {!istBezahlt && !istErlassen && zugeordnet > 0 && (
                               <p className="text-xs text-amber-600">
-                                noch {formatCents(chargeOffen)} offen
+                                {t("noch {betrag} offen", { betrag: geld(chargeOffen) })}
                               </p>
                             )}
                           </Td>
@@ -277,12 +282,12 @@ export default async function RentIncomePage({
                             {perKonto ? (
                               charge.allocations.map((a) => (
                                 <p key={a.id}>
-                                  {formatDate(a.bankTransaction.bookingDate)} ·{" "}
-                                  {formatCents(a.amountCents)} per Kontoauszug
+                                  {datum(a.bankTransaction.bookingDate)} ·{" "}
+                                  {geld(a.amountCents)} per Kontoauszug
                                 </p>
                               ))
                             ) : istBezahlt ? (
-                              <span>von Hand abgehakt</span>
+                              <span>{t("von Hand abgehakt")}</span>
                             ) : (
                               <span className="text-ink-400">–</span>
                             )}
@@ -296,9 +301,9 @@ export default async function RentIncomePage({
                                   <button
                                     type="submit"
                                     className="btn btn-secondary btn-sm"
-                                    title="Eingang im Online-Banking gesehen – als bezahlt abhaken"
+                                    title={t("Eingang im Online-Banking gesehen – als bezahlt abhaken")}
                                   >
-                                    ✓ Abhaken
+                                    {t("✓ Abhaken")}
                                   </button>
                                 </form>
                               )}
@@ -309,9 +314,9 @@ export default async function RentIncomePage({
                                   <button
                                     type="submit"
                                     className="btn btn-ghost btn-sm"
-                                    title="Haken zurücknehmen"
+                                    title={t("Haken zurücknehmen")}
                                   >
-                                    Rückgängig
+                                    {t("Rückgängig")}
                                   </button>
                                 </form>
                               )}
@@ -329,12 +334,11 @@ export default async function RentIncomePage({
       )}
 
       <p className="mt-6 text-xs text-ink-500">
-        Per Kontoauszug bestätigte Eingänge lassen sich hier nicht zurücknehmen – die Zuordnung
-        dazu wird unter{" "}
+        {t("Per Kontoauszug bestätigte Eingänge lassen sich hier nicht zurücknehmen – die Zuordnung dazu wird unter")}{" "}
         <Link href="/buchhaltung/offene-posten" className="font-semibold text-brand-700 hover:underline">
-          Offene Posten
+          {t("Offene Posten")}
         </Link>{" "}
-        gelöst.
+        {t("gelöst.")}
       </p>
     </>
   );

@@ -16,11 +16,15 @@ import {
 import { ConfirmButton } from "@/components/interactive";
 import { ContractBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
-import { formatCents } from "@/lib/money";
-import { formatDate } from "@/lib/dates";
-import { requireAdmin } from "@/lib/auth";
 
-export const metadata = { title: "Mietverträge" };
+import { requireAdmin } from "@/lib/auth";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Mietverträge") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function ContractsPage({
@@ -28,6 +32,7 @@ export default async function ContractsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; status?: string }>;
 }) {
+  const { t, datum, geld } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
   const status = params.status ?? "";
@@ -107,15 +112,15 @@ export default async function ContractsPage({
   return (
     <>
       <PageHeader
-        title="Mietverträge"
-        description="Vom Entwurf über den Versand bis zur Unterschrift."
+        title={t("Mietverträge")}
+        description={t("Vom Entwurf über den Versand bis zur Unterschrift.")}
         actions={
           <>
             <Link href="/vertraege/ablage" className="btn btn-secondary">
-              Ablage{inAblage > 0 ? ` (${inAblage})` : ""}
+              {t("Ablage")}{inAblage > 0 ? ` (${inAblage})` : ""}
             </Link>
             <Link href="/mieter/neu" className="btn btn-primary">
-              Neuer Mieter mit Vertrag
+              {t("Neuer Mieter mit Vertrag")}
             </Link>
           </>
         }
@@ -125,43 +130,43 @@ export default async function ContractsPage({
 
       {/* Abgleich laufende Mietverhältnisse gegen vorhandene Verträge */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard label="Laufende Mietverhältnisse" value={String(laufendeMietverhaeltnisse)} />
+        <StatCard label={t("Laufende Mietverhältnisse")} value={String(laufendeMietverhaeltnisse)} />
         <StatCard
-          label="Vertrag hinterlegt"
-          value={`${mitVertrag} von ${laufendeMietverhaeltnisse}`}
+          label={t("Vertrag hinterlegt")}
+          value={t("{mit} von {gesamt}", { mit: mitVertrag, gesamt: laufendeMietverhaeltnisse })}
           tone={aktiveOhneVertrag === 0 ? "success" : "neutral"}
         />
         <StatCard
-          label="Vertrag fehlt"
+          label={t("Vertrag fehlt")}
           value={String(aktiveOhneVertrag)}
           tone={aktiveOhneVertrag > 0 ? "danger" : "success"}
-          hint={aktiveOhneVertrag > 0 ? "namentlich in der Liste unten" : "alle vollständig"}
+          hint={aktiveOhneVertrag > 0 ? t("namentlich in der Liste unten") : t("alle vollständig")}
         />
         <StatCard
-          label="In der Ablage"
+          label={t("In der Ablage")}
           value={String(inAblage)}
           tone={inAblage > 0 ? "warning" : "success"}
           href="/vertraege/ablage"
-          hint={inAblage > 0 ? "noch keinem Mieter zugeordnet" : "alles zugeordnet"}
+          hint={inAblage > 0 ? t("noch keinem Mieter zugeordnet") : t("alles zugeordnet")}
         />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard label="Entwürfe" value={String(countFor("DRAFT"))} href="/vertraege?status=DRAFT" />
+        <StatCard label={t("Entwürfe")} value={String(countFor("DRAFT"))} href="/vertraege?status=DRAFT" />
         <StatCard
-          label="Versendet"
+          label={t("Versendet")}
           value={String(countFor("SENT") + countFor("VIEWED"))}
           tone="info"
           href="/vertraege?status=SENT"
         />
         <StatCard
-          label="Unterschrieben"
+          label={t("Unterschrieben")}
           value={String(countFor("SIGNED"))}
           tone="success"
           href="/vertraege?status=SIGNED"
         />
         <StatCard
-          label="Beendet"
+          label={t("Beendet")}
           value={String(countFor("ENDED") + countFor("CANCELLED"))}
           href="/vertraege?status=ENDED"
         />
@@ -169,11 +174,10 @@ export default async function ContractsPage({
 
       {inAblage > 0 && (
         <div className="mt-6">
-          <Alert tone="warning" title={`${inAblage} Vertrag/Verträge warten auf Zuordnung`}>
-            In der Ablage liegen eingescannte Mietverträge, die keinem Mieter zugeordnet werden
-            konnten – oft weil der Name anders geschrieben ist.{" "}
+          <Alert tone="warning" title={t("{anzahl} Vertrag/Verträge warten auf Zuordnung", { anzahl: inAblage })}>
+            {t("In der Ablage liegen eingescannte Mietverträge, die keinem Mieter zugeordnet werden konnten – oft weil der Name anders geschrieben ist.")}{" "}
             <Link href="/vertraege/ablage" className="font-semibold underline">
-              Jetzt zuordnen
+              {t("Jetzt zuordnen")}
             </Link>
           </Alert>
         </div>
@@ -182,19 +186,19 @@ export default async function ContractsPage({
       {ohneVertrag.length > 0 && (
         <div className="mt-6">
           <Card
-            title="Mieter ohne Mietvertrag"
-            description={`${aktiveOhneVertrag} aktive und ${ohneVertrag.length - aktiveOhneVertrag} frühere Mietverhältnisse ohne hinterlegten Vertrag. Liegt der Vertrag als Scan vor, ordnen Sie ihn in der Ablage zu.`}
+            title={t("Mieter ohne Mietvertrag")}
+            description={t("{aktiv} aktive und {frueher} frühere Mietverhältnisse ohne hinterlegten Vertrag. Liegt der Vertrag als Scan vor, ordnen Sie ihn in der Ablage zu.", { aktiv: aktiveOhneVertrag, frueher: ohneVertrag.length - aktiveOhneVertrag })}
             padded={false}
           >
             <Table>
               <thead>
                 <tr>
-                  <Th>Mieter</Th>
-                  <Th>Unterkunft</Th>
-                  <Th>Zeitraum</Th>
-                  <Th align="right">Miete</Th>
-                  <Th align="right">Status</Th>
-                  <Th align="right">Aktion</Th>
+                  <Th>{t("Mieter")}</Th>
+                  <Th>{t("Unterkunft")}</Th>
+                  <Th>{t("Zeitraum")}</Th>
+                  <Th align="right">{t("Miete")}</Th>
+                  <Th align="right">{t("Status")}</Th>
+                  <Th align="right">{t("Aktion")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -218,18 +222,18 @@ export default async function ContractsPage({
                         </p>
                       </Td>
                       <Td className="whitespace-nowrap text-ink-600">
-                        {formatDate(tenancy.startDate)} –{" "}
-                        {tenancy.endDate ? formatDate(tenancy.endDate) : "offen"}
+                        {datum(tenancy.startDate)} –{" "}
+                        {tenancy.endDate ? datum(tenancy.endDate) : "offen"}
                       </Td>
                       <Td align="right" className="tabular-nums">
-                        {formatCents(tenancy.monthlyRentCents)}
+                        {geld(tenancy.monthlyRentCents)}
                       </Td>
                       <Td align="right">
                         <span className="inline-flex flex-wrap justify-end gap-1.5">
                           <Badge tone={aktiv ? "success" : "neutral"}>
                             {aktiv ? "Aktiv" : "Ausgezogen"}
                           </Badge>
-                          <Badge tone="danger">Mietvertrag fehlt</Badge>
+                          <Badge tone="danger">{t("Mietvertrag fehlt")}</Badge>
                         </span>
                       </Td>
                       <Td align="right">
@@ -239,9 +243,9 @@ export default async function ContractsPage({
                           <button
                             type="submit"
                             className="btn btn-secondary btn-sm"
-                            title="Vertragsentwurf für dieses Mietverhältnis anlegen"
+                            title={t("Vertragsentwurf für dieses Mietverhältnis anlegen")}
                           >
-                            Vertrag anlegen
+                            {t("Vertrag anlegen")}
                           </button>
                         </form>
                       </Td>
@@ -258,23 +262,23 @@ export default async function ContractsPage({
         <Card padded={false}>
           <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
             <div className="w-56">
-              <label htmlFor="status">Status</label>
+              <label htmlFor="status">{t("Status")}</label>
               <select id="status" name="status" defaultValue={status}>
-                <option value="">Alle</option>
-                <option value="DRAFT">Entwurf</option>
-                <option value="SENT">Versendet</option>
-                <option value="VIEWED">Geöffnet</option>
-                <option value="SIGNED">Unterschrieben</option>
-                <option value="ENDED">Beendet</option>
-                <option value="CANCELLED">Storniert</option>
+                <option value="">{t("Alle")}</option>
+                <option value="DRAFT">{t("Entwurf")}</option>
+                <option value="SENT">{t("Versendet")}</option>
+                <option value="VIEWED">{t("Geöffnet")}</option>
+                <option value="SIGNED">{t("Unterschrieben")}</option>
+                <option value="ENDED">{t("Beendet")}</option>
+                <option value="CANCELLED">{t("Storniert")}</option>
               </select>
             </div>
             <button type="submit" className="btn btn-secondary">
-              Filtern
+              {t("Filtern")}
             </button>
             {status && (
               <Link href="/vertraege" className="btn btn-ghost">
-                Zurücksetzen
+                {t("Zurücksetzen")}
               </Link>
             )}
           </form>
@@ -282,11 +286,11 @@ export default async function ContractsPage({
           {contracts.length === 0 ? (
             <div className="p-5">
               <EmptyState
-                title="Keine Verträge"
-                description="Sobald Sie einem Mieter ein Bett zuweisen, entsteht automatisch ein Vertragsentwurf."
+                title={t("Keine Verträge")}
+                description={t("Sobald Sie einem Mieter ein Bett zuweisen, entsteht automatisch ein Vertragsentwurf.")}
                 action={
                   <Link href="/mieter/neu" className="btn btn-primary">
-                    Mieter anlegen
+                    {t("Mieter anlegen")}
                   </Link>
                 }
               />
@@ -295,13 +299,13 @@ export default async function ContractsPage({
             <Table>
               <thead>
                 <tr>
-                  <Th>Vertrag</Th>
-                  <Th>Mieter</Th>
-                  <Th>Unterkunft</Th>
-                  <Th>Mietbeginn</Th>
-                  <Th align="right">Miete</Th>
-                  <Th>Dokument</Th>
-                  <Th align="right">Status</Th>
+                  <Th>{t("Vertrag")}</Th>
+                  <Th>{t("Mieter")}</Th>
+                  <Th>{t("Unterkunft")}</Th>
+                  <Th>{t("Mietbeginn")}</Th>
+                  <Th align="right">{t("Miete")}</Th>
+                  <Th>{t("Dokument")}</Th>
+                  <Th align="right">{t("Status")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -330,9 +334,9 @@ export default async function ContractsPage({
                         {contract.tenancy.bed.room.name} · {contract.tenancy.bed.label}
                       </p>
                     </Td>
-                    <Td className="text-ink-600">{formatDate(contract.tenancy.startDate)}</Td>
+                    <Td className="text-ink-600">{datum(contract.tenancy.startDate)}</Td>
                     <Td align="right" className="tabular-nums">
-                      {formatCents(contract.tenancy.monthlyRentCents)}
+                      {geld(contract.tenancy.monthlyRentCents)}
                     </Td>
                     <Td>
                       {vertragsPdf(contract) ? (
@@ -342,19 +346,19 @@ export default async function ContractsPage({
                           rel="noreferrer"
                           className="btn btn-ghost btn-sm"
                         >
-                          Vertrag öffnen
+                          {t("Vertrag öffnen")}
                         </a>
                       ) : (
-                        <Badge tone="warning">Kein Dokument</Badge>
+                        <Badge tone="warning">{t("Kein Dokument")}</Badge>
                       )}
                       <p className="mt-1 text-xs text-ink-500">
                         {contract.signedAt
-                          ? `unterschrieben ${formatDate(contract.signedAt)}`
+                          ? t("unterschrieben {datum}", { datum: datum(contract.signedAt) })
                           : contract.viewedAt
-                            ? `geöffnet ${formatDate(contract.viewedAt)}`
+                            ? t("geöffnet {datum}", { datum: datum(contract.viewedAt) })
                             : contract.sentAt
-                              ? `versendet ${formatDate(contract.sentAt)}`
-                              : `angelegt ${formatDate(contract.createdAt)}`}
+                              ? `versendet ${datum(contract.sentAt)}`
+                              : `angelegt ${datum(contract.createdAt)}`}
                       </p>
                     </Td>
                     <Td align="right">
@@ -367,7 +371,7 @@ export default async function ContractsPage({
                             className="btn btn-ghost btn-sm"
                             message={`Vertrag von ${contract.tenancy.tenant.firstName} ${contract.tenancy.tenant.lastName} beenden? Das Mietverhältnis wird beendet und der Mieter gilt als ehemalig.`}
                           >
-                            Vertrag beenden
+                            {t("Vertrag beenden")}
                           </ConfirmButton>
                         </form>
                       )}
@@ -383,18 +387,18 @@ export default async function ContractsPage({
       {ehemalige.length > 0 && (
         <div className="mt-6">
           <Card
-            title="Ehemalige Mieter – Verträge beendet"
+            title={t("Ehemalige Mieter – Verträge beendet")}
             description={`${ehemalige.length} Personen sind ausgezogen; zu ihnen ist kein Bett mehr hinterlegt. Die Verträge bleiben für die Buchhaltung erhalten.`}
             padded={false}
           >
             <Table>
               <thead>
                 <tr>
-                  <Th>Mieter</Th>
-                  <Th>Unterkunft</Th>
-                  <Th>Vertragsdatum</Th>
-                  <Th>Dokument</Th>
-                  <Th align="right">Status</Th>
+                  <Th>{t("Mieter")}</Th>
+                  <Th>{t("Unterkunft")}</Th>
+                  <Th>{t("Vertragsdatum")}</Th>
+                  <Th>{t("Dokument")}</Th>
+                  <Th align="right">{t("Status")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -412,22 +416,22 @@ export default async function ContractsPage({
                         </Link>
                       </Td>
                       <Td className="text-ink-600">
-                        {objekt ?? <span className="text-xs text-ink-500">nicht hinterlegt</span>}
+                        {objekt ?? <span className="text-xs text-ink-500">{t("nicht hinterlegt")}</span>}
                         {zeitraum && (
                           <p className="text-xs text-ink-500">
-                            {formatDate(zeitraum.startDate)} –{" "}
-                            {zeitraum.endDate ? formatDate(zeitraum.endDate) : "offen"}
+                            {datum(zeitraum.startDate)} –{" "}
+                            {zeitraum.endDate ? datum(zeitraum.endDate) : "offen"}
                           </p>
                         )}
                       </Td>
                       <Td className="whitespace-nowrap text-ink-600">
                         {mieter.documents[0]?.documentDate
-                          ? formatDate(mieter.documents[0].documentDate)
+                          ? datum(mieter.documents[0].documentDate)
                           : "–"}
                       </Td>
                       <Td>
                         {mieter.documents.length === 0 ? (
-                          <Badge tone="warning">Kein Dokument</Badge>
+                          <Badge tone="warning">{t("Kein Dokument")}</Badge>
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {mieter.documents.map((dokument, index) => (
@@ -439,15 +443,15 @@ export default async function ContractsPage({
                                 className="btn btn-ghost btn-sm"
                               >
                                 {mieter.documents.length > 1
-                                  ? `Vertrag ${index + 1}`
-                                  : "Vertrag öffnen"}
+                                  ? t("Vertrag {nummer}", { nummer: index + 1 })
+                                  : t("Vertrag öffnen")}
                               </a>
                             ))}
                           </div>
                         )}
                       </Td>
                       <Td align="right">
-                        <Badge tone="neutral">Beendet</Badge>
+                        <Badge tone="neutral">{t("Beendet")}</Badge>
                       </Td>
                     </tr>
                   );

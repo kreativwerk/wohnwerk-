@@ -30,7 +30,13 @@ export type DriveStatus = {
   rootFolderId: string | null;
   sharedDrive: boolean;
   ok: boolean;
+  /**
+   * Deutscher Text als Schluessel - die Oberflaeche uebersetzt ihn mit
+   * `t(status.message, status.werte)`. Ein hier fertig gebauter Satz
+   * waere in der englischen Ansicht deutsch geblieben.
+   */
   message: string;
+  werte?: Record<string, string | number>;
 };
 
 /** Menschlicher Name der Ablage fuer Statusmeldungen ("wurde in ... abgelegt"). */
@@ -521,7 +527,13 @@ export async function shareFolderWith(
   folderSegments: string[],
   email: string,
   role: "reader" | "writer" = "reader",
-): Promise<{ ok: boolean; message: string; folderId?: string }> {
+): Promise<{
+  ok: boolean;
+  /** Deutscher Text als Schluessel; die Oberflaeche uebersetzt ihn. */
+  message: string;
+  werte?: Record<string, string | number>;
+  folderId?: string;
+}> {
   const drive = await getDrive();
   if (!drive) {
     return { ok: false, message: "Google Drive ist nicht konfiguriert." };
@@ -534,9 +546,13 @@ export async function shareFolderWith(
       sendNotificationEmail: true,
       supportsAllDrives: true,
     });
-    return { ok: true, message: `Ordner wurde fuer ${email} freigegeben.`, folderId };
+    return { ok: true, message: "Ordner wurde für {email} freigegeben.", werte: { email }, folderId };
   } catch (error) {
-    return { ok: false, message: `Freigabe fehlgeschlagen: ${(error as Error).message}` };
+    return {
+      ok: false,
+      message: "Freigabe fehlgeschlagen: {grund}",
+      werte: { grund: (error as Error).message },
+    };
   }
 }
 
@@ -568,7 +584,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
           rootFolderId: null,
           sharedDrive: false,
           ok: true,
-          message: `Dokumente werden in Supabase Storage abgelegt (Bucket „${SUPABASE_BUCKET}“).`,
+          message: "Dokumente werden in Supabase Storage abgelegt (Bucket „{bucket}“).",
+          werte: { bucket: SUPABASE_BUCKET },
         };
       }
       return {
@@ -577,7 +594,9 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
         rootFolderId: null,
         sharedDrive: false,
         ok: false,
-        message: `Supabase Storage antwortet mit ${antwort.status} – Bucket „${SUPABASE_BUCKET}“ vorhanden und SUPABASE_SECRET_KEY gültig?`,
+        message:
+          "Supabase Storage antwortet mit {status} – Bucket „{bucket}“ vorhanden und SUPABASE_SECRET_KEY gültig?",
+        werte: { status: antwort.status, bucket: SUPABASE_BUCKET },
       };
     } catch (error) {
       return {
@@ -586,7 +605,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
         rootFolderId: null,
         sharedDrive: false,
         ok: false,
-        message: `Supabase Storage nicht erreichbar: ${(error as Error).message}`,
+        message: "Supabase Storage nicht erreichbar: {grund}",
+        werte: { grund: (error as Error).message },
       };
     }
   }
@@ -605,7 +625,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
         sharedDrive: false,
         ok: true,
         message:
-          `Dokumente werden in der Supabase-Datenbank abgelegt (${anzahl} Datei${anzahl === 1 ? "" : "en"}) – keine Einrichtung nötig.`,
+          "Dokumente werden in der Supabase-Datenbank abgelegt ({anzahl} Dateien) – keine Einrichtung nötig.",
+        werte: { anzahl },
       };
     } catch (error) {
       return {
@@ -614,7 +635,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
         rootFolderId: null,
         sharedDrive: false,
         ok: false,
-        message: `Datenbank-Ablage nicht erreichbar: ${(error as Error).message}`,
+        message: "Datenbank-Ablage nicht erreichbar: {grund}",
+        werte: { grund: (error as Error).message },
       };
     }
   }
@@ -643,7 +665,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
       rootFolderId,
       sharedDrive: Boolean(info.data.driveId),
       ok: true,
-      message: `Verbunden mit Ordner "${info.data.name}".`,
+      message: "Verbunden mit Ordner „{ordner}“.",
+      werte: { ordner: info.data.name ?? "" },
     };
   } catch (error) {
     return {
@@ -652,7 +675,8 @@ export async function checkDriveStatus(): Promise<DriveStatus> {
       rootFolderId,
       sharedDrive: false,
       ok: false,
-      message: `Drive-Zugriff fehlgeschlagen: ${(error as Error).message}`,
+      message: "Drive-Zugriff fehlgeschlagen: {grund}",
+      werte: { grund: (error as Error).message },
     };
   }
 }

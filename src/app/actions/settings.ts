@@ -9,10 +9,12 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { flash, str } from "@/lib/form";
 import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from "@/lib/settings";
+import { uebersetzer } from "@/lib/i18n";
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as Array<keyof AppSettings>;
 
 export async function updateSettings(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const patch: Partial<AppSettings> = {};
@@ -25,10 +27,11 @@ export async function updateSettings(formData: FormData) {
 
   revalidatePath("/einstellungen");
   revalidatePath("/vertraege");
-  redirect(flash("/einstellungen", "ok", "Einstellungen wurden gespeichert."));
+  redirect(flash("/einstellungen", "ok", t("Einstellungen wurden gespeichert.")));
 }
 
 export async function createUser(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const email = str(formData, "email").toLowerCase();
@@ -40,11 +43,11 @@ export async function createUser(formData: FormData) {
   const back = "/einstellungen";
 
   if (!email || !name || password.length < 10) {
-    redirect(flash(back, "fehler", "Name, E-Mail und ein Passwort mit mindestens 10 Zeichen sind nötig."));
+    redirect(flash(back, "fehler", t("Name, E-Mail und ein Passwort mit mindestens 10 Zeichen sind nötig.")));
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) redirect(flash(back, "fehler", "Diese E-Mail-Adresse wird bereits verwendet."));
+  if (existing) redirect(flash(back, "fehler", t("Diese E-Mail-Adresse wird bereits verwendet.")));
 
   await prisma.user.create({
     data: { email, name, passwordHash: hashPassword(password), role },
@@ -52,17 +55,18 @@ export async function createUser(formData: FormData) {
 
   await audit(user.email, "create", "User", null, email);
   revalidatePath(back);
-  redirect(flash(back, "ok", `Zugang für ${name} wurde angelegt.`));
+  redirect(flash(back, "ok", t("Zugang für {name} wurde angelegt.", { name })));
 }
 
 export async function changePassword(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const password = str(formData, "password");
   const back = "/einstellungen";
 
   if (password.length < 10) {
-    redirect(flash(back, "fehler", "Das Passwort muss mindestens 10 Zeichen haben."));
+    redirect(flash(back, "fehler", t("Das Passwort muss mindestens 10 Zeichen haben.")));
   }
 
   await prisma.user.update({
@@ -72,20 +76,21 @@ export async function changePassword(formData: FormData) {
 
   await audit(user.email, "change-password", "User", user.id);
   revalidatePath(back);
-  redirect(flash(back, "ok", "Passwort wurde geändert."));
+  redirect(flash(back, "ok", t("Passwort wurde geändert.")));
 }
 
 export async function deactivateUser(formData: FormData) {
+  const t = await uebersetzer();
   const actor = await requireAdmin();
   const id = str(formData, "id");
   const back = "/einstellungen";
 
   if (id === actor.id) {
-    redirect(flash(back, "fehler", "Das eigene Konto kann nicht deaktiviert werden."));
+    redirect(flash(back, "fehler", t("Das eigene Konto kann nicht deaktiviert werden.")));
   }
 
   await prisma.user.update({ where: { id }, data: { active: false } });
   await audit(actor.email, "deactivate", "User", id);
   revalidatePath(back);
-  redirect(flash(back, "ok", "Zugang wurde deaktiviert."));
+  redirect(flash(back, "ok", t("Zugang wurde deaktiviert.")));
 }

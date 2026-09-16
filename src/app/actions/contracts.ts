@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/dates";
 import { ensureRentCharges } from "@/lib/accounting";
 import { nextContractNumber } from "@/lib/tenancy";
 import { ABLAGE_KATEGORIE, nameAusTitel, ordneVertragZu } from "@/lib/vertragsablage";
+import { uebersetzer } from "@/lib/i18n";
 
 function refresh(contractId: string) {
   revalidatePath("/vertraege");
@@ -30,10 +31,11 @@ const ABLAGE = "/vertraege/ablage";
 
 /** Ordnet ein abgelegtes Vertragsdokument einem vorhandenen Mieter zu. */
 export async function assignContractDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const documentId = str(formData, "documentId");
   const tenantId = str(formData, "tenantId");
-  if (!tenantId) redirect(flash(ABLAGE, "fehler", "Bitte zuerst einen Mieter auswählen."));
+  if (!tenantId) redirect(flash(ABLAGE, "fehler", t("Bitte zuerst einen Mieter auswählen.")));
 
   let ergebnis;
   try {
@@ -60,12 +62,13 @@ export async function assignContractDocument(formData: FormData) {
 
 /** Nimmt eine Zuordnung zurueck - das Dokument landet wieder in der Ablage. */
 export async function unassignContractDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const documentId = str(formData, "documentId");
   const back = str(formData, "back") || ABLAGE;
 
   const dokument = await prisma.document.findUnique({ where: { id: documentId } });
-  if (!dokument) redirect(flash(back, "fehler", "Dokument nicht gefunden."));
+  if (!dokument) redirect(flash(back, "fehler", t("Dokument nicht gefunden.")));
 
   // Haengt am Vertrag nur dieser Scan, verliert der Vertrag sein PDF.
   if (dokument.contractId) {
@@ -92,7 +95,7 @@ export async function unassignContractDocument(formData: FormData) {
   revalidatePath(ABLAGE);
   revalidatePath("/vertraege");
   revalidatePath("/mieter");
-  redirect(flash(back, "ok", "Zuordnung aufgehoben – der Vertrag liegt wieder in der Ablage."));
+  redirect(flash(back, "ok", t("Zuordnung aufgehoben – der Vertrag liegt wieder in der Ablage.")));
 }
 
 /**
@@ -101,15 +104,16 @@ export async function unassignContractDocument(formData: FormData) {
  * aber in die Unterlagen.
  */
 export async function createFormerTenantFromDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const documentId = str(formData, "documentId");
 
   const dokument = await prisma.document.findUnique({ where: { id: documentId } });
-  if (!dokument) redirect(flash(ABLAGE, "fehler", "Dokument nicht gefunden."));
+  if (!dokument) redirect(flash(ABLAGE, "fehler", t("Dokument nicht gefunden.")));
 
   const name = nameAusTitel(dokument.title);
   const [firstName, ...rest] = name.split(" ");
-  if (!firstName) redirect(flash(ABLAGE, "fehler", "Im Titel steht kein Name."));
+  if (!firstName) redirect(flash(ABLAGE, "fehler", t("Im Titel steht kein Name.")));
 
   const tenant = await prisma.tenant.create({
     data: {
@@ -126,15 +130,16 @@ export async function createFormerTenantFromDocument(formData: FormData) {
   revalidatePath(ABLAGE);
   revalidatePath("/vertraege");
   revalidatePath("/mieter");
-  redirect(flash(ABLAGE, "ok", `${name} wurde als ehemaliger Mieter angelegt.`));
+  redirect(flash(ABLAGE, "ok", t("{name} wurde als ehemaliger Mieter angelegt.", { name })));
 }
 
 /** Nimmt einen weiteren Vertragsscan in die Ablage auf. */
 export async function uploadContractDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const datei = formData.get("file");
   if (!(datei instanceof File) || datei.size === 0) {
-    redirect(flash(ABLAGE, "fehler", "Bitte eine Datei auswählen."));
+    redirect(flash(ABLAGE, "fehler", t("Bitte eine Datei auswählen.")));
   }
 
   const puffer = Buffer.from(await datei.arrayBuffer());
@@ -170,7 +175,7 @@ export async function uploadContractDocument(formData: FormData) {
 
   await audit(user.email, "upload", "Document", dokument.id, "Vertragsablage");
   revalidatePath(ABLAGE);
-  redirect(flash(ABLAGE, "ok", "Vertrag liegt in der Ablage und kann zugeordnet werden."));
+  redirect(flash(ABLAGE, "ok", t("Vertrag liegt in der Ablage und kann zugeordnet werden.")));
 }
 
 /**
@@ -178,6 +183,7 @@ export async function uploadContractDocument(formData: FormData) {
  * ehemalig. Die Unterlagen bleiben vollstaendig erhalten.
  */
 export async function endContract(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/vertraege";
@@ -187,7 +193,7 @@ export async function endContract(formData: FormData) {
     where: { id },
     include: { tenancy: { include: { tenant: true } } },
   });
-  if (!contract) redirect(flash(back, "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash(back, "fehler", t("Vertrag nicht gefunden.")));
 
   const endDate = ende ? new Date(`${ende}T00:00:00.000Z`) : new Date();
 
@@ -206,17 +212,18 @@ export async function endContract(formData: FormData) {
   const name = `${contract.tenancy.tenant.firstName} ${contract.tenancy.tenant.lastName}`.trim();
   await audit(user.email, "end", "Contract", id, name);
   refresh(id);
-  redirect(flash(back, "ok", `Vertrag von ${name} ist beendet.`));
+  redirect(flash(back, "ok", t("Vertrag von {name} ist beendet.", { name })));
 }
 
 /** Markiert einen Mieter als ehemalig oder holt ihn zurueck. */
 export async function toggleTenantFormer(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const tenantId = str(formData, "tenantId");
   const back = str(formData, "back") || "/mieter";
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant) redirect(flash(back, "fehler", "Mieter nicht gefunden."));
+  if (!tenant) redirect(flash(back, "fehler", t("Mieter nicht gefunden.")));
 
   const jetztEhemalig = tenant.status !== "EHEMALIG";
   await prisma.tenant.update({
@@ -230,7 +237,13 @@ export async function toggleTenantFormer(formData: FormData) {
   revalidatePath(`/mieter/${tenantId}`);
   revalidatePath("/vertraege");
   redirect(
-    flash(back, "ok", jetztEhemalig ? `${name} gilt als ehemaliger Mieter.` : `${name} ist wieder aktiv.`),
+    flash(
+      back,
+      "ok",
+      jetztEhemalig
+        ? t("{name} gilt als ehemaliger Mieter.", { name })
+        : t("{name} ist wieder aktiv.", { name }),
+    ),
   );
 }
 
@@ -240,6 +253,7 @@ export async function toggleTenantFormer(formData: FormData) {
  * die ohne Vertragsdokument importiert wurden.
  */
 export async function createContractForTenancy(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const tenancyId = str(formData, "tenancyId");
   const back = str(formData, "back") || "/vertraege";
@@ -248,7 +262,7 @@ export async function createContractForTenancy(formData: FormData) {
     where: { id: tenancyId },
     include: { contract: true, tenant: true },
   });
-  if (!tenancy) redirect(flash(back, "fehler", "Mietverhältnis nicht gefunden."));
+  if (!tenancy) redirect(flash(back, "fehler", t("Mietverhältnis nicht gefunden.")));
   if (tenancy.contract) redirect(`/vertraege/${tenancy.contract.id}`);
 
   const contract = await prisma.contract.create({
@@ -277,13 +291,14 @@ export async function createContractForTenancy(formData: FormData) {
  * Vertragstext nicht mehr.
  */
 export async function sendContract(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await loadContract({ id });
-  if (!contract) redirect(flash("/vertraege", "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
   if (contract.status === "SIGNED") {
-    redirect(flash(`/vertraege/${id}`, "fehler", "Der Vertrag ist bereits unterschrieben."));
+    redirect(flash(`/vertraege/${id}`, "fehler", t("Der Vertrag ist bereits unterschrieben.")));
   }
 
   const data = await buildContractData(contract);
@@ -338,13 +353,14 @@ export async function sendContract(formData: FormData) {
 
 /** Erzeugt einen neuen Link, falls der alte abgelaufen oder verschickt wurde. */
 export async function renewContractToken(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await prisma.contract.findUnique({ where: { id } });
-  if (!contract) redirect(flash("/vertraege", "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
   if (contract.status === "SIGNED") {
-    redirect(flash(`/vertraege/${id}`, "fehler", "Ein unterschriebener Vertrag braucht keinen neuen Link."));
+    redirect(flash(`/vertraege/${id}`, "fehler", t("Ein unterschriebener Vertrag braucht keinen neuen Link.")));
   }
 
   await prisma.contract.update({
@@ -358,15 +374,16 @@ export async function renewContractToken(formData: FormData) {
 
   await audit(user.email, "renew-token", "Contract", id);
   refresh(id);
-  redirect(flash(`/vertraege/${id}`, "ok", "Ein neuer Link wurde erzeugt. Der alte ist ungültig."));
+  redirect(flash(`/vertraege/${id}`, "ok", t("Ein neuer Link wurde erzeugt. Der alte ist ungültig.")));
 }
 
 export async function cancelContract(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await prisma.contract.findUnique({ where: { id } });
-  if (!contract) redirect(flash("/vertraege", "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
 
   await prisma.$transaction([
     prisma.contract.update({ where: { id }, data: { status: "CANCELLED" } }),
@@ -375,16 +392,17 @@ export async function cancelContract(formData: FormData) {
 
   await audit(user.email, "cancel", "Contract", id, contract.contractNumber);
   refresh(id);
-  redirect(flash(`/vertraege/${id}`, "ok", "Vertrag wurde storniert. Das Bett ist wieder frei."));
+  redirect(flash(`/vertraege/${id}`, "ok", t("Vertrag wurde storniert. Das Bett ist wieder frei.")));
 }
 
 /** Erzeugt das PDF neu und legt es in Google Drive ab. */
 export async function regenerateContractPdf(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const contract = await loadContract({ id });
-  if (!contract) redirect(flash("/vertraege", "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
 
   const data = await buildContractData(contract, { includeSignature: true });
   const pdf = await renderContractPdf(data);
@@ -417,17 +435,18 @@ export async function regenerateContractPdf(formData: FormData) {
  * Ort unterschreibt statt ueber den Link.
  */
 export async function markContractSignedManually(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const signerName = str(formData, "signerName");
 
   const contract = await loadContract({ id });
-  if (!contract) redirect(flash("/vertraege", "fehler", "Vertrag nicht gefunden."));
+  if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
   if (contract.status === "SIGNED") {
-    redirect(flash(`/vertraege/${id}`, "fehler", "Der Vertrag ist bereits unterschrieben."));
+    redirect(flash(`/vertraege/${id}`, "fehler", t("Der Vertrag ist bereits unterschrieben.")));
   }
   if (!signerName) {
-    redirect(flash(`/vertraege/${id}`, "fehler", "Bitte den Namen der unterschreibenden Person angeben."));
+    redirect(flash(`/vertraege/${id}`, "fehler", t("Bitte den Namen der unterschreibenden Person angeben.")));
   }
 
   const snapshot = contract.snapshot ?? JSON.stringify(await buildContractData(contract));
@@ -451,7 +470,7 @@ export async function markContractSignedManually(formData: FormData) {
   await finalizeSignedContract(id);
   await audit(user.email, "sign-manual", "Contract", id, signerName);
   refresh(id);
-  redirect(flash(`/vertraege/${id}`, "ok", "Vertrag wurde als unterschrieben erfasst."));
+  redirect(flash(`/vertraege/${id}`, "ok", t("Vertrag wurde als unterschrieben erfasst.")));
 }
 
 /**

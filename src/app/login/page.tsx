@@ -8,7 +8,11 @@ import { PasswortFeld } from "@/components/passwort-feld";
 import { Sprachwahl } from "@/components/sprachwahl";
 import { uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Anmelden" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Anmelden") };
+}
 export const dynamic = "force-dynamic";
 
 async function signIn(formData: FormData) {
@@ -65,8 +69,8 @@ export default async function LoginPage({
           {userCount === 0 && (
             <div className="mt-4">
               <Alert tone="info" title={t("Erste Anmeldung")}>
-                Es gibt noch kein Konto. Melden Sie sich mit den Werten aus <code>ADMIN_EMAIL</code>{" "}
-                und <code>ADMIN_PASSWORD</code> an – das Konto wird dabei angelegt.
+                {t("Es gibt noch kein Konto. Melden Sie sich mit den Werten aus")} <code>ADMIN_EMAIL</code>{" "}
+                und <code>ADMIN_PASSWORD</code> {t("an – das Konto wird dabei angelegt.")}
               </Alert>
             </div>
           )}
@@ -74,7 +78,7 @@ export default async function LoginPage({
           {userCount === -1 && (
             <div className="mt-4">
               <Alert tone="danger" title={t("Keine Datenbankverbindung")}>
-                Bitte <code>DATABASE_URL</code> prüfen und <code>npm run db:migrate</code> ausführen.
+                {t("Bitte")} <code>DATABASE_URL</code> {t("prüfen und")} <code>{t("npm run db:migrate")}</code> {t("ausführen.")}
               </Alert>
             </div>
           )}

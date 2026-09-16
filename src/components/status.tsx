@@ -5,6 +5,7 @@ import {
   TENANCY_STATUS_LABEL,
   TX_REVIEW_STATUS_LABEL,
 } from "@/lib/enums";
+import { oberflaeche } from "@/lib/i18n";
 
 const TENANCY_TONE: Record<string, Tone> = {
   DRAFT: "neutral",
@@ -37,26 +38,31 @@ const REVIEW_TONE: Record<string, Tone> = {
   IGNORED: "neutral",
 };
 
-export function TenancyBadge({ status }: { status: string }) {
-  return <Badge tone={TENANCY_TONE[status] ?? "neutral"}>{TENANCY_STATUS_LABEL[status] ?? status}</Badge>;
+export async function TenancyBadge({ status }: { status: string }) {
+  const { t } = await oberflaeche();
+  return <Badge tone={TENANCY_TONE[status] ?? "neutral"}>{t(TENANCY_STATUS_LABEL[status] ?? status)}</Badge>;
 }
 
-export function ContractBadge({ status }: { status: string }) {
-  return <Badge tone={CONTRACT_TONE[status] ?? "neutral"}>{CONTRACT_STATUS_LABEL[status] ?? status}</Badge>;
+export async function ContractBadge({ status }: { status: string }) {
+  const { t } = await oberflaeche();
+  return <Badge tone={CONTRACT_TONE[status] ?? "neutral"}>{t(CONTRACT_STATUS_LABEL[status] ?? status)}</Badge>;
 }
 
-export function ChargeBadge({ status }: { status: string }) {
-  return <Badge tone={CHARGE_TONE[status] ?? "neutral"}>{CHARGE_STATUS_LABEL[status] ?? status}</Badge>;
+export async function ChargeBadge({ status }: { status: string }) {
+  const { t } = await oberflaeche();
+  return <Badge tone={CHARGE_TONE[status] ?? "neutral"}>{t(CHARGE_STATUS_LABEL[status] ?? status)}</Badge>;
 }
 
-export function ReviewBadge({ status }: { status: string }) {
-  return <Badge tone={REVIEW_TONE[status] ?? "neutral"}>{TX_REVIEW_STATUS_LABEL[status] ?? status}</Badge>;
+export async function ReviewBadge({ status }: { status: string }) {
+  const { t } = await oberflaeche();
+  return <Badge tone={REVIEW_TONE[status] ?? "neutral"}>{t(TX_REVIEW_STATUS_LABEL[status] ?? status)}</Badge>;
 }
 
 /** Belegungszustand eines Bettes. */
-export function BedBadge({ occupied, blocked }: { occupied: boolean; blocked: boolean }) {
-  if (occupied) return <Badge tone="brand">Belegt</Badge>;
-  if (blocked) return <Badge tone="danger">Gesperrt</Badge>;
+export async function BedBadge({ occupied, blocked }: { occupied: boolean; blocked: boolean }) {
+  const { t } = await oberflaeche();
+  if (occupied) return <Badge tone="brand">{t("Belegt")}</Badge>;
+  if (blocked) return <Badge tone="danger">{t("Gesperrt")}</Badge>;
   // Gelb: ein freies Bett ist kein Erfolg, sondern entgangene Miete.
-  return <Badge tone="warning">Frei</Badge>;
+  return <Badge tone="warning">{t("Frei")}</Badge>;
 }

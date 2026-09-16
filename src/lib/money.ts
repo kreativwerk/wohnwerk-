@@ -1,14 +1,27 @@
-const EUR = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+import type { Locale } from "./dates";
+
+// Die Waehrung bleibt der Euro; nur die Schreibweise folgt der Sprache:
+// "350,00 €" auf Deutsch, "€350.00" auf Englisch.
+const zwischenspeicher = new Map<string, Intl.NumberFormat>();
+
+function euro(locale: Locale): Intl.NumberFormat {
+  let f = zwischenspeicher.get(locale);
+  if (!f) {
+    f = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    zwischenspeicher.set(locale, f);
+  }
+  return f;
+}
 
 /** 35000 -> "350,00 €" */
-export function formatCents(cents: number | null | undefined): string {
+export function formatCents(cents: number | null | undefined, locale: Locale = "de-DE"): string {
   if (cents === null || cents === undefined || Number.isNaN(cents)) return "–";
-  return EUR.format(cents / 100);
+  return euro(locale).format(cents / 100);
 }
 
 /** 35000 -> "350,00" (ohne Waehrungszeichen, fuer Eingabefelder) */

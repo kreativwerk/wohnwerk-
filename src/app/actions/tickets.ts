@@ -8,8 +8,9 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { flash, optionalStr, str } from "@/lib/form";
 import { FOLDER, uploadFile } from "@/lib/storage";
-import { TICKET_ART, TICKET_PRIORITAET, TICKET_STATUS } from "@/lib/enums";
+import { TICKET_ART, TICKET_PRIORITAET, TICKET_STATUS, TICKET_STATUS_LABEL } from "@/lib/enums";
 import { kontextText } from "@/lib/tickets";
+import { uebersetzer } from "@/lib/i18n";
 
 const LISTE = "/tickets";
 
@@ -68,9 +69,10 @@ async function haengeDateiAn(
 
 /** Legt ein Ticket an; Anhang ist freiwillig. */
 export async function createTicket(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const titel = str(formData, "titel");
-  if (!titel) redirect(flash(LISTE, "fehler", "Bitte beschreiben Sie das Anliegen in einem Satz."));
+  if (!titel) redirect(flash(LISTE, "fehler", t("Bitte beschreiben Sie das Anliegen in einem Satz.")));
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -97,8 +99,11 @@ export async function createTicket(formData: FormData) {
       `${LISTE}/${ticket.id}`,
       ablageFehler ? "fehler" : "ok",
       ablageFehler
-        ? `Ticket #${ticket.nummer} wurde angelegt, der Anhang aber nicht gespeichert: ${ablageFehler}`
-        : `Ticket #${ticket.nummer} wurde angelegt.`,
+        ? t("Ticket #{nummer} wurde angelegt, der Anhang aber nicht gespeichert: {fehler}", {
+            nummer: ticket.nummer,
+            fehler: ablageFehler,
+          })
+        : t("Ticket #{nummer} wurde angelegt.", { nummer: ticket.nummer }),
     ),
   );
 }
@@ -113,11 +118,12 @@ export async function createTicket(formData: FormData) {
  * erst nachfragen.
  */
 export async function createSupportTicket(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const titel = str(formData, "titel");
   const zurueck = str(formData, "back") || LISTE;
   if (!titel) {
-    redirect(flash(zurueck, "fehler", "Bitte beschreiben Sie in einem Satz, was nicht stimmt."));
+    redirect(flash(zurueck, "fehler", t("Bitte beschreiben Sie in einem Satz, was nicht stimmt.")));
   }
 
   const ticket = await prisma.ticket.create({
@@ -148,19 +154,23 @@ export async function createSupportTicket(formData: FormData) {
       `${LISTE}/${ticket.id}`,
       ablageFehler ? "fehler" : "ok",
       ablageFehler
-        ? `Meldung #${ticket.nummer} ging raus, der Anhang aber nicht: ${ablageFehler}`
-        : `Danke - Meldung #${ticket.nummer} liegt bei der IT.`,
+        ? t("Meldung #{nummer} ging raus, der Anhang aber nicht: {fehler}", {
+            nummer: ticket.nummer,
+            fehler: ablageFehler,
+          })
+        : t("Danke – Meldung #{nummer} liegt bei der IT.", { nummer: ticket.nummer }),
     ),
   );
 }
 
 /** Aendert Text, Zuordnung, Dringlichkeit und Status eines Tickets. */
 export async function updateTicket(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const vorher = await prisma.ticket.findUnique({ where: { id } });
-  if (!vorher) redirect(flash(LISTE, "fehler", "Ticket nicht gefunden."));
+  if (!vorher) redirect(flash(LISTE, "fehler", t("Ticket nicht gefunden.")));
 
   const status = geprueft(str(formData, "status"), TICKET_STATUS, vorher.status);
 
@@ -183,18 +193,19 @@ export async function updateTicket(formData: FormData) {
 
   await audit(user.email, "update", "Ticket", id, `#${vorher.nummer}`);
   refresh(id);
-  redirect(flash(`${LISTE}/${id}`, "ok", "Ticket wurde gespeichert."));
+  redirect(flash(`${LISTE}/${id}`, "ok", t("Ticket wurde gespeichert.")));
 }
 
 /** Setzt nur den Status - ein Klick aus der Liste heraus. */
 export async function setTicketStatus(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || LISTE;
   const status = geprueft(str(formData, "status"), TICKET_STATUS, "OFFEN");
 
   const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket) redirect(flash(back, "fehler", "Ticket nicht gefunden."));
+  if (!ticket) redirect(flash(back, "fehler", t("Ticket nicht gefunden.")));
 
   await prisma.ticket.update({
     where: { id },
@@ -207,15 +218,21 @@ export async function setTicketStatus(formData: FormData) {
 
   await audit(user.email, "status", "Ticket", id, `#${ticket.nummer} → ${status}`);
   refresh(id);
-  redirect(flash(back, "ok", `Ticket #${ticket.nummer} ist jetzt „${status}“.`));
+  redirect(
+    flash(back, "ok", t("Ticket #{nummer} ist jetzt „{status}“.", {
+      nummer: ticket.nummer,
+      status: t(TICKET_STATUS_LABEL[status] ?? status),
+    })),
+  );
 }
 
 /** Ein Wortbeitrag zum Verlauf. */
 export async function addTicketComment(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const ticketId = str(formData, "ticketId");
   const text = str(formData, "text");
-  if (!text) redirect(flash(`${LISTE}/${ticketId}`, "fehler", "Bitte etwas schreiben."));
+  if (!text) redirect(flash(`${LISTE}/${ticketId}`, "fehler", t("Bitte etwas schreiben.")));
 
   await prisma.ticketKommentar.create({
     data: { ticketId, autor: user.name, text },
@@ -223,19 +240,20 @@ export async function addTicketComment(formData: FormData) {
 
   await audit(user.email, "comment", "Ticket", ticketId);
   refresh(ticketId);
-  redirect(flash(`${LISTE}/${ticketId}`, "ok", "Notiz wurde hinzugefügt."));
+  redirect(flash(`${LISTE}/${ticketId}`, "ok", t("Notiz wurde hinzugefügt.")));
 }
 
 /** Haengt nachtraeglich ein Foto oder Dokument an. */
 export async function uploadTicketDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const ticketId = str(formData, "ticketId");
   const datei = formData.get("datei");
 
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-  if (!ticket) redirect(flash(LISTE, "fehler", "Ticket nicht gefunden."));
+  if (!ticket) redirect(flash(LISTE, "fehler", t("Ticket nicht gefunden.")));
   if (!(datei instanceof File) || datei.size === 0) {
-    redirect(flash(`${LISTE}/${ticketId}`, "fehler", "Bitte eine Datei auswählen."));
+    redirect(flash(`${LISTE}/${ticketId}`, "fehler", t("Bitte eine Datei auswählen.")));
   }
 
   const fehler = await haengeDateiAn(ticketId, ticket.nummer, datei);
@@ -252,14 +270,15 @@ export async function uploadTicketDocument(formData: FormData) {
 
 /** Loescht ein Ticket samt Verlauf und Anhaengen. */
 export async function deleteTicket(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
 
   const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket) redirect(flash(LISTE, "fehler", "Ticket nicht gefunden."));
+  if (!ticket) redirect(flash(LISTE, "fehler", t("Ticket nicht gefunden.")));
 
   await prisma.ticket.delete({ where: { id } });
   await audit(user.email, "delete", "Ticket", id, `#${ticket.nummer}`);
   refresh();
-  redirect(flash(LISTE, "ok", `Ticket #${ticket.nummer} wurde gelöscht.`));
+  redirect(flash(LISTE, "ok", t("Ticket #{nummer} wurde gelöscht.", { nummer: ticket.nummer })));
 }

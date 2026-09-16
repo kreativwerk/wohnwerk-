@@ -12,7 +12,7 @@ import { AdminOnly } from "@/components/admin-only";
 import { BelegDatei } from "@/components/beleg-datei";
 import { ConfirmButton } from "@/components/interactive";
 import { Badge, Card, Flash, PageHeader } from "@/components/ui";
-import { formatDateTime } from "@/lib/dates";
+
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -23,7 +23,7 @@ import {
   TICKET_STATUS,
   TICKET_STATUS_LABEL,
 } from "@/lib/enums";
-import { uebersetzer } from "@/lib/i18n";
+import { oberflaeche } from "@/lib/i18n";
 import { propertyOptions } from "@/lib/options";
 import { naechsterStatus, prioritaetsTon, statusTon } from "@/lib/tickets";
 
@@ -41,7 +41,7 @@ export default async function TicketPage({
   await requireAdmin();
   const { id } = await params;
   const suche = await searchParams;
-  const t = await uebersetzer();
+  const { t, datumZeit } = await oberflaeche();
 
   const ticket = await prisma.ticket.findUnique({
     where: { id },
@@ -68,7 +68,7 @@ export default async function TicketPage({
     <>
       <PageHeader
         title={`#${ticket.nummer} ${ticket.titel}`}
-        description={`${t("Angelegt")} ${formatDateTime(ticket.createdAt)} · ${ticket.erstelltVon}`}
+        description={`${t("Angelegt")} ${datumZeit(ticket.createdAt)} · ${ticket.erstelltVon}`}
         breadcrumb={[{ label: t("Tickets"), href: "/tickets" }, { label: `#${ticket.nummer}` }]}
         actions={
           <AdminOnly>
@@ -120,7 +120,7 @@ export default async function TicketPage({
         {ticket.bearbeiter && <Badge tone="info">{ticket.bearbeiter}</Badge>}
         {ticket.erledigtAm && (
           <Badge tone="success">
-            {t("Erledigt am")} {formatDateTime(ticket.erledigtAm)}
+            {t("Erledigt am")} {datumZeit(ticket.erledigtAm)}
           </Badge>
         )}
       </div>
@@ -156,7 +156,7 @@ export default async function TicketPage({
                 {ticket.kommentare.map((kommentar) => (
                   <li key={kommentar.id} className="border-l-2 border-ink-200 pl-3.5">
                     <p className="text-[0.75rem] text-ink-500">
-                      {kommentar.autor} · {formatDateTime(kommentar.createdAt)}
+                      {kommentar.autor} · {datumZeit(kommentar.createdAt)}
                     </p>
                     <p className="mt-0.5 whitespace-pre-wrap text-[0.9rem] leading-relaxed text-ink-800">
                       {kommentar.text}
@@ -200,7 +200,7 @@ export default async function TicketPage({
                     ) : (
                       <span className="font-medium text-ink-900">{dokument.fileName}</span>
                     )}
-                    <span className="text-xs text-ink-500">{formatDateTime(dokument.uploadedAt)}</span>
+                    <span className="text-xs text-ink-500">{datumZeit(dokument.uploadedAt)}</span>
                   </li>
                 ))}
               </ul>

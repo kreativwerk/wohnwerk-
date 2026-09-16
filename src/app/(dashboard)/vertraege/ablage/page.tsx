@@ -9,11 +9,16 @@ import { deleteDocument } from "@/app/actions/accounting";
 import { ConfirmButton } from "@/components/interactive";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatDate } from "@/lib/dates";
+
 import { requireAdmin } from "@/lib/auth";
 import { besterTreffer, nameAusTitel } from "@/lib/vertragsablage";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Vertragsablage" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Vertragsablage") };
+}
 export const dynamic = "force-dynamic";
 
 const BACK = "/vertraege/ablage";
@@ -23,6 +28,7 @@ export default async function ContractInboxPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, datum } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
 
@@ -43,12 +49,12 @@ export default async function ContractInboxPage({
   return (
     <>
       <PageHeader
-        title="Vertragsablage"
-        description="Eingescannte Mietverträge, die noch keinem Mieter gehören. Namen sind in Verträgen und Listen nicht immer gleich geschrieben – hier wird von Hand zugeordnet."
-        breadcrumb={[{ label: "Mietverträge", href: "/vertraege" }, { label: "Ablage" }]}
+        title={t("Vertragsablage")}
+        description={t("Eingescannte Mietverträge, die noch keinem Mieter gehören. Namen sind in Verträgen und Listen nicht immer gleich geschrieben – hier wird von Hand zugeordnet.")}
+        breadcrumb={[{ label: t("Mietverträge"), href: "/vertraege" }, { label: t("Ablage") }]}
         actions={
           <Link href="/vertraege" className="btn btn-secondary">
-            Zu den Mietverträgen
+            {t("Zu den Mietverträgen")}
           </Link>
         }
       />
@@ -57,31 +63,31 @@ export default async function ContractInboxPage({
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          label="In der Ablage"
+          label={t("In der Ablage")}
           value={String(offene.length)}
           tone={offene.length > 0 ? "warning" : "success"}
         />
-        <StatCard label="Mieter zur Auswahl" value={String(mieter.length)} />
-        <StatCard label="davon aktiv" value={String(aktiveMieter.length)} />
+        <StatCard label={t("Mieter zur Auswahl")} value={String(mieter.length)} />
+        <StatCard label={t("davon aktiv")} value={String(aktiveMieter.length)} />
       </div>
 
       <div className="mt-6">
         <Card
-          title="Weiteren Vertrag ablegen"
-          description="Ein gescannter Vertrag landet hier und kann anschließend zugeordnet werden."
+          title={t("Weiteren Vertrag ablegen")}
+          description={t("Ein gescannter Vertrag landet hier und kann anschließend zugeordnet werden.")}
         >
           <form action={uploadContractDocument} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <div>
-              <label htmlFor="file">PDF-Datei</label>
+              <label htmlFor="file">{t("PDF-Datei")}</label>
               <input id="file" name="file" type="file" accept="application/pdf" required />
             </div>
             <div>
-              <label htmlFor="name">Name im Vertrag</label>
-              <input id="name" name="name" placeholder="z. B. Arben Krasniqi" />
-              <p className="field-hint">Hilft beim Zuordnen, ist aber nicht zwingend.</p>
+              <label htmlFor="name">{t("Name im Vertrag")}</label>
+              <input id="name" name="name" placeholder={t("z. B. Arben Krasniqi")} />
+              <p className="field-hint">{t("Hilft beim Zuordnen, ist aber nicht zwingend.")}</p>
             </div>
             <button type="submit" className="btn btn-primary">
-              Ablegen
+              {t("Ablegen")}
             </button>
           </form>
         </Card>
@@ -92,11 +98,11 @@ export default async function ContractInboxPage({
           {offene.length === 0 ? (
             <div className="p-5">
               <EmptyState
-                title="Alles zugeordnet"
-                description="In der Ablage liegt kein Vertrag mehr. Neue Scans können Sie oben hochladen."
+                title={t("Alles zugeordnet")}
+                description={t("In der Ablage liegt kein Vertrag mehr. Neue Scans können Sie oben hochladen.")}
                 action={
                   <Link href="/vertraege" className="btn btn-primary">
-                    Zu den Mietverträgen
+                    {t("Zu den Mietverträgen")}
                   </Link>
                 }
               />
@@ -105,11 +111,11 @@ export default async function ContractInboxPage({
             <Table>
               <thead>
                 <tr>
-                  <Th>Name im Vertrag</Th>
-                  <Th>Vertragsdatum</Th>
-                  <Th>Scan</Th>
-                  <Th>Mieter zuordnen</Th>
-                  <Th align="right">Sonst</Th>
+                  <Th>{t("Name im Vertrag")}</Th>
+                  <Th>{t("Vertragsdatum")}</Th>
+                  <Th>{t("Scan")}</Th>
+                  <Th>{t("Mieter zuordnen")}</Th>
+                  <Th align="right">{t("Sonst")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -127,7 +133,7 @@ export default async function ContractInboxPage({
                         )}
                       </Td>
                       <Td className="whitespace-nowrap text-ink-600">
-                        {dokument.documentDate ? formatDate(dokument.documentDate) : "–"}
+                        {dokument.documentDate ? datum(dokument.documentDate) : "–"}
                       </Td>
                       <Td>
                         {dokument.driveUrl ? (
@@ -137,10 +143,10 @@ export default async function ContractInboxPage({
                             rel="noreferrer"
                             className="btn btn-ghost btn-sm"
                           >
-                            PDF öffnen
+                            {t("PDF öffnen")}
                           </a>
                         ) : (
-                          <span className="text-xs text-ink-500">keine Datei</span>
+                          <span className="text-xs text-ink-500">{t("keine Datei")}</span>
                         )}
                       </Td>
                       <Td>
@@ -148,7 +154,7 @@ export default async function ContractInboxPage({
                           <input type="hidden" name="documentId" value={dokument.id} />
                           <div className="w-60">
                             <label htmlFor={`mieter-${dokument.id}`} className="sr-only">
-                              Mieter
+                              {t("Mieter")}
                             </label>
                             <select
                               id={`mieter-${dokument.id}`}
@@ -156,7 +162,7 @@ export default async function ContractInboxPage({
                               defaultValue={vorschlag?.tenantId ?? ""}
                               required
                             >
-                              <option value="">Mieter auswählen …</option>
+                              <option value="">{t("Mieter auswählen …")}</option>
                               {mieter.map((m) => (
                                 <option key={m.id} value={m.id}>
                                   {m.lastName}, {m.firstName}
@@ -166,12 +172,12 @@ export default async function ContractInboxPage({
                             </select>
                           </div>
                           <button type="submit" className="btn btn-primary btn-sm">
-                            Zuordnen
+                            {t("Zuordnen")}
                           </button>
                           {vorschlag && (
                             <p className="w-full text-xs text-ink-500">
-                              Vorschlag: <strong>{vorschlag.name}</strong> (
-                              {Math.round(vorschlag.guete * 100)} % Namensähnlichkeit) – bitte prüfen.
+                              {t("Vorschlag:")} <strong>{vorschlag.name}</strong>{" "}
+                              {t("({guete} % Namensähnlichkeit) – bitte prüfen.", { guete: Math.round(vorschlag.guete * 100) })}
                             </p>
                           )}
                         </form>
@@ -183,9 +189,9 @@ export default async function ContractInboxPage({
                             <button
                               type="submit"
                               className="btn btn-secondary btn-sm whitespace-nowrap"
-                              title="Legt den Namen als ehemaligen Mieter an und hängt den Vertrag dort ein"
+                              title={t("Legt den Namen als ehemaligen Mieter an und hängt den Vertrag dort ein")}
                             >
-                              Als ehemaligen Mieter anlegen
+                              {t("Als ehemaligen Mieter anlegen")}
                             </button>
                           </form>
                           <form action={deleteDocument}>
@@ -193,9 +199,9 @@ export default async function ContractInboxPage({
                             <input type="hidden" name="back" value={BACK} />
                             <ConfirmButton
                               className="btn btn-ghost btn-sm"
-                              message={`Scan „${name}“ endgültig löschen?`}
+                              message={t("Scan „{name}“ endgültig löschen?", { name })}
                             >
-                              Löschen
+                              {t("Löschen")}
                             </ConfirmButton>
                           </form>
                         </div>
@@ -210,10 +216,7 @@ export default async function ContractInboxPage({
       </div>
 
       <p className="mt-6 text-xs text-ink-500">
-        <Badge tone="info">Hinweis</Badge> Beim Zuordnen entsteht aus dem Scan ein
-        unterschriebener Mietvertrag, sofern der Mieter ein Mietverhältnis hat – der Vertrag
-        erscheint dann unter Mietverträge. Ehemalige Mieter ohne Mietverhältnis bekommen den
-        Scan zu ihren Unterlagen.
+        <Badge tone="info">{t("Hinweis")}</Badge> {t("Beim Zuordnen entsteht aus dem Scan ein unterschriebener Mietvertrag, sofern der Mieter ein Mietverhältnis hat – der Vertrag erscheint dann unter Mietverträge. Ehemalige Mieter ohne Mietverhältnis bekommen den Scan zu ihren Unterlagen.")}
       </p>
     </>
   );

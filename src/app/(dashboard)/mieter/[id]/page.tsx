@@ -8,9 +8,10 @@ import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
 import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { bedOptions } from "@/lib/options";
-import { centsToInput, formatCents } from "@/lib/money";
-import { formatDate, formatMonth, toDateInput } from "@/lib/dates";
+import { centsToInput } from "@/lib/money";
+import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
+import { oberflaeche } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, datum, monat, geld } = await oberflaeche();
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -75,7 +77,7 @@ export default async function TenantDetailPage({
         }
         description={[tenant.email, tenant.phone, tenant.company].filter(Boolean).join(" · ")}
         breadcrumb={[
-          { label: "Mieter", href: "/mieter" },
+          { label: t("Mieter"), href: "/mieter" },
           { label: `${tenant.firstName} ${tenant.lastName}` },
         ]}
         actions={
@@ -84,11 +86,11 @@ export default async function TenantDetailPage({
               <input type="hidden" name="tenantId" value={tenant.id} />
               <input type="hidden" name="back" value={`/mieter/${tenant.id}`} />
               <button type="submit" className="btn btn-secondary">
-                {tenant.status === "EHEMALIG" ? "Wieder aktiv setzen" : "Als ehemalig markieren"}
+                {tenant.status === "EHEMALIG" ? t("Wieder aktiv setzen") : t("Als ehemalig markieren")}
               </button>
             </form>
             <a href={`mailto:${tenant.email}`} className="btn btn-secondary">
-              E-Mail schreiben
+              {t("E-Mail schreiben")}
             </a>
           </>
         }
@@ -98,16 +100,16 @@ export default async function TenantDetailPage({
 
       {/* --- Mietverhaeltnisse -------------------------------------------- */}
       <Card
-        title="Mietverhältnisse"
+        title={t("Mietverhältnisse")}
         description={
           openTotal > 0
-            ? `Offene Forderungen: ${formatCents(openTotal)}`
-            : "Alle fälligen Mieten sind ausgeglichen."
+            ? t("Offene Forderungen: {betrag}", { betrag: geld(openTotal) })
+            : t("Alle fälligen Mieten sind ausgeglichen.")
         }
       >
         {tenant.tenancies.length === 0 ? (
           <p className="text-sm text-ink-500">
-            Noch kein Bett zugewiesen. Weisen Sie unten eines zu, um den Vertrag zu erzeugen.
+            {t("Noch kein Bett zugewiesen. Weisen Sie unten eines zu, um den Vertrag zu erzeugen.")}
           </p>
         ) : (
           <ul className="space-y-4">
@@ -133,9 +135,9 @@ export default async function TenantDetailPage({
                         </span>
                       </p>
                       <p className="mt-0.5 text-xs text-ink-500">
-                        {formatDate(tenancy.startDate)} –{" "}
-                        {tenancy.endDate ? formatDate(tenancy.endDate) : "unbefristet"} ·{" "}
-                        {formatCents(tenancy.monthlyRentCents)} / Monat · Verwendungszweck{" "}
+                        {datum(tenancy.startDate)} –{" "}
+                        {tenancy.endDate ? datum(tenancy.endDate) : "unbefristet"} ·{" "}
+                        {t("{betrag} / Monat · Verwendungszweck", { betrag: geld(tenancy.monthlyRentCents) })}{" "}
                         <span className="font-mono">{tenancy.reference}</span>
                       </p>
                     </div>
@@ -148,11 +150,11 @@ export default async function TenantDetailPage({
                             href={`/vertraege/${tenancy.contract.id}`}
                             className="btn btn-secondary"
                           >
-                            Vertrag öffnen
+                            {t("Vertrag öffnen")}
                           </Link>
                         </>
                       ) : (
-                        <Badge tone="danger">Mietvertrag fehlt</Badge>
+                        <Badge tone="danger">{t("Mietvertrag fehlt")}</Badge>
                       )}
                     </div>
                   </div>
@@ -160,18 +162,17 @@ export default async function TenantDetailPage({
                   {!tenancy.contract && (
                     <div className="mt-3 rounded-md bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
                       <p>
-                        Zu diesem Mietverhältnis ist kein Mietvertrag hinterlegt. Liegt der
-                        unterschriebene Vertrag als Scan vor, ordnen Sie ihn in der{" "}
+                        {t("Zu diesem Mietverhältnis ist kein Mietvertrag hinterlegt. Liegt der unterschriebene Vertrag als Scan vor, ordnen Sie ihn in der")}{" "}
                         <Link href="/vertraege/ablage" className="font-semibold underline">
-                          Vertragsablage
+                          {t("Vertragsablage")}
                         </Link>{" "}
-                        zu – andernfalls legen Sie hier einen neuen Vertrag an.
+                        {t("zu – andernfalls legen Sie hier einen neuen Vertrag an.")}
                       </p>
                       <form action={createContractForTenancy} className="mt-2">
                         <input type="hidden" name="tenancyId" value={tenancy.id} />
                         <input type="hidden" name="back" value={`/mieter/${tenant.id}`} />
                         <button type="submit" className="btn btn-secondary btn-sm">
-                          Vertrag anlegen
+                          {t("Vertrag anlegen")}
                         </button>
                       </form>
                     </div>
@@ -182,18 +183,18 @@ export default async function TenantDetailPage({
                       {openCharges.length} offene Mietforderung(en):{" "}
                       {openCharges
                         .slice(0, 4)
-                        .map((charge) => formatMonth(charge.periodYear, charge.periodMonth))
+                        .map((charge) => monat(charge.periodYear, charge.periodMonth))
                         .join(", ")}
                       {openCharges.length > 4 ? " …" : ""}
                     </div>
                   )}
 
                   <div className="mt-3 space-y-2">
-                    <Disclosure summary="Mietverhältnis bearbeiten">
+                    <Disclosure summary={t("Mietverhältnis bearbeiten")}>
                       <form action={updateTenancy} className="grid gap-3 sm:grid-cols-3">
                         <input type="hidden" name="id" value={tenancy.id} />
                         <div>
-                          <label htmlFor={`start-${tenancy.id}`}>Mietbeginn</label>
+                          <label htmlFor={`start-${tenancy.id}`}>{t("Mietbeginn")}</label>
                           <input
                             id={`start-${tenancy.id}`}
                             name="startDate"
@@ -202,7 +203,7 @@ export default async function TenantDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`end-${tenancy.id}`}>Mietende</label>
+                          <label htmlFor={`end-${tenancy.id}`}>{t("Mietende")}</label>
                           <input
                             id={`end-${tenancy.id}`}
                             name="endDate"
@@ -211,7 +212,7 @@ export default async function TenantDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`billing-${tenancy.id}`}>Fällig am</label>
+                          <label htmlFor={`billing-${tenancy.id}`}>{t("Fällig am")}</label>
                           <input
                             id={`billing-${tenancy.id}`}
                             name="billingDay"
@@ -222,7 +223,7 @@ export default async function TenantDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`rent-${tenancy.id}`}>Miete / Monat</label>
+                          <label htmlFor={`rent-${tenancy.id}`}>{t("Miete / Monat")}</label>
                           <input
                             id={`rent-${tenancy.id}`}
                             name="monthlyRentCents"
@@ -231,7 +232,7 @@ export default async function TenantDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`util-${tenancy.id}`}>davon Nebenkosten</label>
+                          <label htmlFor={`util-${tenancy.id}`}>{t("davon Nebenkosten")}</label>
                           <input
                             id={`util-${tenancy.id}`}
                             name="utilitiesCents"
@@ -240,17 +241,17 @@ export default async function TenantDetailPage({
                           />
                         </div>
                         <div>
-                          <label htmlFor={`deposit-${tenancy.id}`}>Kaution</label>
+                          <label htmlFor={`deposit-${tenancy.id}`}>{t("Kaution")}</label>
                           <input
                             id={`deposit-${tenancy.id}`}
                             name="depositCents"
                             inputMode="decimal"
                             defaultValue={centsToInput(tenancy.depositCents)}
                           />
-                          <p className="field-hint">0,00 = keine Kaution; eine offene Kautionsforderung wird dann entfernt</p>
+                          <p className="field-hint">{t("0,00 = keine Kaution; eine offene Kautionsforderung wird dann entfernt")}</p>
                         </div>
                         <div className="sm:col-span-3">
-                          <label htmlFor={`tnotes-${tenancy.id}`}>Notiz</label>
+                          <label htmlFor={`tnotes-${tenancy.id}`}>{t("Notiz")}</label>
                           <input
                             id={`tnotes-${tenancy.id}`}
                             name="notes"
@@ -259,18 +260,18 @@ export default async function TenantDetailPage({
                         </div>
                         <div className="sm:col-span-3">
                           <button type="submit" className="btn btn-primary">
-                            Speichern
+                            {t("Speichern")}
                           </button>
                         </div>
                       </form>
                     </Disclosure>
 
                     {tenancy.status !== "ENDED" && tenancy.status !== "CANCELLED" && (
-                      <Disclosure summary="Mietverhältnis beenden">
+                      <Disclosure summary={t("Mietverhältnis beenden")}>
                         <form action={endTenancy} className="flex flex-wrap items-end gap-3">
                           <input type="hidden" name="id" value={tenancy.id} />
                           <div className="w-48">
-                            <label htmlFor={`endat-${tenancy.id}`}>Auszug am</label>
+                            <label htmlFor={`endat-${tenancy.id}`}>{t("Auszug am")}</label>
                             <input
                               id={`endat-${tenancy.id}`}
                               name="endDate"
@@ -279,10 +280,10 @@ export default async function TenantDetailPage({
                             />
                           </div>
                           <ConfirmButton
-                            message="Mietverhältnis wirklich beenden? Das Bett wird danach wieder als frei geführt."
+                            message={t("Mietverhältnis wirklich beenden? Das Bett wird danach wieder als frei geführt.")}
                             className="btn btn-secondary"
                           >
-                            Beenden
+                            {t("Beenden")}
                           </ConfirmButton>
                         </form>
                       </Disclosure>
@@ -293,11 +294,11 @@ export default async function TenantDetailPage({
                         <Table>
                           <thead>
                             <tr>
-                              <Th>Monat</Th>
-                              <Th>Fällig</Th>
-                              <Th align="right">Soll</Th>
-                              <Th align="right">Bezahlt</Th>
-                              <Th align="right">Status</Th>
+                              <Th>{t("Monat")}</Th>
+                              <Th>{t("Fällig")}</Th>
+                              <Th align="right">{t("Soll")}</Th>
+                              <Th align="right">{t("Bezahlt")}</Th>
+                              <Th align="right">{t("Status")}</Th>
                             </tr>
                           </thead>
                           <tbody>
@@ -305,13 +306,13 @@ export default async function TenantDetailPage({
                               const paid = charge.allocations.reduce((s, a) => s + a.amountCents, 0);
                               return (
                                 <tr key={charge.id}>
-                                  <Td>{formatMonth(charge.periodYear, charge.periodMonth)}</Td>
-                                  <Td className="text-ink-600">{formatDate(charge.dueDate)}</Td>
+                                  <Td>{monat(charge.periodYear, charge.periodMonth)}</Td>
+                                  <Td className="text-ink-600">{datum(charge.dueDate)}</Td>
                                   <Td align="right" className="tabular-nums">
-                                    {formatCents(charge.amountCents)}
+                                    {geld(charge.amountCents)}
                                   </Td>
                                   <Td align="right" className="tabular-nums">
-                                    {formatCents(paid)}
+                                    {geld(paid)}
                                   </Td>
                                   <Td align="right">
                                     <ChargeBadge status={charge.status} />
@@ -331,13 +332,13 @@ export default async function TenantDetailPage({
         )}
 
         <div className="mt-5 border-t border-ink-200 pt-4">
-          <Disclosure summary="Weiteres Bett zuweisen">
+          <Disclosure summary={t("Weiteres Bett zuweisen")}>
             <form action={createTenancy} className="space-y-4">
               <input type="hidden" name="tenantId" value={tenant.id} />
               <BedPicker beds={beds} required rentFieldId="newTenancyRent" />
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label htmlFor="newStart">Mietbeginn *</label>
+                  <label htmlFor="newStart">{t("Mietbeginn *")}</label>
                   <input
                     id="newStart"
                     name="startDate"
@@ -347,11 +348,11 @@ export default async function TenantDetailPage({
                   />
                 </div>
                 <div>
-                  <label htmlFor="newEnd">Mietende</label>
+                  <label htmlFor="newEnd">{t("Mietende")}</label>
                   <input id="newEnd" name="endDate" type="date" />
                 </div>
                 <div>
-                  <label htmlFor="newBillingDay">Fällig am</label>
+                  <label htmlFor="newBillingDay">{t("Fällig am")}</label>
                   <input
                     id="newBillingDay"
                     name="billingDay"
@@ -362,21 +363,21 @@ export default async function TenantDetailPage({
                   />
                 </div>
                 <div>
-                  <label htmlFor="newTenancyRent">Miete / Monat</label>
+                  <label htmlFor="newTenancyRent">{t("Miete / Monat")}</label>
                   <input id="newTenancyRent" name="monthlyRentCents" inputMode="decimal" />
                 </div>
                 <div>
-                  <label htmlFor="newUtilities">davon Nebenkosten</label>
+                  <label htmlFor="newUtilities">{t("davon Nebenkosten")}</label>
                   <input id="newUtilities" name="utilitiesCents" inputMode="decimal" defaultValue="0,00" />
                 </div>
                 <div>
-                  <label htmlFor="newDeposit">Kaution</label>
+                  <label htmlFor="newDeposit">{t("Kaution")}</label>
                   <input id="newDeposit" name="depositCents" inputMode="decimal" defaultValue="200,00" />
-                  <p className="field-hint">0,00 eintragen = keine Kaution</p>
+                  <p className="field-hint">{t("0,00 eintragen = keine Kaution")}</p>
                 </div>
               </div>
               <button type="submit" className="btn btn-primary">
-                Bett zuweisen und Vertrag erzeugen
+                {t("Bett zuweisen und Vertrag erzeugen")}
               </button>
             </form>
           </Disclosure>
@@ -386,13 +387,13 @@ export default async function TenantDetailPage({
       {/* --- Dokumente ----------------------------------------------------- */}
       {tenant.documents.length > 0 && (
         <div className="mt-6">
-          <Card title="Dokumente" padded={false}>
+          <Card title={t("Dokumente")} padded={false}>
             <Table>
               <thead>
                 <tr>
-                  <Th>Titel</Th>
-                  <Th>Datum</Th>
-                  <Th>Ablage</Th>
+                  <Th>{t("Titel")}</Th>
+                  <Th>{t("Datum")}</Th>
+                  <Th>{t("Ablage")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -402,12 +403,12 @@ export default async function TenantDetailPage({
                       {document.title}
                       {document.kind === "CONTRACT" && (
                         <span className="ml-2">
-                          <Badge tone="brand">Mietvertrag</Badge>
+                          <Badge tone="brand">{t("Mietvertrag")}</Badge>
                         </span>
                       )}
                     </Td>
                     <Td className="text-ink-600">
-                      {formatDate(document.documentDate ?? document.uploadedAt)}
+                      {datum(document.documentDate ?? document.uploadedAt)}
                     </Td>
                     <Td>
                       {document.driveUrl ? (
@@ -417,7 +418,7 @@ export default async function TenantDetailPage({
                           rel="noreferrer"
                           className="text-brand-700 hover:underline"
                         >
-                          Öffnen
+                          {t("Öffnen")}
                         </a>
                       ) : (
                         <span className="text-ink-500">–</span>
@@ -433,32 +434,32 @@ export default async function TenantDetailPage({
 
       {/* --- Stammdaten ---------------------------------------------------- */}
       <div className="mt-6">
-        <Card title="Stammdaten bearbeiten">
+        <Card title={t("Stammdaten bearbeiten")}>
           <form action={updateTenant} className="space-y-4">
             <input type="hidden" name="id" value={tenant.id} />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
-                Person
+                {t("Person")}
               </p>
               <div>
-                <label htmlFor="firstName">Vorname</label>
+                <label htmlFor="firstName">{t("Vorname")}</label>
                 <input id="firstName" name="firstName" defaultValue={tenant.firstName} required />
               </div>
               <div>
-                <label htmlFor="lastName">Nachname</label>
+                <label htmlFor="lastName">{t("Nachname")}</label>
                 <input id="lastName" name="lastName" defaultValue={tenant.lastName} />
               </div>
               <div>
-                <label htmlFor="email">E-Mail</label>
+                <label htmlFor="email">{t("E-Mail")}</label>
                 <input id="email" name="email" type="email" defaultValue={tenant.email} />
               </div>
               <div>
-                <label htmlFor="phone">Telefon</label>
+                <label htmlFor="phone">{t("Telefon")}</label>
                 <input id="phone" name="phone" defaultValue={tenant.phone ?? ""} />
               </div>
               <div>
-                <label htmlFor="birthDate">Geburtsdatum</label>
+                <label htmlFor="birthDate">{t("Geburtsdatum")}</label>
                 <input
                   id="birthDate"
                   name="birthDate"
@@ -467,27 +468,27 @@ export default async function TenantDetailPage({
                 />
               </div>
               <div>
-                <label htmlFor="nationality">Staatsangehörigkeit</label>
+                <label htmlFor="nationality">{t("Staatsangehörigkeit")}</label>
                 <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
               </div>
               <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
-                Ausweis und Meldeanschrift
+                {t("Ausweis und Meldeanschrift")}
               </p>
               <div>
-                <label htmlFor="idType">Ausweisart</label>
+                <label htmlFor="idType">{t("Ausweisart")}</label>
                 <select id="idType" name="idType" defaultValue={tenant.idType ?? ""}>
-                  <option value="">– keine Angabe –</option>
-                  <option value="Personalausweis">Personalausweis</option>
-                  <option value="Reisepass">Reisepass</option>
-                  <option value="Aufenthaltstitel">Aufenthaltstitel</option>
+                  <option value="">{t("– keine Angabe –")}</option>
+                  <option value="Personalausweis">{t("Personalausweis")}</option>
+                  <option value="Reisepass">{t("Reisepass")}</option>
+                  <option value="Aufenthaltstitel">{t("Aufenthaltstitel")}</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="idNumber">Ausweisnummer</label>
+                <label htmlFor="idNumber">{t("Ausweisnummer")}</label>
                 <input id="idNumber" name="idNumber" defaultValue={tenant.idNumber ?? ""} />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="street">Straße (Meldeanschrift)</label>
+                <label htmlFor="street">{t("Straße (Meldeanschrift)")}</label>
                 <input id="street" name="street" defaultValue={tenant.street ?? ""} />
               </div>
               <div>
@@ -495,60 +496,60 @@ export default async function TenantDetailPage({
                 <input id="zip" name="zip" defaultValue={tenant.zip ?? ""} />
               </div>
               <div>
-                <label htmlFor="city">Ort</label>
+                <label htmlFor="city">{t("Ort")}</label>
                 <input id="city" name="city" defaultValue={tenant.city ?? ""} />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="country">Land</label>
+                <label htmlFor="country">{t("Land")}</label>
                 <input id="country" name="country" defaultValue={tenant.country ?? "Deutschland"} />
               </div>
               <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
-                Auftraggeber / Entsendefirma
+                {t("Auftraggeber / Entsendefirma")}
               </p>
               <div>
-                <label htmlFor="company">Firma</label>
+                <label htmlFor="company">{t("Firma")}</label>
                 <input id="company" name="company" defaultValue={tenant.company ?? ""} />
               </div>
               <div>
-                <label htmlFor="companyVatId">USt-IdNr.</label>
+                <label htmlFor="companyVatId">{t("USt-IdNr.")}</label>
                 <input id="companyVatId" name="companyVatId" defaultValue={tenant.companyVatId ?? ""} />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="companyStreet">Firmenstraße</label>
+                <label htmlFor="companyStreet">{t("Firmenstraße")}</label>
                 <input id="companyStreet" name="companyStreet" defaultValue={tenant.companyStreet ?? ""} />
               </div>
               <div>
-                <label htmlFor="companyZip">Firmen-PLZ</label>
+                <label htmlFor="companyZip">{t("Firmen-PLZ")}</label>
                 <input id="companyZip" name="companyZip" defaultValue={tenant.companyZip ?? ""} />
               </div>
               <div>
-                <label htmlFor="companyCity">Firmenort</label>
+                <label htmlFor="companyCity">{t("Firmenort")}</label>
                 <input id="companyCity" name="companyCity" defaultValue={tenant.companyCity ?? ""} />
               </div>
               <p className="sm:col-span-2 border-b border-ink-200/70 pb-1.5 pt-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-ink-500">
-                Sonstiges
+                {t("Sonstiges")}
               </p>
               <div className="sm:col-span-2">
-                <label htmlFor="notes">Notizen</label>
+                <label htmlFor="notes">{t("Notizen")}</label>
                 <textarea id="notes" name="notes" rows={3} defaultValue={tenant.notes ?? ""} />
               </div>
             </div>
 
             <button type="submit" className="btn btn-primary">
-              Stammdaten speichern
+              {t("Stammdaten speichern")}
             </button>
           </form>
         </Card>
       </div>
 
       <div className="mt-6">
-        <Card title="Mieter löschen" description="Nur möglich, wenn kein laufendes Mietverhältnis besteht.">
+        <Card title={t("Mieter löschen")} description={t("Nur möglich, wenn kein laufendes Mietverhältnis besteht.")}>
           <form action={deleteTenant}>
             <input type="hidden" name="id" value={tenant.id} />
             <ConfirmButton
-              message={`${tenant.firstName} ${tenant.lastName} wirklich löschen? Verträge und Mietkonto werden mitgelöscht.`}
+              message={t("{name} wirklich löschen? Verträge und Mietkonto werden mitgelöscht.", { name: `${tenant.firstName} ${tenant.lastName}` })}
             >
-              Mieter endgültig löschen
+              {t("Mieter endgültig löschen")}
             </ConfirmButton>
           </form>
         </Card>

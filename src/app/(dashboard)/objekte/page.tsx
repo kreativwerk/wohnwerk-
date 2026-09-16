@@ -5,10 +5,15 @@ import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { monthlyCostCents } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
 import { occupancySummary } from "@/lib/tenancy";
-import { formatCents } from "@/lib/money";
-import { requireAdmin } from "@/lib/auth";
 
-export const metadata = { title: "Objekte" };
+import { requireAdmin } from "@/lib/auth";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
+
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Objekte") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function PropertiesPage({
@@ -16,6 +21,7 @@ export default async function PropertiesPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
+  const { t, geld } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
 
@@ -39,11 +45,11 @@ export default async function PropertiesPage({
   return (
     <>
       <PageHeader
-        title="Objekte"
-        description="Alle Unterkünfte mit Zimmern und Betten."
+        title={t("Objekte")}
+        description={t("Alle Unterkünfte mit Zimmern und Betten.")}
         actions={
           <Link href="/objekte/neu" className="btn btn-primary">
-            Neues Objekt
+            {t("Neues Objekt")}
           </Link>
         }
       />
@@ -54,11 +60,11 @@ export default async function PropertiesPage({
         {properties.length === 0 ? (
           <div className="p-5">
             <EmptyState
-              title="Noch kein Objekt angelegt"
-              description="Ein Objekt ist eine Unterkunft mit Adresse. Darin legen Sie Zimmer und in den Zimmern die einzelnen Betten an."
+              title={t("Noch kein Objekt angelegt")}
+              description={t("Ein Objekt ist eine Unterkunft mit Adresse. Darin legen Sie Zimmer und in den Zimmern die einzelnen Betten an.")}
               action={
                 <Link href="/objekte/neu" className="btn btn-primary">
-                  Erstes Objekt anlegen
+                  {t("Erstes Objekt anlegen")}
                 </Link>
               }
             />
@@ -67,13 +73,13 @@ export default async function PropertiesPage({
           <Table>
             <thead>
               <tr>
-                <Th>Objekt</Th>
-                <Th>Adresse</Th>
-                <Th align="center">Zimmer</Th>
-                <Th align="center">Betten</Th>
-                <Th>Auslastung</Th>
-                <Th align="right">Miete / Monat</Th>
-                <Th align="right">Überschuss / Monat</Th>
+                <Th>{t("Objekt")}</Th>
+                <Th>{t("Adresse")}</Th>
+                <Th align="center">{t("Zimmer")}</Th>
+                <Th align="center">{t("Betten")}</Th>
+                <Th>{t("Auslastung")}</Th>
+                <Th align="right">{t("Miete / Monat")}</Th>
+                <Th align="right">{t("Überschuss / Monat")}</Th>
               </tr>
             </thead>
             <tbody>
@@ -95,16 +101,16 @@ export default async function PropertiesPage({
                       </Link>
                       {!property.active && (
                         <span className="ml-2">
-                          <Badge tone="neutral">Inaktiv</Badge>
+                          <Badge tone="neutral">{t("Inaktiv")}</Badge>
                         </span>
                       )}
                       {property.shortCode && (
-                        <p className="text-xs text-ink-500">Kürzel {property.shortCode}</p>
+                        <p className="text-xs text-ink-500">{t("Kürzel {code}", { code: property.shortCode })}</p>
                       )}
                       {property.active &&
                         !property.templates.some((t) => coversLandlordConfirmation(t.kind)) && (
                           <p className="mt-1">
-                            <Badge tone="warning">Wohnungsgeberbestätigung fehlt</Badge>
+                            <Badge tone="warning">{t("Wohnungsgeberbestätigung fehlt")}</Badge>
                           </p>
                         )}
                     </Td>
@@ -134,19 +140,19 @@ export default async function PropertiesPage({
                           }
                         />
                         <p className="mt-1 text-xs text-ink-500">
-                          {summary?.occupied ?? 0} belegt · {summary?.free ?? 0} frei
+                          {t("{belegt} belegt · {frei} frei", { belegt: summary?.occupied ?? 0, frei: summary?.free ?? 0 })}
                         </p>
                       </div>
                     </Td>
                     <Td align="right" className="font-semibold tabular-nums">
-                      {formatCents(summary?.actualRentCents ?? 0)}
+                      {geld(summary?.actualRentCents ?? 0)}
                       <p className="text-xs font-normal text-ink-500">
-                        max. {formatCents(summary?.potentialRentCents ?? 0)}
+                        max. {geld(summary?.potentialRentCents ?? 0)}
                       </p>
                     </Td>
                     <Td align="right" className="tabular-nums">
                       {property.costs.length === 0 ? (
-                        <span className="text-xs text-ink-500">Kosten fehlen</span>
+                        <span className="text-xs text-ink-500">{t("Kosten fehlen")}</span>
                       ) : (
                         (() => {
                           const kosten = monthlyCostCents(property.costs);
@@ -154,10 +160,10 @@ export default async function PropertiesPage({
                           return (
                             <>
                               <span className={`font-semibold ${plus >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                                {formatCents(plus)}
+                                {geld(plus)}
                               </span>
                               <p className="text-xs font-normal text-ink-500">
-                                Kosten {formatCents(kosten)}
+                                Kosten {geld(kosten)}
                               </p>
                             </>
                           );

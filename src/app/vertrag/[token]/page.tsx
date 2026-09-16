@@ -7,10 +7,15 @@ import { SignaturePad } from "@/components/signature-pad";
 import { Alert } from "@/components/ui";
 import { buildContractData, loadContract } from "@/lib/contract";
 import { prisma } from "@/lib/db";
-import { formatDate, fromDateInput } from "@/lib/dates";
+import { fromDateInput } from "@/lib/dates";
 import { flash, optionalStr, str } from "@/lib/form";
+import { oberflaeche, type Uebersetzen, uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Mietvertrag" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Mietvertrag") };
+}
 export const dynamic = "force-dynamic";
 
 function clientIp(headerList: Headers): string | null {
@@ -23,17 +28,18 @@ function clientIp(headerList: Headers): string | null {
 async function signContract(formData: FormData) {
   "use server";
 
+  const t = await uebersetzer();
   const token = str(formData, "token");
   const back = `/vertrag/${token}`;
 
   const contract = await loadContract({ token });
-  if (!contract) redirect(flash(back, "fehler", "Der Vertrag wurde nicht gefunden."));
+  if (!contract) redirect(flash(back, "fehler", t("Der Vertrag wurde nicht gefunden.")));
   if (contract.status === "SIGNED") redirect(back);
   if (contract.status === "CANCELLED") {
-    redirect(flash(back, "fehler", "Dieser Vertrag wurde storniert."));
+    redirect(flash(back, "fehler", t("Dieser Vertrag wurde storniert.")));
   }
   if (contract.tokenExpiresAt && contract.tokenExpiresAt < new Date()) {
-    redirect(flash(back, "fehler", "Der Link ist abgelaufen. Bitte fordern Sie einen neuen an."));
+    redirect(flash(back, "fehler", t("Der Link ist abgelaufen. Bitte fordern Sie einen neuen an.")));
   }
 
   const signerName = str(formData, "signerName");
@@ -41,13 +47,13 @@ async function signContract(formData: FormData) {
   const confirmed = formData.get("confirm") === "on";
 
   if (!signerName) {
-    redirect(flash(back, "fehler", "Bitte tragen Sie Ihren vollständigen Namen ein."));
+    redirect(flash(back, "fehler", t("Bitte tragen Sie Ihren vollständigen Namen ein.")));
   }
   if (!signature.startsWith("data:image/png;base64,")) {
-    redirect(flash(back, "fehler", "Bitte unterschreiben Sie im dafür vorgesehenen Feld."));
+    redirect(flash(back, "fehler", t("Bitte unterschreiben Sie im dafür vorgesehenen Feld.")));
   }
   if (!confirmed) {
-    redirect(flash(back, "fehler", "Bitte bestätigen Sie, dass Sie den Vertrag gelesen haben."));
+    redirect(flash(back, "fehler", t("Bitte bestätigen Sie, dass Sie den Vertrag gelesen haben.")));
   }
 
   // Vom Mieter ergaenzte Stammdaten uebernehmen – sie gehoeren in den Vertrag.
@@ -97,6 +103,7 @@ export default async function PublicContractPage({
   params: Promise<{ token: string }>;
   searchParams: Promise<{ fehler?: string }>;
 }) {
+  const { t, datum } = await oberflaeche();
   const { token } = await params;
   const { fehler } = await searchParams;
 
@@ -104,9 +111,9 @@ export default async function PublicContractPage({
 
   if (!contract) {
     return (
-      <Shell>
-        <Alert tone="danger" title="Vertrag nicht gefunden">
-          Der Link ist ungültig. Bitte wenden Sie sich an Ihre Hausverwaltung.
+      <Shell t={t}>
+        <Alert tone="danger" title={t("Vertrag nicht gefunden")}>
+          {t("Der Link ist ungültig. Bitte wenden Sie sich an Ihre Hausverwaltung.")}
         </Alert>
       </Shell>
     );
@@ -114,9 +121,9 @@ export default async function PublicContractPage({
 
   if (contract.status === "CANCELLED") {
     return (
-      <Shell>
-        <Alert tone="warning" title="Vertrag storniert">
-          Dieser Mietvertrag wurde storniert und kann nicht mehr unterschrieben werden.
+      <Shell t={t}>
+        <Alert tone="warning" title={t("Vertrag storniert")}>
+          {t("Dieser Mietvertrag wurde storniert und kann nicht mehr unterschrieben werden.")}
         </Alert>
       </Shell>
     );
@@ -124,9 +131,9 @@ export default async function PublicContractPage({
 
   if (contract.status === "DRAFT") {
     return (
-      <Shell>
-        <Alert tone="warning" title="Noch nicht freigegeben">
-          Der Vertrag wird gerade vorbereitet. Bitte versuchen Sie es später erneut.
+      <Shell t={t}>
+        <Alert tone="warning" title={t("Noch nicht freigegeben")}>
+          {t("Der Vertrag wird gerade vorbereitet. Bitte versuchen Sie es später erneut.")}
         </Alert>
       </Shell>
     );
@@ -146,12 +153,11 @@ export default async function PublicContractPage({
   const tenant = contract.tenancy.tenant;
 
   return (
-    <Shell>
+    <Shell t={t}>
       {signed ? (
         <div className="mb-6">
-          <Alert tone="success" title="Vertrag unterschrieben">
-            Vielen Dank. Ihr Mietvertrag ist gültig abgeschlossen – Sie können ihn hier jederzeit
-            als PDF herunterladen.
+          <Alert tone="success" title={t("Vertrag unterschrieben")}>
+            {t("Vielen Dank. Ihr Mietvertrag ist gültig abgeschlossen – Sie können ihn hier jederzeit als PDF herunterladen.")}
           </Alert>
           <a
             href={`/api/vertrag/${token}/pdf`}
@@ -159,20 +165,19 @@ export default async function PublicContractPage({
             target="_blank"
             rel="noreferrer"
           >
-            Vertrag als PDF herunterladen
+            {t("Vertrag als PDF herunterladen")}
           </a>
         </div>
       ) : expired ? (
         <div className="mb-6">
-          <Alert tone="warning" title="Link abgelaufen">
-            Dieser Link ist nicht mehr gültig. Bitte fordern Sie bei der Hausverwaltung einen neuen an.
+          <Alert tone="warning" title={t("Link abgelaufen")}>
+            {t("Dieser Link ist nicht mehr gültig. Bitte fordern Sie bei der Hausverwaltung einen neuen an.")}
           </Alert>
         </div>
       ) : (
         <div className="mb-6">
           <Alert tone="info" title={`Willkommen, ${tenant.firstName}`}>
-            Bitte prüfen Sie Ihre Angaben, ergänzen Sie fehlende Felder und unterschreiben Sie den
-            Vertrag unten. Mietbeginn ist der {formatDate(contract.tenancy.startDate)}.
+            {t("Bitte prüfen Sie Ihre Angaben, ergänzen Sie fehlende Felder und unterschreiben Sie den Vertrag unten. Mietbeginn ist der {datum}.", { datum: datum(contract.tenancy.startDate) })}
           </Alert>
         </div>
       )}
@@ -191,14 +196,14 @@ export default async function PublicContractPage({
         <form action={signContract} className="no-print card mt-6 p-6 sm:p-8">
           <input type="hidden" name="token" value={token} />
 
-          <h2 className="text-base font-semibold text-ink-900">Ihre Angaben vervollständigen</h2>
+          <h2 className="text-base font-semibold text-ink-900">{t("Ihre Angaben vervollständigen")}</h2>
           <p className="mt-1 text-sm text-ink-500">
-            Diese Angaben brauchen wir für den Vertrag und die Meldepflicht.
+            {t("Diese Angaben brauchen wir für den Vertrag und die Meldepflicht.")}
           </p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="birthDate">Geburtsdatum</label>
+              <label htmlFor="birthDate">{t("Geburtsdatum")}</label>
               <input
                 id="birthDate"
                 name="birthDate"
@@ -207,19 +212,19 @@ export default async function PublicContractPage({
               />
             </div>
             <div>
-              <label htmlFor="nationality">Staatsangehörigkeit</label>
+              <label htmlFor="nationality">{t("Staatsangehörigkeit")}</label>
               <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
             </div>
             <div>
-              <label htmlFor="idNumber">Ausweis-/Passnummer</label>
+              <label htmlFor="idNumber">{t("Ausweis-/Passnummer")}</label>
               <input id="idNumber" name="idNumber" defaultValue={tenant.idNumber ?? ""} />
             </div>
             <div>
-              <label htmlFor="phone">Telefon</label>
+              <label htmlFor="phone">{t("Telefon")}</label>
               <input id="phone" name="phone" type="tel" defaultValue={tenant.phone ?? ""} />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="street">Meldeanschrift (Heimatadresse)</label>
+              <label htmlFor="street">{t("Meldeanschrift (Heimatadresse)")}</label>
               <input id="street" name="street" defaultValue={tenant.street ?? ""} />
             </div>
             <div>
@@ -227,19 +232,19 @@ export default async function PublicContractPage({
               <input id="zip" name="zip" defaultValue={tenant.zip ?? ""} />
             </div>
             <div>
-              <label htmlFor="city">Ort</label>
+              <label htmlFor="city">{t("Ort")}</label>
               <input id="city" name="city" defaultValue={tenant.city ?? ""} />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="country">Land</label>
+              <label htmlFor="country">{t("Land")}</label>
               <input id="country" name="country" defaultValue={tenant.country ?? "Deutschland"} />
             </div>
           </div>
 
-          <h2 className="mt-8 text-base font-semibold text-ink-900">Unterschrift</h2>
+          <h2 className="mt-8 text-base font-semibold text-ink-900">{t("Unterschrift")}</h2>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="signerName">Vollständiger Name</label>
+              <label htmlFor="signerName">{t("Vollständiger Name")}</label>
               <input
                 id="signerName"
                 name="signerName"
@@ -248,8 +253,8 @@ export default async function PublicContractPage({
               />
             </div>
             <div>
-              <label htmlFor="signDate">Datum</label>
-              <input id="signDate" value={formatDate(new Date())} disabled />
+              <label htmlFor="signDate">{t("Datum")}</label>
+              <input id="signDate" value={datum(new Date())} disabled />
             </div>
           </div>
 
@@ -260,13 +265,12 @@ export default async function PublicContractPage({
           <label className="mt-5 flex items-start gap-2.5 text-sm font-normal text-ink-700">
             <input type="checkbox" name="confirm" className="mt-0.5 h-4 w-4 shrink-0" required />
             <span>
-              Ich habe den Mietvertrag und die Hausordnung gelesen und erkenne beide an. Mir ist
-              bekannt, dass die elektronische Unterschrift der Textform nach § 126b BGB entspricht.
+              {t("Ich habe den Mietvertrag und die Hausordnung gelesen und erkenne beide an. Mir ist bekannt, dass die elektronische Unterschrift der Textform nach § 126b BGB entspricht.")}
             </span>
           </label>
 
           <button type="submit" className="btn btn-primary mt-6 w-full sm:w-auto">
-            Vertrag rechtsverbindlich unterschreiben
+            {t("Vertrag rechtsverbindlich unterschreiben")}
           </button>
         </form>
       )}
@@ -274,7 +278,7 @@ export default async function PublicContractPage({
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, t }: { children: React.ReactNode; t: Uebersetzen }) {
   return (
     <div className="min-h-screen bg-ink-100 py-8">
       <div className="mx-auto w-full max-w-3xl px-4">
@@ -284,7 +288,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </span>
           <div className="leading-tight">
             <p className="text-sm font-semibold text-ink-900">Wohnwerk</p>
-            <p className="text-[0.7rem] text-ink-500">Ihr Mietvertrag</p>
+            <p className="text-[0.7rem] text-ink-500">{t("Ihr Mietvertrag")}</p>
           </div>
         </div>
         {children}

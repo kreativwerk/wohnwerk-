@@ -14,6 +14,7 @@ import { FOLDER, backendLabel, deleteFile, folderLink, shareFolderWith, uploadFi
 import { allocate, autoMatch, deallocate, ensureRentCharges } from "@/lib/accounting";
 import { exportToDrive } from "@/lib/export";
 import { formatDate } from "@/lib/dates";
+import { uebersetzer } from "@/lib/i18n";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -28,6 +29,7 @@ function refresh() {
 // --- Bankkonten ------------------------------------------------------------
 
 export async function createBankAccount(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
 
   const name = str(formData, "name");
@@ -35,15 +37,15 @@ export async function createBankAccount(formData: FormData) {
   const back = "/buchhaltung/kontoauszuege";
 
   if (!name || !iban) {
-    redirect(flash(back, "fehler", "Bezeichnung und IBAN werden benötigt."));
+    redirect(flash(back, "fehler", t("Bezeichnung und IBAN werden benötigt.")));
   }
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) {
-    redirect(flash(back, "fehler", "Die IBAN sieht nicht gültig aus."));
+    redirect(flash(back, "fehler", t("Die IBAN sieht nicht gültig aus.")));
   }
 
   const existing = await prisma.bankAccount.findUnique({ where: { iban } });
   if (existing) {
-    redirect(flash(back, "fehler", "Für diese IBAN gibt es bereits ein Konto."));
+    redirect(flash(back, "fehler", t("Für diese IBAN gibt es bereits ein Konto.")));
   }
 
   const account = await prisma.bankAccount.create({
@@ -57,10 +59,11 @@ export async function createBankAccount(formData: FormData) {
 
   await audit(user.email, "create", "BankAccount", account.id, name);
   refresh();
-  redirect(flash(back, "ok", `Bankkonto „${name}“ wurde angelegt.`));
+  redirect(flash(back, "ok", t("Bankkonto „{name}“ wurde angelegt.", { name })));
 }
 
 export async function deleteBankAccount(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = "/buchhaltung/kontoauszuege";
@@ -68,14 +71,14 @@ export async function deleteBankAccount(formData: FormData) {
   const count = await prisma.bankTransaction.count({ where: { bankAccountId: id } });
   if (count > 0) {
     redirect(
-      flash(back, "fehler", `Das Konto hat ${count} Buchungen und kann nicht gelöscht werden.`),
+      flash(back, "fehler", t("Das Konto hat {anzahl} Buchungen und kann nicht gelöscht werden.", { anzahl: count })),
     );
   }
 
   await prisma.bankAccount.delete({ where: { id } });
   await audit(user.email, "delete", "BankAccount", id);
   refresh();
-  redirect(flash(back, "ok", "Bankkonto wurde gelöscht."));
+  redirect(flash(back, "ok", t("Bankkonto wurde gelöscht.")));
 }
 
 // --- Kontoauszug einlesen --------------------------------------------------
@@ -86,22 +89,23 @@ export async function deleteBankAccount(formData: FormData) {
  * Zahlungseingaenge automatisch den Mietforderungen zuordnen.
  */
 export async function importStatement(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = "/buchhaltung/kontoauszuege";
 
   const bankAccountId = str(formData, "bankAccountId");
   const file = formData.get("file");
 
-  if (!bankAccountId) redirect(flash(back, "fehler", "Bitte ein Bankkonto auswählen."));
+  if (!bankAccountId) redirect(flash(back, "fehler", t("Bitte ein Bankkonto auswählen.")));
   if (!(file instanceof File) || file.size === 0) {
-    redirect(flash(back, "fehler", "Bitte eine Datei auswählen."));
+    redirect(flash(back, "fehler", t("Bitte eine Datei auswählen.")));
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    redirect(flash(back, "fehler", "Die Datei ist größer als 20 MB."));
+    redirect(flash(back, "fehler", t("Die Datei ist größer als 20 MB.")));
   }
 
   const account = await prisma.bankAccount.findUnique({ where: { id: bankAccountId } });
-  if (!account) redirect(flash(back, "fehler", "Bankkonto nicht gefunden."));
+  if (!account) redirect(flash(back, "fehler", t("Bankkonto nicht gefunden.")));
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const contentHash = crypto.createHash("sha256").update(buffer).digest("hex");
@@ -250,18 +254,25 @@ export async function importStatement(formData: FormData) {
   refresh();
 
   const parts = [
-    `${imported} Buchung(en) importiert`,
-    duplicates > 0 ? `${duplicates} Duplikat(e) übersprungen` : null,
-    match.matched > 0 ? `${match.matched} Zahlung(en) automatisch zugeordnet` : null,
-    objektZugeordnet > 0 ? `${objektZugeordnet} Buchung(en) dem Objekt des Kontos zugewiesen` : null,
-    parsed.warnings.length > 0 ? `${parsed.warnings.length} Hinweis(e) beim Einlesen` : null,
-    ablageFehler ? "Original nicht archiviert (Ablage nicht erreichbar)" : null,
+    t("{anzahl} Buchung(en) importiert", { anzahl: imported }),
+    duplicates > 0 ? t("{anzahl} Duplikat(e) übersprungen", { anzahl: duplicates }) : null,
+    match.matched > 0
+      ? t("{anzahl} Zahlung(en) automatisch zugeordnet", { anzahl: match.matched })
+      : null,
+    objektZugeordnet > 0
+      ? t("{anzahl} Buchung(en) dem Objekt des Kontos zugewiesen", { anzahl: objektZugeordnet })
+      : null,
+    parsed.warnings.length > 0
+      ? t("{anzahl} Hinweis(e) beim Einlesen", { anzahl: parsed.warnings.length })
+      : null,
+    ablageFehler ? t("Original nicht archiviert (Ablage nicht erreichbar)") : null,
   ].filter(Boolean);
 
   redirect(flash(back, "ok", `${parts.join(", ")}.`));
 }
 
 export async function deleteStatement(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = "/buchhaltung/kontoauszuege";
@@ -285,12 +296,13 @@ export async function deleteStatement(formData: FormData) {
 
   await audit(user.email, "delete", "BankStatement", id);
   refresh();
-  redirect(flash(back, "ok", "Kontoauszug und zugehörige Buchungen wurden entfernt."));
+  redirect(flash(back, "ok", t("Kontoauszug und zugehörige Buchungen wurden entfernt.")));
 }
 
 // --- Buchungen -------------------------------------------------------------
 
 export async function updateTransaction(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung";
@@ -308,7 +320,7 @@ export async function updateTransaction(formData: FormData) {
 
   await audit(user.email, "update", "BankTransaction", id);
   refresh();
-  redirect(flash(back, "ok", "Buchung wurde gespeichert."));
+  redirect(flash(back, "ok", t("Buchung wurde gespeichert.")));
 }
 
 export async function runAutoMatch(formData: FormData) {
@@ -331,6 +343,7 @@ export async function runAutoMatch(formData: FormData) {
 }
 
 export async function allocatePayment(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
@@ -342,17 +355,18 @@ export async function allocatePayment(formData: FormData) {
 
   await audit(user.email, "allocate", "Allocation", null, result.message);
   refresh();
-  redirect(flash(back, result.ok ? "ok" : "fehler", result.message));
+  redirect(flash(back, result.ok ? "ok" : "fehler", t(result.message)));
 }
 
 export async function removeAllocation(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   await deallocate(str(formData, "id"));
   await audit(user.email, "deallocate", "Allocation", str(formData, "id"));
   refresh();
-  redirect(flash(back, "ok", "Zuordnung wurde aufgehoben."));
+  redirect(flash(back, "ok", t("Zuordnung wurde aufgehoben.")));
 }
 
 export async function generateCharges(formData: FormData) {
@@ -374,6 +388,7 @@ export async function generateCharges(formData: FormData) {
 }
 
 export async function waiveCharge(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
@@ -385,22 +400,23 @@ export async function waiveCharge(formData: FormData) {
 
   await audit(user.email, "waive", "RentCharge", id);
   refresh();
-  redirect(flash(back, "ok", "Forderung wurde als erlassen markiert."));
+  redirect(flash(back, "ok", t("Forderung wurde als erlassen markiert.")));
 }
 
 // --- Belege ----------------------------------------------------------------
 
 /** Beleg hochladen und optional direkt einer Bankbuchung zuordnen. */
 export async function uploadDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = str(formData, "back") || "/buchhaltung/belege";
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    redirect(flash(back, "fehler", "Bitte eine Datei auswählen."));
+    redirect(flash(back, "fehler", t("Bitte eine Datei auswählen.")));
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    redirect(flash(back, "fehler", "Die Datei ist größer als 20 MB."));
+    redirect(flash(back, "fehler", t("Die Datei ist größer als 20 MB.")));
   }
 
   const bankTransactionId = optionalStr(formData, "bankTransactionId");
@@ -479,6 +495,7 @@ export async function uploadDocument(formData: FormData) {
 }
 
 export async function updateDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/belege";
@@ -499,28 +516,30 @@ export async function updateDocument(formData: FormData) {
 
   await audit(user.email, "update", "Document", id);
   refresh();
-  redirect(flash(back, "ok", "Beleg wurde gespeichert."));
+  redirect(flash(back, "ok", t("Beleg wurde gespeichert.")));
 }
 
 export async function deleteDocument(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/belege";
 
   const document = await prisma.document.findUnique({ where: { id } });
-  if (!document) redirect(flash(back, "fehler", "Beleg nicht gefunden."));
+  if (!document) redirect(flash(back, "fehler", t("Beleg nicht gefunden.")));
 
   await deleteFile({ driveFileId: document.driveFileId, localPath: document.localPath });
   await prisma.document.delete({ where: { id } });
 
   await audit(user.email, "delete", "Document", id, document.title);
   refresh();
-  redirect(flash(back, "ok", "Beleg wurde gelöscht (in Drive in den Papierkorb verschoben)."));
+  redirect(flash(back, "ok", t("Beleg wurde gelöscht (in Drive in den Papierkorb verschoben).")));
 }
 
 // --- Steuerberater ---------------------------------------------------------
 
 export async function runExport(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = "/buchhaltung/export";
 
@@ -540,11 +559,12 @@ export async function runExport(formData: FormData) {
 
   const backend = backendLabel(result.files[0]?.backend ?? "db");
   redirect(
-    flash(back, "ok", `${result.files.length} Datei(en) wurden in ${backend} abgelegt.`),
+    flash(back, "ok", t("{anzahl} Datei(en) wurden in {ablage} abgelegt.", { anzahl: result.files.length, ablage: backend })),
   );
 }
 
 export async function shareWithAccountant(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = "/buchhaltung/export";
 
@@ -552,29 +572,31 @@ export async function shareWithAccountant(formData: FormData) {
   const year = int(formData, "year", new Date().getUTCFullYear());
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    redirect(flash(back, "fehler", "Bitte eine gültige E-Mail-Adresse angeben."));
+    redirect(flash(back, "fehler", t("Bitte eine gültige E-Mail-Adresse angeben.")));
   }
 
   // Der Steuerberater bekommt den kompletten Jahresordner, nicht nur den Export.
   const result = await shareFolderWith(["Buchhaltung", String(year)], email, "reader");
   await audit(user.email, "share", "DriveFolder", result.folderId ?? null, email);
   revalidatePath(back);
-  redirect(flash(back, result.ok ? "ok" : "fehler", result.message));
+  redirect(flash(back, result.ok ? "ok" : "fehler", t(result.message, result.werte)));
 }
 
 export async function openDriveFolder(formData: FormData) {
+  const t = await uebersetzer();
   await requireAdmin();
   const year = int(formData, "year", new Date().getUTCFullYear());
   const link = await folderLink(["Buchhaltung", String(year)]);
 
   redirect(
     link ??
-      flash("/buchhaltung/export", "fehler", "Google Drive ist nicht konfiguriert."),
+      flash("/buchhaltung/export", "fehler", t("Google Drive ist nicht konfiguriert.")),
   );
 }
 
 /** Kanzlei-Stammdaten fuer den DATEV-Export speichern. */
 export async function saveDatevSettings(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const back = "/buchhaltung/export";
 
@@ -594,7 +616,7 @@ export async function saveDatevSettings(formData: FormData) {
 
   await audit(user.email, "update", "Settings", null, "DATEV");
   revalidatePath(back);
-  redirect(flash(back, "ok", "DATEV-Einstellungen gespeichert."));
+  redirect(flash(back, "ok", t("DATEV-Einstellungen gespeichert.")));
 }
 
 /**
@@ -603,13 +625,14 @@ export async function saveDatevSettings(formData: FormData) {
  * die spaetere Zuordnung der echten Kontobewegung bleibt moeglich.
  */
 export async function markChargePaid(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
 
   const charge = await prisma.rentCharge.findUnique({ where: { id } });
-  if (!charge) redirect(flash(back, "fehler", "Forderung nicht gefunden."));
-  if (charge.status === "PAID") redirect(flash(back, "ok", "Bereits als bezahlt vermerkt."));
+  if (!charge) redirect(flash(back, "fehler", t("Forderung nicht gefunden.")));
+  if (charge.status === "PAID") redirect(flash(back, "ok", t("Bereits als bezahlt vermerkt.")));
 
   const heute = formatDate(new Date());
   await prisma.rentCharge.update({
@@ -624,11 +647,12 @@ export async function markChargePaid(formData: FormData) {
   await audit(user.email, "mark-paid", "RentCharge", id);
   revalidatePath(back);
   revalidatePath("/");
-  redirect(flash(back, "ok", "Als bezahlt vermerkt."));
+  redirect(flash(back, "ok", t("Als bezahlt vermerkt.")));
 }
 
 /** Handbestätigung zurücknehmen - nur solange keine Kontobewegung zugeordnet ist. */
 export async function reopenCharge(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const back = str(formData, "back") || "/buchhaltung/offene-posten";
@@ -637,10 +661,10 @@ export async function reopenCharge(formData: FormData) {
     where: { id },
     include: { allocations: { select: { id: true } } },
   });
-  if (!charge) redirect(flash(back, "fehler", "Forderung nicht gefunden."));
+  if (!charge) redirect(flash(back, "fehler", t("Forderung nicht gefunden.")));
   if (charge.allocations.length > 0) {
     redirect(
-      flash(back, "fehler", "Dieser Forderung sind Kontobewegungen zugeordnet – bitte dort lösen."),
+      flash(back, "fehler", t("Dieser Forderung sind Kontobewegungen zugeordnet – bitte dort lösen.")),
     );
   }
 
@@ -655,5 +679,5 @@ export async function reopenCharge(formData: FormData) {
   });
   await audit(user.email, "reopen", "RentCharge", id);
   revalidatePath(back);
-  redirect(flash(back, "ok", "Forderung ist wieder offen."));
+  redirect(flash(back, "ok", t("Forderung ist wieder offen.")));
 }

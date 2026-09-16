@@ -6,7 +6,11 @@ import { Card, Flash, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Problem melden" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Problem melden") };
+}
 export const dynamic = "force-dynamic";
 
 /**

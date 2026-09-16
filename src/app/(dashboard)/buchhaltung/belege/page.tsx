@@ -6,13 +6,18 @@ import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/com
 import { prisma } from "@/lib/db";
 import { DOCUMENT_KIND_LABEL, EXPENSE_CATEGORIES } from "@/lib/enums";
 import { propertyOptions } from "@/lib/options";
-import { centsToInput, formatCents } from "@/lib/money";
-import { formatDate, toDateInput } from "@/lib/dates";
+import { centsToInput } from "@/lib/money";
+import { toDateInput } from "@/lib/dates";
 import { checkDriveStatus } from "@/lib/storage";
 import { AdminOnly } from "@/components/admin-only";
 import { BelegDatei } from "@/components/beleg-datei";
+import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
-export const metadata = { title: "Belege" };
+/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
+export async function generateMetadata() {
+  const t = await uebersetzer();
+  return { title: t("Belege") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function DocumentsPage({
@@ -20,6 +25,7 @@ export default async function DocumentsPage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; art?: string; q?: string; jahr?: string }>;
 }) {
+  const { t, datum, geld } = await oberflaeche();
   const params = await searchParams;
   const year = params.jahr ? Number(params.jahr) : null;
 
@@ -74,17 +80,17 @@ export default async function DocumentsPage({
   return (
     <>
       <PageHeader
-        title="Belege"
-        description="Rechnungen und Quittungen – sicher abgelegt, sortiert nach Jahr und Monat."
-        breadcrumb={[{ label: "Buchhaltung", href: "/buchhaltung" }, { label: "Belege" }]}
+        title={t("Belege")}
+        description={t("Rechnungen und Quittungen – sicher abgelegt, sortiert nach Jahr und Monat.")}
+        breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Belege") }]}
         actions={
           <>
             {/* Unterwegs der wichtigste Weg: Beleg abfotografieren. */}
             <a href="#beleg-hochladen" className="btn btn-primary">
-              Beleg erfassen
+              {t("Beleg erfassen")}
             </a>
             <Link href="/buchhaltung/export" className="btn btn-secondary">
-              Steuerberater-Export
+              {t("Steuerberater-Export")}
             </Link>
           </>
         }
@@ -95,12 +101,12 @@ export default async function DocumentsPage({
       {!drive.ok && (
         <div className="mb-5">
           <Badge tone={drive.configured ? "danger" : "warning"}>
-            {drive.configured ? "Ablage nicht erreichbar" : "Ablage nicht eingerichtet"}
+            {drive.configured ? t("Ablage nicht erreichbar") : t("Ablage nicht eingerichtet")}
           </Badge>
           <p className="mt-1 text-sm text-ink-600">
-            {drive.message}{" "}
+            {t(drive.message, drive.werte)}{" "}
             <Link href="/einstellungen" className="font-semibold text-brand-700 hover:underline">
-              Zu den Einstellungen
+              {t("Zu den Einstellungen")}
             </Link>
           </p>
         </div>
@@ -114,29 +120,29 @@ export default async function DocumentsPage({
             <AdminOnly>
               <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
                 <div className="min-w-40 flex-1">
-                  <label htmlFor="q">Suche</label>
-                  <input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Titel, Lieferant" />
+                  <label htmlFor="q">{t("Suche")}</label>
+                  <input id="q" name="q" defaultValue={params.q ?? ""} placeholder={t("Titel, Lieferant")} />
                 </div>
                 <div className="min-w-36 flex-1 sm:w-44 sm:flex-none">
-                  <label htmlFor="art">Art</label>
+                  <label htmlFor="art">{t("Art")}</label>
                   <select id="art" name="art" defaultValue={params.art ?? ""}>
-                    <option value="">Alle</option>
+                    <option value="">{t("Alle")}</option>
                     {Object.entries(DOCUMENT_KIND_LABEL).map(([value, label]) => (
                       <option key={value} value={value}>
-                        {label}
+                        {t(label)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="w-24">
-                  <label htmlFor="jahr">Jahr</label>
+                  <label htmlFor="jahr">{t("Jahr")}</label>
                   <input id="jahr" name="jahr" inputMode="numeric" defaultValue={params.jahr ?? ""} />
                 </div>
                 <button type="submit" className="btn btn-secondary">
-                  Filtern
+                  {t("Filtern")}
                 </button>
                 <Link href="/buchhaltung/belege" className="btn btn-ghost">
-                  Zurücksetzen
+                  {t("Zurücksetzen")}
                 </Link>
               </form>
             </AdminOnly>
@@ -144,18 +150,18 @@ export default async function DocumentsPage({
             {documents.length === 0 ? (
               <div className="p-5">
                 <EmptyState
-                  title="Keine Belege"
-                  description="Laden Sie rechts einen Beleg hoch oder ordnen Sie ihn direkt bei einer Buchung zu."
+                  title={t("Keine Belege")}
+                  description={t("Laden Sie rechts einen Beleg hoch oder ordnen Sie ihn direkt bei einer Buchung zu.")}
                 />
               </div>
             ) : (
               <Table>
                 <thead>
                   <tr>
-                    <Th>Datum</Th>
-                    <Th>Beleg</Th>
-                    <Th>Zuordnung</Th>
-                    <Th align="right">Betrag</Th>
+                    <Th>{t("Datum")}</Th>
+                    <Th>{t("Beleg")}</Th>
+                    <Th>{t("Zuordnung")}</Th>
+                    <Th align="right">{t("Betrag")}</Th>
                     <Th align="right"></Th>
                   </tr>
                 </thead>
@@ -163,9 +169,9 @@ export default async function DocumentsPage({
                   {documents.map((document) => (
                     <tr key={document.id} className="align-top hover:bg-ink-50">
                       <Td className="whitespace-nowrap text-ink-600">
-                        {formatDate(document.documentDate ?? document.uploadedAt)}
+                        {datum(document.documentDate ?? document.uploadedAt)}
                         <p className="text-xs text-ink-500">
-                          {DOCUMENT_KIND_LABEL[document.kind] ?? document.kind}
+                          {t(DOCUMENT_KIND_LABEL[document.kind] ?? document.kind)}
                         </p>
                       </Td>
                       <Td>
@@ -182,21 +188,21 @@ export default async function DocumentsPage({
                           <span className="font-medium text-ink-900">{document.title}</span>
                         )}
                         <p className="text-xs text-ink-500">
-                          {[document.supplier, document.category].filter(Boolean).join(" · ")}
+                          {[document.supplier, document.category && t(document.category)].filter(Boolean).join(" · ")}
                         </p>
                         {document.kind !== "CONTRACT" && document.kind !== "STATEMENT" && (
                           <div className="mt-1.5">
-                            <Disclosure summary="Bearbeiten">
+                            <Disclosure summary={t("Bearbeiten")}>
                               <AdminOnly>
                                 <form action={updateDocument} className="grid gap-3 sm:grid-cols-2">
                                   <input type="hidden" name="id" value={document.id} />
                                   <input type="hidden" name="back" value="/buchhaltung/belege" />
                                   <div className="sm:col-span-2">
-                                    <label htmlFor={`t-${document.id}`}>Titel</label>
+                                    <label htmlFor={`t-${document.id}`}>{t("Titel")}</label>
                                     <input id={`t-${document.id}`} name="title" defaultValue={document.title} />
                                   </div>
                                   <div>
-                                    <label htmlFor={`d-${document.id}`}>Belegdatum</label>
+                                    <label htmlFor={`d-${document.id}`}>{t("Belegdatum")}</label>
                                     <input
                                       id={`d-${document.id}`}
                                       name="documentDate"
@@ -205,7 +211,7 @@ export default async function DocumentsPage({
                                     />
                                   </div>
                                   <div>
-                                    <label htmlFor={`a-${document.id}`}>Betrag</label>
+                                    <label htmlFor={`a-${document.id}`}>{t("Betrag")}</label>
                                     <input
                                       id={`a-${document.id}`}
                                       name="amountCents"
@@ -214,7 +220,7 @@ export default async function DocumentsPage({
                                     />
                                   </div>
                                   <div>
-                                    <label htmlFor={`s-${document.id}`}>Lieferant</label>
+                                    <label htmlFor={`s-${document.id}`}>{t("Lieferant")}</label>
                                     <input
                                       id={`s-${document.id}`}
                                       name="supplier"
@@ -222,7 +228,7 @@ export default async function DocumentsPage({
                                     />
                                   </div>
                                   <div>
-                                    <label htmlFor={`v-${document.id}`}>USt-Satz %</label>
+                                    <label htmlFor={`v-${document.id}`}>{t("USt-Satz %")}</label>
                                     <input
                                       id={`v-${document.id}`}
                                       name="vatRatePct"
@@ -231,28 +237,28 @@ export default async function DocumentsPage({
                                     />
                                   </div>
                                   <div>
-                                    <label htmlFor={`c-${document.id}`}>Kategorie</label>
+                                    <label htmlFor={`c-${document.id}`}>{t("Kategorie")}</label>
                                     <select
                                       id={`c-${document.id}`}
                                       name="category"
                                       defaultValue={document.category ?? ""}
                                     >
-                                      <option value="">– keine –</option>
+                                      <option value="">{t("– keine –")}</option>
                                       {EXPENSE_CATEGORIES.map((category) => (
                                         <option key={category} value={category}>
-                                          {category}
+                                          {t(category)}
                                         </option>
                                       ))}
                                     </select>
                                   </div>
                                   <div>
-                                    <label htmlFor={`p-${document.id}`}>Objekt</label>
+                                    <label htmlFor={`p-${document.id}`}>{t("Objekt")}</label>
                                     <select
                                       id={`p-${document.id}`}
                                       name="propertyId"
                                       defaultValue={document.propertyId ?? ""}
                                     >
-                                      <option value="">– keins –</option>
+                                      <option value="">{t("– keins –")}</option>
                                       {properties.map((property) => (
                                         <option key={property.id} value={property.id}>
                                           {property.name}
@@ -261,7 +267,7 @@ export default async function DocumentsPage({
                                     </select>
                                   </div>
                                   <div className="sm:col-span-2">
-                                    <label htmlFor={`n-${document.id}`}>Notiz</label>
+                                    <label htmlFor={`n-${document.id}`}>{t("Notiz")}</label>
                                     <input
                                       id={`n-${document.id}`}
                                       name="notes"
@@ -270,7 +276,7 @@ export default async function DocumentsPage({
                                   </div>
                                   <div className="sm:col-span-2">
                                     <button type="submit" className="btn btn-primary">
-                                      Speichern
+                                      {t("Speichern")}
                                     </button>
                                   </div>
                                 </form>
@@ -291,8 +297,7 @@ export default async function DocumentsPage({
                         )}
                         {document.bankTransaction && (
                           <p className="text-ink-500">
-                            Buchung {formatDate(document.bankTransaction.bookingDate)} ·{" "}
-                            {formatCents(document.bankTransaction.amountCents)}
+                            {t("Buchung {datum} · {betrag}", { datum: datum(document.bankTransaction.bookingDate), betrag: geld(document.bankTransaction.amountCents) })}
                           </p>
                         )}
                         {!document.property && !document.tenant && !document.bankTransaction && (
@@ -300,7 +305,7 @@ export default async function DocumentsPage({
                         )}
                       </Td>
                       <Td align="right" className="tabular-nums">
-                        {document.amountCents === null ? "–" : formatCents(document.amountCents)}
+                        {document.amountCents === null ? "–" : geld(document.amountCents)}
                       </Td>
                       <Td align="right">
                         <AdminOnly>
@@ -309,9 +314,9 @@ export default async function DocumentsPage({
                             <input type="hidden" name="back" value="/buchhaltung/belege" />
                             <ConfirmButton
                               className="btn btn-ghost"
-                              message={`Beleg „${document.title}“ löschen?`}
+                              message={t("Beleg „{titel}“ löschen?", { titel: document.title })}
                             >
-                              Löschen
+                              {t("Löschen")}
                             </ConfirmButton>
                           </form>
                         </AdminOnly>
@@ -326,30 +331,30 @@ export default async function DocumentsPage({
 
         <div className="min-w-0 space-y-6" id="beleg-hochladen">
           <Card
-            title="Beleg erfassen"
-            description="Unterwegs abfotografieren – das Foto wird automatisch auf eine sinnvolle Größe gebracht."
+            title={t("Beleg erfassen")}
+            description={t("Unterwegs abfotografieren – das Foto wird automatisch auf eine sinnvolle Größe gebracht.")}
           >
             <AdminOnly>
               <form action={uploadDocument} className="space-y-3">
                 <input type="hidden" name="back" value="/buchhaltung/belege" />
                 <div>
-                  <label htmlFor="file">Beleg *</label>
+                  <label htmlFor="file">{t("Beleg *")}</label>
                   <BelegDatei />
                 </div>
                 <div>
-                  <label htmlFor="title">Titel</label>
-                  <input id="title" name="title" placeholder="Rechnung Stadtwerke März" />
+                  <label htmlFor="title">{t("Titel")}</label>
+                  <input id="title" name="title" placeholder={t("Rechnung Stadtwerke März")} />
                 </div>
                 <div>
-                  <label htmlFor="kind">Art</label>
+                  <label htmlFor="kind">{t("Art")}</label>
                   <select id="kind" name="kind" defaultValue="RECEIPT">
-                    <option value="RECEIPT">Beleg</option>
-                    <option value="INVOICE">Rechnung</option>
-                    <option value="OTHER">Sonstiges</option>
+                    <option value="RECEIPT">{t("Beleg")}</option>
+                    <option value="INVOICE">{t("Rechnung")}</option>
+                    <option value="OTHER">{t("Sonstiges")}</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="documentDate">Belegdatum</label>
+                  <label htmlFor="documentDate">{t("Belegdatum")}</label>
                   <input
                     id="documentDate"
                     name="documentDate"
@@ -358,32 +363,32 @@ export default async function DocumentsPage({
                   />
                 </div>
                 <div>
-                  <label htmlFor="amountCents">Betrag</label>
+                  <label htmlFor="amountCents">{t("Betrag")}</label>
                   <input id="amountCents" name="amountCents" inputMode="decimal" />
                 </div>
                 <div>
-                  <label htmlFor="supplier">Lieferant</label>
+                  <label htmlFor="supplier">{t("Lieferant")}</label>
                   <input id="supplier" name="supplier" />
                 </div>
                 <div>
-                  <label htmlFor="vatRatePct">USt-Satz %</label>
+                  <label htmlFor="vatRatePct">{t("USt-Satz %")}</label>
                   <input id="vatRatePct" name="vatRatePct" inputMode="decimal" placeholder="19" />
                 </div>
                 <div>
-                  <label htmlFor="category">Kategorie</label>
+                  <label htmlFor="category">{t("Kategorie")}</label>
                   <select id="category" name="category" defaultValue="">
-                    <option value="">– keine –</option>
+                    <option value="">{t("– keine –")}</option>
                     {EXPENSE_CATEGORIES.map((category) => (
                       <option key={category} value={category}>
-                        {category}
+                        {t(category)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="propertyId">Objekt</label>
+                  <label htmlFor="propertyId">{t("Objekt")}</label>
                   <select id="propertyId" name="propertyId" defaultValue="">
-                    <option value="">– keins –</option>
+                    <option value="">{t("– keins –")}</option>
                     {properties.map((property) => (
                       <option key={property.id} value={property.id}>
                         {property.name}
@@ -392,20 +397,20 @@ export default async function DocumentsPage({
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="bankTransactionId">Zu Buchung</label>
+                  <label htmlFor="bankTransactionId">{t("Zu Buchung")}</label>
                   <select id="bankTransactionId" name="bankTransactionId" defaultValue="">
-                    <option value="">– keine Zuordnung –</option>
+                    <option value="">{t("– keine Zuordnung –")}</option>
                     {unlinkedTransactions.map((tx) => (
                       <option key={tx.id} value={tx.id}>
-                        {formatDate(tx.bookingDate)} · {formatCents(tx.amountCents)} ·{" "}
+                        {datum(tx.bookingDate)} · {geld(tx.amountCents)} ·{" "}
                         {(tx.counterpartyName ?? tx.purpose ?? "").slice(0, 40)}
                       </option>
                     ))}
                   </select>
-                  <p className="field-hint">Zeigt Ausgaben ohne Beleg.</p>
+                  <p className="field-hint">{t("Zeigt Ausgaben ohne Beleg.")}</p>
                 </div>
                 <button type="submit" className="btn btn-primary w-full">
-                  Beleg hochladen
+                  {t("Beleg hochladen")}
                 </button>
               </form>
             </AdminOnly>
