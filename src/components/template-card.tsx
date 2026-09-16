@@ -6,6 +6,7 @@ import {
   TEMPLATE_KIND_LABEL,
   coversLandlordConfirmation,
   parseFieldMap,
+  parseFieldNames,
 } from "@/lib/pdf-template";
 import {
   deletePropertyTemplate,
@@ -56,11 +57,7 @@ export function PropertyTemplates({
 
       <div className="space-y-5">
         {templates.map((template) => {
-          const felder = JSON.parse(template.fieldNames) as Array<{
-            name: string;
-            type: string;
-            pages: number[];
-          }>;
+          const felder = parseFieldNames(template.fieldNames);
           const map = parseFieldMap(template.fieldMap);
 
           return (
@@ -110,7 +107,7 @@ export function PropertyTemplates({
                       <Field
                         key={feld.name}
                         label={feld.name}
-                        hint={`Seite ${feld.pages.join(", ")}`}
+                        hint={feld.pages.length ? `Seite ${feld.pages.join(", ")}` : undefined}
                         htmlFor={`${template.id}-${feld.name}`}
                       >
                         <select

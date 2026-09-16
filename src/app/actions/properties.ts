@@ -15,6 +15,7 @@ import {
   coversLandlordConfirmation,
   inspectTemplate,
   isPlaceholder,
+  parseFieldNames,
 } from "@/lib/pdf-template";
 
 function refresh(propertyId?: string) {
@@ -421,7 +422,7 @@ export async function savePropertyTemplateMapping(formData: FormData) {
   const template = await prisma.propertyTemplate.findUnique({ where: { id } });
   if (!template) redirect(flash("/objekte", "fehler", "Vordruck nicht gefunden."));
 
-  const felder = JSON.parse(template.fieldNames) as Array<{ name: string }>;
+  const felder = parseFieldNames(template.fieldNames);
   const map: Record<string, string> = {};
   for (const feld of felder) {
     const wert = String(formData.get(`feld:${feld.name}`) ?? "");

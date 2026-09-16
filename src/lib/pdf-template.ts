@@ -211,6 +211,42 @@ export function autoMap(fieldNames: string[]): Record<string, PlaceholderKey> {
 }
 
 /** Liest eine gespeicherte Zuordnung und verwirft unbekannte Platzhalter. */
+/**
+ * Liest die gespeicherte Feldliste einer Vorlage.
+ *
+ * Geschrieben wird sie an zwei Stellen: beim Hochladen als vollstaendige
+ * TemplateField-Objekte, vom Einrichtungsskript aber urspruenglich nur als
+ * Namensliste. Die Objektseite las danach `feld.pages.join(...)` auf einem
+ * String - und stuerzte ab. Diese Funktion ist die einzige Lesestelle und
+ * traegt beide Formen; fehlende Angaben bleiben leer, statt zu werfen.
+ */
+export function parseFieldNames(json: string): TemplateField[] {
+  let roh: unknown;
+  try {
+    roh = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(roh)) return [];
+
+  return roh.flatMap((eintrag): TemplateField[] => {
+    if (typeof eintrag === "string") {
+      return [{ name: eintrag, type: "sonstiges", pages: [] }];
+    }
+    if (eintrag && typeof eintrag === "object" && typeof (eintrag as TemplateField).name === "string") {
+      const feld = eintrag as Partial<TemplateField>;
+      return [
+        {
+          name: feld.name as string,
+          type: feld.type === "text" || feld.type === "checkbox" ? feld.type : "sonstiges",
+          pages: Array.isArray(feld.pages) ? feld.pages.filter((n) => typeof n === "number") : [],
+        },
+      ];
+    }
+    return [];
+  });
+}
+
 export function parseFieldMap(json: string): Record<string, PlaceholderKey> {
   try {
     const roh = JSON.parse(json) as Record<string, unknown>;

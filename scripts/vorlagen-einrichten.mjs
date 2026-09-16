@@ -57,10 +57,25 @@ try {
 
   const { PDFDocument } = await import("pdf-lib");
   const doc = await PDFDocument.load(new Uint8Array(daten), { ignoreEncryption: true });
+  // Vollstaendige Felder, nicht nur Namen: die Oberflaeche liest
+  // Typ und Seitenzahl mit. Eine reine Namensliste hatte hier zu einem
+  // Absturz auf der Objektseite gefuehrt.
+  const seitenListe = doc.getPages();
   const feldNamen = doc
     .getForm()
     .getFields()
-    .map((f) => f.getName());
+    .map((f) => ({
+      name: f.getName(),
+      type: f.constructor?.name === "PDFCheckBox" ? "checkbox" : "text",
+      pages: [
+        ...new Set(
+          f.acroField
+            .getWidgets()
+            .map((w) => seitenListe.findIndex((s) => s.ref === w.P()) + 1)
+            .filter((n) => n > 0),
+        ),
+      ].sort((a, b) => a - b),
+    }));
   const seiten = doc.getPageCount();
 
   const objekte = await prisma.property.findMany({
