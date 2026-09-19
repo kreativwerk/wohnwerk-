@@ -456,7 +456,10 @@ export default async function TenantDetailPage({
               </div>
               <div>
                 <label htmlFor="phone">{t("Telefon")}</label>
-                <input id="phone" name="phone" defaultValue={tenant.phone ?? ""} />
+                <input id="phone" name="phone" type="tel" defaultValue={tenant.phone ?? ""} />
+                <p className="field-hint">
+                  {t("Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.")}
+                </p>
               </div>
               <div>
                 <label htmlFor="birthDate">{t("Geburtsdatum")}</label>

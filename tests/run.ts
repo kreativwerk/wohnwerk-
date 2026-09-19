@@ -13,6 +13,7 @@ import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedup
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
+import { ZAHLTAG, ibanLesbar, mahnungAlbanisch, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -546,6 +547,65 @@ async function main() {
     assert.equal(kontextText({ seite: "/mieter" }), "Seite: /mieter");
     assert.equal(kontextText({ seite: "", fenster: null }), null);
     assert.equal(kontextText({}), null);
+  });
+
+  console.log("\nZahlungserinnerung");
+
+  await test("Erinnerung nennt Monat, offenen Betrag, den 15. und die Bankverbindung", () => {
+    const text = mahnungAlbanisch({
+      vorname: "Arben",
+      jahr: 2026,
+      monat: 9,
+      offenCents: 47000,
+      kontoinhaber: "Wohnwerk Immobilien eGbR",
+      iban: "DE62100110012345678924",
+      bank: "Qonto",
+      verwendungszweck: "WW-2026-0001",
+    });
+    assert.ok(text.startsWith("Përshëndetje Arben,"));
+    assert.ok(text.includes("shtator 2026"), "albanischer Monatsname");
+    assert.ok(text.includes("470,00"), "offener Betrag mit Komma");
+    assert.ok(text.includes(`deri më ${ZAHLTAG} shtator`), "Frist dieses Monats");
+    assert.ok(text.includes(`deri më ${ZAHLTAG} të çdo muaji`), "Regel: immer zum 15.");
+    assert.ok(text.includes("IBAN: DE62 1001 1001 2345 6789 24"), "IBAN in Vierergruppen");
+    assert.ok(text.includes("Banka: Qonto"));
+    assert.ok(text.includes("Qëllimi i pagesës: WW-2026-0001"));
+    assert.equal(ZAHLTAG, 15);
+  });
+
+  await test("Ohne IBAN fehlt der Bankblock, statt mit leerer Zeile dazustehen", () => {
+    const text = mahnungAlbanisch({
+      vorname: "Arben",
+      jahr: 2026,
+      monat: 1,
+      offenCents: 100,
+      kontoinhaber: "Wohnwerk",
+      iban: "  ",
+    });
+    assert.ok(!text.includes("IBAN"));
+    assert.ok(!text.includes("Të dhënat e bankës"));
+    assert.ok(text.includes("janar 2026"));
+    assert.equal(ibanLesbar(" DE62 1001 1001 2345 6789 24 "), "DE62 1001 1001 2345 6789 24");
+  });
+
+  await test("WhatsApp-Nummer: Vorwahl erkannt, deutsche Null ergänzt, Kosovo bleibt Kosovo", () => {
+    assert.equal(whatsappNummer("+49 151 234 5678"), "491512345678");
+    assert.equal(whatsappNummer("0049 151 2345678"), "491512345678");
+    assert.equal(whatsappNummer("0151 2345678"), "491512345678");
+    assert.equal(whatsappNummer("0151/2345678"), "491512345678");
+    assert.equal(whatsappNummer("+383 44 123 456"), "38344123456");
+    assert.equal(whatsappNummer("+355 69 123 4567"), "355691234567");
+    // Leer oder zu kurz: kein Link, statt eines Links ins Leere.
+    assert.equal(whatsappNummer(""), null);
+    assert.equal(whatsappNummer(null), null);
+    assert.equal(whatsappNummer("12345"), null);
+  });
+
+  await test("WhatsApp-Link trägt den Text vorbelegt und ist ohne Nummer null", () => {
+    const link = whatsappLink("+49 151 2345678", "Përshëndetje Arben,\nqiraja për shtator");
+    assert.ok(link?.startsWith("https://wa.me/491512345678?text="));
+    assert.ok(link?.includes(encodeURIComponent("Përshëndetje Arben,\nqiraja për shtator")));
+    assert.equal(whatsappLink(null, "x"), null);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

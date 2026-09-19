@@ -933,6 +933,31 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Wieder aktiv setzen": "Set active again",
   "Zugangsdaten vorhanden, aber der Drive-Client liess sich nicht initialisieren.": "Credentials are present, but the Drive client could not be initialised.",
 
+  // --- Zahlungserinnerung -------------------------------------------------
+  "Erinnerung kopieren (Albanisch)": "Copy reminder (Albanian)",
+  "Kopieren (Albanisch)": "Copy (Albanian)",
+  "Erinnerung per WhatsApp senden": "Send reminder via WhatsApp",
+  "Keine Telefonnummer": "No phone number",
+  "Telefonnummer beim Mieter hinterlegen, dann erscheint hier ein WhatsApp-Link":
+    "Store a phone number on the tenant and a WhatsApp link appears here",
+  "Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.":
+    "With country code, e.g. +49 151 2345678 - used for the WhatsApp link on rent payments.",
+
+  // --- Kautionen ------------------------------------------------------------
+  "Kautionen": "Deposits",
+  "Einmalig zum Einzug fällig. Hier steht, welche Kaution eingegangen ist und welche noch fehlt.":
+    "Due once at move-in. This shows which deposits have arrived and which are still missing.",
+  "Kautionen gesamt": "Deposits in total",
+  "{anzahl} Mietverhältnisse": "{anzahl} tenancies",
+  "{anzahl} Kaution(en) fehlen": "{anzahl} deposit(s) missing",
+  "Ohne Forderung": "Without a charge",
+  "Kaution vereinbart, Forderung noch nicht erzeugt": "Deposit agreed, charge not created yet",
+  "Alle Kautionen sind eingegangen.": "All deposits have arrived.",
+  "Keine Kautionen": "No deposits",
+  "Eine Kautionsforderung entsteht mit „Forderungen erzeugen“ für jedes Mietverhältnis, in dem eine Kaution vereinbart ist.":
+    "A deposit charge is created with \"Create charges\" for every tenancy that has a deposit agreed.",
+  "Einzug": "Move-in",
+
   // --- Zuordnung von Zahlungen --------------------------------------------
   "Buchung nicht gefunden.": "Transaction not found.",
   "Der Betrag muss größer als 0 sein.": "The amount must be greater than 0.",

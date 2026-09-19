@@ -3,7 +3,10 @@ import Link from "next/link";
 import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { TextKopieren } from "@/components/mahnung-kopieren";
 import { prisma } from "@/lib/db";
+import { mahnungAlbanisch, whatsappLink } from "@/lib/mahnung";
+import { getSettings } from "@/lib/settings";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
@@ -49,6 +52,9 @@ export default async function RentIncomePage({
   const vor = verschiebe(year, month, 1);
   const heute = new Date();
   const istAktuellerMonat = year === heute.getFullYear() && month === heute.getMonth() + 1;
+
+  // Bankverbindung fuer die Zahlungserinnerung - steht in den Einstellungen.
+  const einstellungen = await getSettings();
 
   const charges = await prisma.rentCharge.findMany({
     where: { periodYear: year, periodMonth: month },
@@ -109,14 +115,21 @@ export default async function RentIncomePage({
         description={t("Monat für Monat abhaken, welche Mieten schon da sind – von Hand oder automatisch per Kontoauszug.")}
         breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Mieteingänge") }]}
         actions={
-          <AdminOnly>
-            <form action={runAutoMatch}>
-              <input type="hidden" name="back" value={back} />
-              <button type="submit" className="btn btn-secondary">
-                {t("Zahlungen automatisch zuordnen")}
-              </button>
-            </form>
-          </AdminOnly>
+          <>
+            {/* Die Kaution steht hier nur im Einzugsmonat - alle auf einen
+                Blick gibt es auf der eigenen Seite. */}
+            <Link href="/buchhaltung/kautionen" className="btn btn-ghost">
+              {t("Kautionen")}
+            </Link>
+            <AdminOnly>
+              <form action={runAutoMatch}>
+                <input type="hidden" name="back" value={back} />
+                <button type="submit" className="btn btn-secondary">
+                  {t("Zahlungen automatisch zuordnen")}
+                </button>
+              </form>
+            </AdminOnly>
+          </>
         }
       />
 
@@ -294,6 +307,49 @@ export default async function RentIncomePage({
                           </Td>
                           <Td align="right">
                             <AdminOnly>
+                              {/* Erinnerung auf Albanisch mit dem offenen
+                                  Rest dieses Monats - nur fuer Mieten,
+                                  eine Kaution ist keine Monatsmiete. */}
+                              {!istBezahlt && !istErlassen && charge.kind === "RENT" && (() => {
+                                const text = mahnungAlbanisch({
+                                  vorname: charge.tenancy.tenant.firstName,
+                                  jahr: year,
+                                  monat: month,
+                                  offenCents: chargeOffen,
+                                  kontoinhaber: einstellungen.companyName,
+                                  iban: einstellungen.bankIban,
+                                  bank: einstellungen.bankName,
+                                  verwendungszweck: charge.tenancy.reference,
+                                });
+                                const whatsapp = whatsappLink(charge.tenancy.tenant.phone, text);
+                                return (
+                                  <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
+                                    {/* Mit Telefonnummer geht es direkt in WhatsApp, der
+                                        Text steht schon im Feld. Ohne Nummer bleibt
+                                        Kopieren - und ein Hinweis, warum. */}
+                                    {whatsapp ? (
+                                      <a
+                                        href={whatsapp}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        title={t("Erinnerung per WhatsApp senden")}
+                                      >
+                                        WhatsApp
+                                      </a>
+                                    ) : (
+                                      <Link
+                                        href={`/mieter/${charge.tenancy.tenantId}`}
+                                        className="text-xs text-ink-500 hover:text-brand-700"
+                                        title={t("Telefonnummer beim Mieter hinterlegen, dann erscheint hier ein WhatsApp-Link")}
+                                      >
+                                        {t("Keine Telefonnummer")}
+                                      </Link>
+                                    )}
+                                    <TextKopieren label={t("Kopieren (Albanisch)")} text={text} />
+                                  </div>
+                                );
+                              })()}
                               {!istBezahlt && !istErlassen && (
                                 <form action={markChargePaid}>
                                   <input type="hidden" name="id" value={charge.id} />

@@ -66,6 +66,9 @@ export default async function NewTenantPage({
             <div>
               <label htmlFor="phone">{t("Telefon")}</label>
               <input id="phone" name="phone" type="tel" />
+              <p className="field-hint">
+                {t("Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.")}
+              </p>
             </div>
             <div>
               <label htmlFor="birthDate">{t("Geburtsdatum")}</label>

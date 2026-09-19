@@ -19,6 +19,7 @@ import {
   TrayArrowDown,
   TrayArrowUp,
   User,
+  Vault,
   Wrench,
   X,
 } from "@phosphor-icons/react/dist/ssr";
@@ -51,6 +52,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
       { href: "/buchhaltung", label: "Buchungen", icon: CurrencyEur },
       { href: "/buchhaltung/kontoauszuege", label: "Kontoauszüge", icon: TrayArrowUp },
       { href: "/buchhaltung/mieteingaenge", label: "Mieteingänge", icon: ListChecks },
+      { href: "/buchhaltung/kautionen", label: "Kautionen", icon: Vault },
       { href: "/buchhaltung/belege", label: "Belege", icon: Receipt },
       { href: "/buchhaltung/offene-posten", label: "Offene Posten", icon: Bell },
       { href: "/buchhaltung/export", label: "Steuerberater", icon: TrayArrowDown },
