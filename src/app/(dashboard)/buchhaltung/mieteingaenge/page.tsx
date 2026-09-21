@@ -4,8 +4,10 @@ import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/a
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { TextKopieren } from "@/components/mahnung-kopieren";
+import { ensureRentCharges } from "@/lib/accounting";
+import { getSessionUser, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { mahnungAlbanisch, whatsappLink } from "@/lib/mahnung";
+import { mahnungAlbanisch, rueckstandAlbanisch, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
@@ -56,6 +58,30 @@ export default async function RentIncomePage({
   // Bankverbindung fuer die Zahlungserinnerung - steht in den Einstellungen.
   const einstellungen = await getSettings();
 
+  // Fehlende Forderungen bis zum angezeigten Monat gleich nachziehen - ein
+  // neu angelegter Mieter soll hier stehen, ohne dass jemand an
+  // "Forderungen erzeugen" denken muss. Idempotent: was da ist, bleibt.
+  // Nur bis zum laufenden Monat, und nur fuer die Hausverwaltung.
+  const liegtNichtInZukunft = year * 12 + month <= heute.getFullYear() * 12 + heute.getMonth() + 1;
+  if (liegtNichtInZukunft && isAdmin(await getSessionUser())) {
+    await ensureRentCharges({ until: new Date(Date.UTC(year, month - 1, 1)) });
+  }
+
+  // Wer in diesem Monat wohnt, aber keine Mietforderung hat - in der Regel
+  // ein Vertragsentwurf, der noch nicht versendet wurde.
+  const monatsanfang = new Date(Date.UTC(year, month - 1, 1));
+  const monatsende = new Date(Date.UTC(year, month, 0, 23, 59, 59));
+  const ohneForderung = await prisma.tenancy.findMany({
+    where: {
+      status: { in: ["DRAFT", "SENT", "ACTIVE", "ENDED"] },
+      startDate: { lte: monatsende },
+      OR: [{ endDate: null }, { endDate: { gte: monatsanfang } }],
+      charges: { none: { kind: "RENT", periodYear: year, periodMonth: month } },
+    },
+    include: { tenant: { select: { id: true, firstName: true, lastName: true } } },
+    orderBy: { startDate: "asc" },
+  });
+
   const charges = await prisma.rentCharge.findMany({
     where: { periodYear: year, periodMonth: month },
     include: {
@@ -70,6 +96,30 @@ export default async function RentIncomePage({
       },
     },
   });
+
+  // Alle Rueckstaende der gezeigten Mieter - ueber alle Monate und samt
+  // Kaution. Daraus entsteht die Gesamtaufstellung: Wer zwei Monate
+  // hinterher ist, bekommt eine Nachricht mit allem statt zwei einzelne.
+  const tenantIds = Array.from(new Set(charges.map((c) => c.tenancy.tenantId)));
+  const alleOffenen = tenantIds.length === 0
+    ? []
+    : await prisma.rentCharge.findMany({
+        where: {
+          status: { in: ["OPEN", "PARTIAL"] },
+          tenancy: { tenantId: { in: tenantIds } },
+        },
+        include: { allocations: { select: { amountCents: true } }, tenancy: { select: { tenantId: true } } },
+      });
+  const rueckstaende = new Map<string, OffenerPosten[]>();
+  for (const c of alleOffenen) {
+    const offenCents = c.amountCents - Math.min(c.amountCents, c.allocations.reduce((s, a) => s + a.amountCents, 0));
+    if (offenCents <= 0) continue;
+    const liste = rueckstaende.get(c.tenancy.tenantId) ?? [];
+    liste.push({ art: c.kind === "DEPOSIT" ? "DEPOSIT" : "RENT", jahr: c.periodYear, monat: c.periodMonth, offenCents });
+    rueckstaende.set(c.tenancy.tenantId, liste);
+  }
+  // Je Mieter nur einmal, an der ersten offenen Zeile.
+  const gesamtGezeigt = new Set<string>();
 
   charges.sort((a, b) => {
     const pa = a.tenancy.bed.room.property.name;
@@ -167,6 +217,44 @@ export default async function RentIncomePage({
           <Link href="/buchhaltung/mieteingaenge" className="btn btn-ghost btn-sm">
             {t("Zum aktuellen Monat")}
           </Link>
+        </div>
+      )}
+
+      {ohneForderung.length > 0 && (
+        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">
+            {t("{anzahl} Bewohner ohne Mietforderung für {monat}", { anzahl: ohneForderung.length, monat: monat(year, month) })}
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            {ohneForderung.map((ty) => (
+              <li key={ty.id}>
+                <Link href={`/mieter/${ty.tenant.id}`} className="font-medium hover:underline">
+                  {ty.tenant.firstName} {ty.tenant.lastName}
+                </Link>{" "}
+                <span className="text-amber-800/80">
+                  · {datum(ty.startDate)} ·{" "}
+                  {ty.status === "DRAFT"
+                    ? t("Vertragsentwurf, noch nicht versendet")
+                    : t("Forderung fehlt")}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {ohneForderung.some((ty) => ty.status !== "DRAFT") && (
+            <AdminOnly>
+              <form action={generateCharges} className="mt-2">
+                <input type="hidden" name="back" value={back} />
+                <button type="submit" className="btn btn-secondary btn-sm">
+                  {t("Forderungen erzeugen")}
+                </button>
+              </form>
+            </AdminOnly>
+          )}
+          {ohneForderung.some((ty) => ty.status === "DRAFT") && (
+            <p className="mt-1.5 text-xs text-amber-800/80">
+              {t("Ein Entwurf bekommt seine Forderungen, sobald der Vertrag versendet ist.")}
+            </p>
+          )}
         </div>
       )}
 
@@ -346,6 +434,43 @@ export default async function RentIncomePage({
                                       </Link>
                                     )}
                                     <TextKopieren label={t("Kopieren (Albanisch)")} text={text} />
+                                  </div>
+                                );
+                              })()}
+                              {/* Gesamtaufstellung: alle offenen Monate plus Kaution in
+                                  einer Nachricht. Nur wo es mehr als diesen einen Posten
+                                  gibt - oder bei der Kaution, die sonst keinen Text hat. */}
+                              {!istBezahlt && !istErlassen && (() => {
+                                const posten = rueckstaende.get(charge.tenancy.tenantId) ?? [];
+                                const lohnt = posten.length >= 2 || charge.kind === "DEPOSIT";
+                                if (!lohnt || posten.length === 0 || gesamtGezeigt.has(charge.tenancy.tenantId)) return null;
+                                gesamtGezeigt.add(charge.tenancy.tenantId);
+                                const gesamt = posten.reduce((sum, p) => sum + p.offenCents, 0);
+                                const text = rueckstandAlbanisch({
+                                  vorname: charge.tenancy.tenant.firstName,
+                                  posten,
+                                  kontoinhaber: einstellungen.companyName,
+                                  iban: einstellungen.bankIban,
+                                  bank: einstellungen.bankName,
+                                });
+                                const whatsapp = whatsappLink(charge.tenancy.tenant.phone, text);
+                                return (
+                                  <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
+                                    <span className="text-xs text-amber-700" title={t("Alle offenen Posten dieser Person, inklusive Kaution")}>
+                                      {t("Gesamt offen: {betrag}", { betrag: geld(gesamt) })}
+                                    </span>
+                                    {whatsapp && (
+                                      <a
+                                        href={whatsapp}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        title={t("Gesamtaufstellung per WhatsApp senden")}
+                                      >
+                                        WhatsApp
+                                      </a>
+                                    )}
+                                    <TextKopieren label={t("Alle Rückstände kopieren")} text={text} />
                                   </div>
                                 );
                               })()}

@@ -319,6 +319,10 @@ export async function sendContract(formData: FormData) {
     prisma.tenancy.update({ where: { id: contract.tenancyId }, data: { status: "SENT" } }),
   ]);
 
+  // Ab jetzt zaehlt das Mietverhaeltnis: Miete und Kaution stehen sofort
+  // bei den Mieteingaengen und Kautionen, nicht erst nach der Unterschrift.
+  await ensureRentCharges({ tenancyId: contract.tenancyId });
+
   const settings = await getSettings();
   const mail = contractInviteMail({
     tenantName: data.tenantName,

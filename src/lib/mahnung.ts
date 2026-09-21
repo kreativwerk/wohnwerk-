@@ -89,6 +89,92 @@ export function whatsappLink(telefon: string | null | undefined, text: string): 
   return `https://wa.me/${nummer}?text=${encodeURIComponent(text)}`;
 }
 
+/** Ein offener Posten fuer die Gesamtaufstellung: Monatsmiete oder Kaution. */
+export type OffenerPosten = {
+  art: "RENT" | "DEPOSIT";
+  jahr: number;
+  monat: number;
+  offenCents: number;
+};
+
+export type RueckstandAngaben = {
+  vorname: string;
+  posten: OffenerPosten[];
+  kontoinhaber: string;
+  iban: string;
+  bank?: string | null;
+};
+
+/** Mieten nach Zeit, die Kaution zuletzt - so liest sich die Liste als Verlauf. */
+function sortierePosten(posten: OffenerPosten[]): OffenerPosten[] {
+  return [...posten].sort((a, b) => {
+    if (a.art !== b.art) return a.art === "RENT" ? -1 : 1;
+    return a.jahr * 12 + a.monat - (b.jahr * 12 + b.monat);
+  });
+}
+
+/**
+ * Verwendungszweck fuer mehrere Posten, wieder deutsch fuer den Kontoauszug:
+ * "Miete August 2026, September 2026 + Kaution". Nur Kaution: "Kaution".
+ */
+export function verwendungszweckGesamt(posten: OffenerPosten[]): string {
+  const sortiert = sortierePosten(posten);
+  const monate = sortiert
+    .filter((p) => p.art === "RENT")
+    .map((p) => verwendungszweck(p.jahr, p.monat).replace(/^Miete /, ""));
+  const kaution = sortiert.some((p) => p.art === "DEPOSIT");
+  const teile: string[] = [];
+  if (monate.length > 0) teile.push(`Miete ${monate.join(", ")}`);
+  if (kaution) teile.push("Kaution");
+  return teile.join(" + ");
+}
+
+/**
+ * Gesamtaufstellung aller Rueckstaende - jede offene Miete einzeln, die
+ * Kaution dazu, darunter die Summe. Fuer Mieter, die mehr als einen Monat
+ * hinterher sind: Eine Nachricht statt drei, und der Gesamtbetrag steht
+ * schwarz auf weiss.
+ */
+export function rueckstandAlbanisch(a: RueckstandAngaben): string {
+  const posten = sortierePosten(a.posten).filter((p) => p.offenCents > 0);
+  const summe = posten.reduce((sum, p) => sum + p.offenCents, 0);
+
+  const zeilen = [
+    `Përshëndetje ${a.vorname.trim()},`,
+    "",
+    "sipas të dhënave tona janë ende të papaguara:",
+  ];
+  for (const p of posten) {
+    const monat = MONATE_SQ[p.monat - 1] ?? String(p.monat);
+    zeilen.push(
+      p.art === "DEPOSIT"
+        ? `- Depozita (kaucioni): ${betragSq(p.offenCents)}`
+        : `- Qiraja për ${monat} ${p.jahr}: ${betragSq(p.offenCents)}`,
+    );
+  }
+  zeilen.push(
+    "",
+    `Gjithsej për t'u paguar: ${betragSq(summe)}`,
+    "",
+    `Ju lutemi ta paguani shumën e plotë sa më shpejt. Qiraja duhet të paguhet gjithmonë deri më ${ZAHLTAG} të çdo muaji.`,
+  );
+
+  const iban = a.iban.trim();
+  if (iban) {
+    zeilen.push(
+      "",
+      "Të dhënat e bankës:",
+      `Mbajtësi i llogarisë: ${a.kontoinhaber.trim()}`,
+      `IBAN: ${ibanLesbar(iban)}`,
+    );
+    if (a.bank?.trim()) zeilen.push(`Banka: ${a.bank.trim()}`);
+  }
+  zeilen.push("", `Qëllimi i pagesës: ${verwendungszweckGesamt(posten)}`);
+
+  zeilen.push("", "Faleminderit!", "Wohnwerk");
+  return zeilen.join("\n");
+}
+
 export function mahnungAlbanisch(a: MahnungAngaben): string {
   const monat = MONATE_SQ[a.monat - 1] ?? String(a.monat);
   const zeilen = [

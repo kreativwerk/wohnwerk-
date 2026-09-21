@@ -13,7 +13,7 @@ import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedup
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
-import { ZAHLTAG, ibanLesbar, mahnungAlbanisch, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
+import { ZAHLTAG, ibanLesbar, mahnungAlbanisch, rueckstandAlbanisch, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -587,6 +587,51 @@ async function main() {
     assert.ok(text.includes("janar 2026"));
     assert.ok(text.includes("Qëllimi i pagesës: Miete Januar 2026"), "Zweck auch ohne IBAN");
     assert.equal(ibanLesbar(" DE62 1001 1001 2345 6789 24 "), "DE62 1001 1001 2345 6789 24");
+  });
+
+  await test("Gesamtrückstand listet jede Miete, die Kaution zuletzt, und die Summe", () => {
+    const text = rueckstandAlbanisch({
+      vorname: "Ensar",
+      posten: [
+        { art: "DEPOSIT", jahr: 2026, monat: 8, offenCents: 20000 },
+        { art: "RENT", jahr: 2026, monat: 9, offenCents: 12000 },
+        { art: "RENT", jahr: 2026, monat: 8, offenCents: 35000 },
+        // Nichts mehr offen: taucht nicht auf
+        { art: "RENT", jahr: 2026, monat: 7, offenCents: 0 },
+      ],
+      kontoinhaber: "Wohnwerk Immobilien eGbR",
+      iban: "DE62100110012345678924",
+      bank: "Qonto",
+    });
+    // Intl setzt vor dem Euro-Zeichen ein geschuetztes Leerzeichen - fuer den Vergleich egal.
+    const zeilen = text.replace(/[\u00a0\u202f]/g, " ").split("\n");
+    const listen = zeilen.filter((z) => z.startsWith("- "));
+    assert.deepEqual(listen, [
+      "- Qiraja për gusht 2026: 350,00 €",
+      "- Qiraja për shtator 2026: 120,00 €",
+      "- Depozita (kaucioni): 200,00 €",
+    ]);
+    assert.ok(zeilen.includes("Gjithsej për t'u paguar: 670,00 €"), "Summe");
+    assert.ok(text.includes(`deri më ${ZAHLTAG} të çdo muaji`), "Regel: immer zum 15.");
+    assert.ok(text.includes("IBAN: DE62 1001 1001 2345 6789 24"));
+    assert.ok(text.includes("Qëllimi i pagesës: Miete August 2026, September 2026 + Kaution"), "Zweck gesamt");
+    assert.ok(!text.includes("korrik"), "beglichener Juli fehlt");
+  });
+
+  await test("Verwendungszweck gesamt: nur Kaution, nur Miete, beides", () => {
+    assert.equal(verwendungszweckGesamt([{ art: "DEPOSIT", jahr: 2026, monat: 8, offenCents: 1 }]), "Kaution");
+    assert.equal(
+      verwendungszweckGesamt([{ art: "RENT", jahr: 2026, monat: 9, offenCents: 1 }]),
+      "Miete September 2026",
+    );
+    assert.equal(
+      verwendungszweckGesamt([
+        { art: "RENT", jahr: 2027, monat: 1, offenCents: 1 },
+        { art: "RENT", jahr: 2026, monat: 12, offenCents: 1 },
+        { art: "DEPOSIT", jahr: 2026, monat: 12, offenCents: 1 },
+      ]),
+      "Miete Dezember 2026, Januar 2027 + Kaution",
+    );
   });
 
   await test("WhatsApp-Nummer: Vorwahl erkannt, deutsche Null ergänzt, Kosovo bleibt Kosovo", () => {
