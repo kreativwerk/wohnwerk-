@@ -1,12 +1,17 @@
 /**
- * Zahlungserinnerung auf Albanisch - zum Kopieren in WhatsApp.
+ * Zahlungserinnerung in der Sprache des Mieters - zum Kopieren oder direkt
+ * fuer WhatsApp.
  *
- * Die meisten Monteure schreiben und lesen Albanisch. Eine Erinnerung, die
- * sie ohne Umweg verstehen, wird bezahlt; eine deutsche wird weitergereicht
- * und vergessen. Deshalb entsteht der Text hier fertig, mit Betrag,
- * Monat und Bankverbindung - die Hausverwaltung drückt nur noch Kopieren.
+ * Die Monteure kommen aus Albanien, dem Kosovo, Bulgarien, Rumaenien und
+ * Ungarn; manche lesen Englisch. Eine Erinnerung, die sie ohne Umweg
+ * verstehen, wird bezahlt; eine deutsche wird weitergereicht und
+ * vergessen. Deshalb entsteht der Text hier fertig, mit Betrag, Monat und
+ * Bankverbindung - die Hausverwaltung waehlt die Sprache und drueckt
+ * Kopieren.
  *
- * Reine Funktion ohne Datenbank, damit sie sich testen laesst.
+ * Zwei Texte: die Erinnerung fuer einen Monat und die Gesamtaufstellung
+ * aller Rueckstaende samt Kaution. Reine Funktionen ohne Datenbank, damit
+ * sie sich testen lassen.
  */
 
 /**
@@ -18,6 +23,22 @@
  */
 export const ZAHLTAG = 15;
 
+export const MAHN_SPRACHEN = ["sq", "bg", "ro", "hu", "en"] as const;
+export type MahnSprache = (typeof MAHN_SPRACHEN)[number];
+
+/** Deutsche Namen fuer die Auswahl - werden ueber t() uebersetzt. */
+export const MAHN_SPRACHE_NAME: Record<MahnSprache, string> = {
+  sq: "Albanisch",
+  bg: "Bulgarisch",
+  ro: "Rumänisch",
+  hu: "Ungarisch",
+  en: "Englisch",
+};
+
+export function istMahnSprache(wert: string | undefined | null): wert is MahnSprache {
+  return MAHN_SPRACHEN.includes(wert as MahnSprache);
+}
+
 export type MahnungAngaben = {
   vorname: string;
   jahr: number;
@@ -28,30 +49,55 @@ export type MahnungAngaben = {
   bank?: string | null;
 };
 
+/** Ein offener Posten fuer die Gesamtaufstellung: Monatsmiete oder Kaution. */
+export type OffenerPosten = {
+  art: "RENT" | "DEPOSIT";
+  jahr: number;
+  monat: number;
+  offenCents: number;
+};
+
+export type RueckstandAngaben = {
+  vorname: string;
+  posten: OffenerPosten[];
+  kontoinhaber: string;
+  iban: string;
+  bank?: string | null;
+};
+
 /**
  * Der Verwendungszweck steht auf dem deutschen Kontoauszug - deshalb
- * deutsch, auch wenn die Nachricht albanisch ist: "Miete September 2026".
- * Immer nach diesem Muster, unabhaengig von der Vertragsnummer; so
- * erkennt die Buchhaltung auf einen Blick, welcher Monat gezahlt wurde.
+ * deutsch, in jeder Sprache: "Miete September 2026". Immer nach diesem
+ * Muster, unabhaengig von der Vertragsnummer; so erkennt die Buchhaltung
+ * auf einen Blick, welcher Monat gezahlt wurde.
  */
 export function verwendungszweck(jahr: number, monat: number): string {
   const name = new Intl.DateTimeFormat("de-DE", { month: "long" }).format(new Date(Date.UTC(jahr, monat - 1, 1)));
   return `Miete ${name} ${jahr}`;
 }
 
-const MONATE_SQ = [
-  "janar", "shkurt", "mars", "prill", "maj", "qershor",
-  "korrik", "gusht", "shtator", "tetor", "nëntor", "dhjetor",
-];
+/** Mieten nach Zeit, die Kaution zuletzt - so liest sich die Liste als Verlauf. */
+function sortierePosten(posten: OffenerPosten[]): OffenerPosten[] {
+  return [...posten].sort((a, b) => {
+    if (a.art !== b.art) return a.art === "RENT" ? -1 : 1;
+    return a.jahr * 12 + a.monat - (b.jahr * 12 + b.monat);
+  });
+}
 
-/** "350,00 €" - Komma als Dezimaltrenner ist auch im Albanischen ueblich. */
-function betragSq(cents: number): string {
-  return new Intl.NumberFormat("sq", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents / 100);
+/**
+ * Verwendungszweck fuer mehrere Posten, wieder deutsch fuer den Kontoauszug:
+ * "Miete August 2026, September 2026 + Kaution". Nur Kaution: "Kaution".
+ */
+export function verwendungszweckGesamt(posten: OffenerPosten[]): string {
+  const sortiert = sortierePosten(posten);
+  const monate = sortiert
+    .filter((p) => p.art === "RENT")
+    .map((p) => verwendungszweck(p.jahr, p.monat).replace(/^Miete /, ""));
+  const kaution = sortiert.some((p) => p.art === "DEPOSIT");
+  const teile: string[] = [];
+  if (monate.length > 0) teile.push(`Miete ${monate.join(", ")}`);
+  if (kaution) teile.push("Kaution");
+  return teile.join(" + ");
 }
 
 /** IBAN in Vierergruppen: vom Handybildschirm liest sich DE62 1001 … leichter. */
@@ -89,44 +135,194 @@ export function whatsappLink(telefon: string | null | undefined, text: string): 
   return `https://wa.me/${nummer}?text=${encodeURIComponent(text)}`;
 }
 
-/** Ein offener Posten fuer die Gesamtaufstellung: Monatsmiete oder Kaution. */
-export type OffenerPosten = {
-  art: "RENT" | "DEPOSIT";
-  jahr: number;
-  monat: number;
-  offenCents: number;
-};
+// ---------------------------------------------------------------------------
+// Sprachpakete
+// ---------------------------------------------------------------------------
 
-export type RueckstandAngaben = {
-  vorname: string;
-  posten: OffenerPosten[];
+/** Alles, was sich zwischen den Sprachen unterscheidet - je Sprache ein Paket. */
+type Sprachpaket = {
+  /** Intl-Locale fuer Betrag und Monatsname. */
+  locale: string;
+  /** "September 2026" bzw. "2026. szeptember" - Reihenfolge ist Sache der Sprache. */
+  monatJahr: (monat: string, jahr: number) => string;
+  anrede: (vorname: string) => string;
+  /** Die Monatsmiete fuer X in Hoehe von Y ist noch offen. */
+  einzelOffen: (monatJahr: string, betrag: string) => string;
+  /** Bitte bis zum 15. X zahlen. Die Miete ist immer bis zum 15. faellig. */
+  einzelFrist: (tag: number, monat: string) => string;
+  gesamtEinleitung: string;
+  gesamtMiete: (monatJahr: string, betrag: string) => string;
+  gesamtKaution: (betrag: string) => string;
+  gesamtSumme: (betrag: string) => string;
+  gesamtFrist: (tag: number) => string;
+  bankUeberschrift: string;
   kontoinhaber: string;
-  iban: string;
-  bank?: string | null;
+  bank: string;
+  zweck: string;
+  dank: string;
 };
 
-/** Mieten nach Zeit, die Kaution zuletzt - so liest sich die Liste als Verlauf. */
-function sortierePosten(posten: OffenerPosten[]): OffenerPosten[] {
-  return [...posten].sort((a, b) => {
-    if (a.art !== b.art) return a.art === "RENT" ? -1 : 1;
-    return a.jahr * 12 + a.monat - (b.jahr * 12 + b.monat);
-  });
+const PAKETE: Record<MahnSprache, Sprachpaket> = {
+  sq: {
+    locale: "sq",
+    monatJahr: (m, j) => `${m} ${j}`,
+    anrede: (v) => `Përshëndetje ${v},`,
+    einzelOffen: (mj, b) => `qiraja për ${mj} në shumën prej ${b} është ende e papaguar.`,
+    einzelFrist: (tag, m) =>
+      `Ju lutemi ta paguani deri më ${tag} ${m}. Qiraja duhet të paguhet gjithmonë deri më ${tag} të çdo muaji.`,
+    gesamtEinleitung: "sipas të dhënave tona janë ende të papaguara:",
+    gesamtMiete: (mj, b) => `- Qiraja për ${mj}: ${b}`,
+    gesamtKaution: (b) => `- Depozita (kaucioni): ${b}`,
+    gesamtSumme: (b) => `Gjithsej për t'u paguar: ${b}`,
+    gesamtFrist: (tag) =>
+      `Ju lutemi ta paguani shumën e plotë sa më shpejt. Qiraja duhet të paguhet gjithmonë deri më ${tag} të çdo muaji.`,
+    bankUeberschrift: "Të dhënat e bankës:",
+    kontoinhaber: "Mbajtësi i llogarisë:",
+    bank: "Banka:",
+    zweck: "Qëllimi i pagesës:",
+    dank: "Faleminderit!",
+  },
+  bg: {
+    locale: "bg",
+    monatJahr: (m, j) => `${m} ${j} г.`,
+    anrede: (v) => `Здравейте, ${v},`,
+    einzelOffen: (mj, b) => `наемът за ${mj} в размер на ${b} все още не е платен.`,
+    einzelFrist: (tag, m) =>
+      `Моля, платете до ${tag} ${m}. Наемът трябва винаги да се плаща до ${tag}-о число на всеки месец.`,
+    gesamtEinleitung: "според нашите данни все още не са платени:",
+    gesamtMiete: (mj, b) => `- Наем за ${mj}: ${b}`,
+    gesamtKaution: (b) => `- Депозит (гаранция): ${b}`,
+    gesamtSumme: (b) => `Общо за плащане: ${b}`,
+    gesamtFrist: (tag) =>
+      `Моля, платете цялата сума възможно най-скоро. Наемът трябва винаги да се плаща до ${tag}-о число на всеки месец.`,
+    bankUeberschrift: "Банкови данни:",
+    kontoinhaber: "Титуляр на сметката:",
+    bank: "Банка:",
+    zweck: "Основание за плащане:",
+    dank: "Благодарим!",
+  },
+  ro: {
+    locale: "ro",
+    monatJahr: (m, j) => `${m} ${j}`,
+    anrede: (v) => `Bună ziua, ${v},`,
+    einzelOffen: (mj, b) => `chiria pentru ${mj} în valoare de ${b} este încă neplătită.`,
+    einzelFrist: (tag, m) =>
+      `Vă rugăm să plătiți până la ${tag} ${m}. Chiria trebuie plătită întotdeauna până pe data de ${tag} a fiecărei luni.`,
+    gesamtEinleitung: "conform evidențelor noastre, sunt încă neplătite:",
+    gesamtMiete: (mj, b) => `- Chiria pentru ${mj}: ${b}`,
+    gesamtKaution: (b) => `- Garanția (depozitul): ${b}`,
+    gesamtSumme: (b) => `Total de plată: ${b}`,
+    gesamtFrist: (tag) =>
+      `Vă rugăm să plătiți întreaga sumă cât mai curând. Chiria trebuie plătită întotdeauna până pe data de ${tag} a fiecărei luni.`,
+    bankUeberschrift: "Date bancare:",
+    kontoinhaber: "Titularul contului:",
+    bank: "Banca:",
+    zweck: "Detalii plată:",
+    dank: "Mulțumim!",
+  },
+  hu: {
+    locale: "hu",
+    monatJahr: (m, j) => `${j}. ${m}`,
+    anrede: (v) => `Kedves ${v}!`,
+    einzelOffen: (mj, b) => `A ${mj} havi bérleti díj (${b}) még nincs kifizetve.`,
+    // "15-éig": bis zum 15. - die Endung passt zum Zahltag 15; wer den
+    // Zahltag aendert, prueft die ungarische Endung mit.
+    einzelFrist: (tag, m) =>
+      `Kérjük, fizesse be ${m} ${tag}-éig. A bérleti díjat mindig minden hónap ${tag}-éig kell befizetni.`,
+    gesamtEinleitung: "Nyilvántartásunk szerint még nincs kifizetve:",
+    gesamtMiete: (mj, b) => `- ${mj} havi bérleti díj: ${b}`,
+    gesamtKaution: (b) => `- Kaució (letét): ${b}`,
+    gesamtSumme: (b) => `Fizetendő összesen: ${b}`,
+    gesamtFrist: (tag) =>
+      `Kérjük, a teljes összeget mielőbb fizesse be. A bérleti díjat mindig minden hónap ${tag}-éig kell befizetni.`,
+    bankUeberschrift: "Banki adatok:",
+    kontoinhaber: "Számlatulajdonos:",
+    bank: "Bank:",
+    zweck: "Közlemény:",
+    dank: "Köszönjük!",
+  },
+  en: {
+    locale: "en-GB",
+    monatJahr: (m, j) => `${m} ${j}`,
+    anrede: (v) => `Hello ${v},`,
+    einzelOffen: (mj, b) => `the rent for ${mj} of ${b} is still unpaid.`,
+    einzelFrist: (tag, m) =>
+      `Please pay by ${ordinalEn(tag)} ${m}. Rent must always be paid by the ${ordinalEn(tag)} of each month.`,
+    gesamtEinleitung: "according to our records, the following is still outstanding:",
+    gesamtMiete: (mj, b) => `- Rent for ${mj}: ${b}`,
+    gesamtKaution: (b) => `- Deposit: ${b}`,
+    gesamtSumme: (b) => `Total due: ${b}`,
+    gesamtFrist: (tag) =>
+      `Please pay the full amount as soon as possible. Rent must always be paid by the ${ordinalEn(tag)} of each month.`,
+    bankUeberschrift: "Bank details:",
+    kontoinhaber: "Account holder:",
+    bank: "Bank:",
+    zweck: "Payment reference:",
+    dank: "Thank you!",
+  },
+};
+
+function ordinalEn(n: number): string {
+  const rest = n % 100;
+  if (rest >= 11 && rest <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
 }
 
-/**
- * Verwendungszweck fuer mehrere Posten, wieder deutsch fuer den Kontoauszug:
- * "Miete August 2026, September 2026 + Kaution". Nur Kaution: "Kaution".
- */
-export function verwendungszweckGesamt(posten: OffenerPosten[]): string {
-  const sortiert = sortierePosten(posten);
-  const monate = sortiert
-    .filter((p) => p.art === "RENT")
-    .map((p) => verwendungszweck(p.jahr, p.monat).replace(/^Miete /, ""));
-  const kaution = sortiert.some((p) => p.art === "DEPOSIT");
-  const teile: string[] = [];
-  if (monate.length > 0) teile.push(`Miete ${monate.join(", ")}`);
-  if (kaution) teile.push("Kaution");
-  return teile.join(" + ");
+/** Albanische Monatsnamen von Hand: Intl liefert sie je nach ICU-Stand nicht immer. */
+const MONATE_SQ = [
+  "janar", "shkurt", "mars", "prill", "maj", "qershor",
+  "korrik", "gusht", "shtator", "tetor", "nëntor", "dhjetor",
+];
+
+function monatsname(sprache: MahnSprache, monat: number): string {
+  if (sprache === "sq") return MONATE_SQ[monat - 1] ?? String(monat);
+  return new Intl.DateTimeFormat(PAKETE[sprache].locale, { month: "long" }).format(new Date(Date.UTC(2026, monat - 1, 1)));
+}
+
+/** "350,00 €" bzw. "€350.00" - so, wie die Sprache es gewohnt ist. */
+function betrag(sprache: MahnSprache, cents: number): string {
+  return new Intl.NumberFormat(PAKETE[sprache].locale, {
+    style: "currency",
+    currency: "EUR",
+    // Rumaenisch und Ungarisch schreiben sonst "EUR" statt "€" - das
+    // Zeichen versteht jeder.
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+function bankblock(p: Sprachpaket, kontoinhaber: string, iban: string, bank?: string | null): string[] {
+  const sauber = iban.trim();
+  if (!sauber) return [];
+  const zeilen = ["", p.bankUeberschrift, `${p.kontoinhaber} ${kontoinhaber.trim()}`, `IBAN: ${ibanLesbar(sauber)}`];
+  if (bank?.trim()) zeilen.push(`${p.bank} ${bank.trim()}`);
+  return zeilen;
+}
+
+/** Erinnerung fuer einen Monat in der gewaehlten Sprache. */
+export function mahnungText(sprache: MahnSprache, a: MahnungAngaben): string {
+  const p = PAKETE[sprache];
+  const monat = monatsname(sprache, a.monat);
+  const zeilen = [
+    p.anrede(a.vorname.trim()),
+    "",
+    p.einzelOffen(p.monatJahr(monat, a.jahr), betrag(sprache, a.offenCents)),
+    "",
+    p.einzelFrist(ZAHLTAG, monat),
+    ...bankblock(p, a.kontoinhaber, a.iban, a.bank),
+    "",
+    `${p.zweck} ${verwendungszweck(a.jahr, a.monat)}`,
+    "",
+    p.dank,
+    "Wohnwerk",
+  ];
+  return zeilen.join("\n");
 }
 
 /**
@@ -135,68 +331,39 @@ export function verwendungszweckGesamt(posten: OffenerPosten[]): string {
  * hinterher sind: Eine Nachricht statt drei, und der Gesamtbetrag steht
  * schwarz auf weiss.
  */
-export function rueckstandAlbanisch(a: RueckstandAngaben): string {
-  const posten = sortierePosten(a.posten).filter((p) => p.offenCents > 0);
-  const summe = posten.reduce((sum, p) => sum + p.offenCents, 0);
+export function rueckstandText(sprache: MahnSprache, a: RueckstandAngaben): string {
+  const p = PAKETE[sprache];
+  const posten = sortierePosten(a.posten).filter((x) => x.offenCents > 0);
+  const summe = posten.reduce((sum, x) => sum + x.offenCents, 0);
 
-  const zeilen = [
-    `Përshëndetje ${a.vorname.trim()},`,
-    "",
-    "sipas të dhënave tona janë ende të papaguara:",
-  ];
-  for (const p of posten) {
-    const monat = MONATE_SQ[p.monat - 1] ?? String(p.monat);
+  const zeilen = [p.anrede(a.vorname.trim()), "", p.gesamtEinleitung];
+  for (const x of posten) {
     zeilen.push(
-      p.art === "DEPOSIT"
-        ? `- Depozita (kaucioni): ${betragSq(p.offenCents)}`
-        : `- Qiraja për ${monat} ${p.jahr}: ${betragSq(p.offenCents)}`,
+      x.art === "DEPOSIT"
+        ? p.gesamtKaution(betrag(sprache, x.offenCents))
+        : p.gesamtMiete(p.monatJahr(monatsname(sprache, x.monat), x.jahr), betrag(sprache, x.offenCents)),
     );
   }
   zeilen.push(
     "",
-    `Gjithsej për t'u paguar: ${betragSq(summe)}`,
+    p.gesamtSumme(betrag(sprache, summe)),
     "",
-    `Ju lutemi ta paguani shumën e plotë sa më shpejt. Qiraja duhet të paguhet gjithmonë deri më ${ZAHLTAG} të çdo muaji.`,
+    p.gesamtFrist(ZAHLTAG),
+    ...bankblock(p, a.kontoinhaber, a.iban, a.bank),
+    "",
+    `${p.zweck} ${verwendungszweckGesamt(posten)}`,
+    "",
+    p.dank,
+    "Wohnwerk",
   );
-
-  const iban = a.iban.trim();
-  if (iban) {
-    zeilen.push(
-      "",
-      "Të dhënat e bankës:",
-      `Mbajtësi i llogarisë: ${a.kontoinhaber.trim()}`,
-      `IBAN: ${ibanLesbar(iban)}`,
-    );
-    if (a.bank?.trim()) zeilen.push(`Banka: ${a.bank.trim()}`);
-  }
-  zeilen.push("", `Qëllimi i pagesës: ${verwendungszweckGesamt(posten)}`);
-
-  zeilen.push("", "Faleminderit!", "Wohnwerk");
   return zeilen.join("\n");
 }
 
+/** Albanisch ist die Vorgabe - die meisten Bewohner kommen aus dem Kosovo und Albanien. */
 export function mahnungAlbanisch(a: MahnungAngaben): string {
-  const monat = MONATE_SQ[a.monat - 1] ?? String(a.monat);
-  const zeilen = [
-    `Përshëndetje ${a.vorname.trim()},`,
-    "",
-    `qiraja për ${monat} ${a.jahr} në shumën prej ${betragSq(a.offenCents)} është ende e papaguar.`,
-    "",
-    `Ju lutemi ta paguani deri më ${ZAHLTAG} ${monat}. Qiraja duhet të paguhet gjithmonë deri më ${ZAHLTAG} të çdo muaji.`,
-  ];
+  return mahnungText("sq", a);
+}
 
-  const iban = a.iban.trim();
-  if (iban) {
-    zeilen.push(
-      "",
-      "Të dhënat e bankës:",
-      `Mbajtësi i llogarisë: ${a.kontoinhaber.trim()}`,
-      `IBAN: ${ibanLesbar(iban)}`,
-    );
-    if (a.bank?.trim()) zeilen.push(`Banka: ${a.bank.trim()}`);
-  }
-  zeilen.push("", `Qëllimi i pagesës: ${verwendungszweck(a.jahr, a.monat)}`);
-
-  zeilen.push("", "Faleminderit!", "Wohnwerk");
-  return zeilen.join("\n");
+export function rueckstandAlbanisch(a: RueckstandAngaben): string {
+  return rueckstandText("sq", a);
 }

@@ -956,11 +956,17 @@ export const WOERTERBUCH_EN: Record<string, string> = {
 
   // --- Zahlungserinnerung -------------------------------------------------
   "Erinnerung kopieren (Albanisch)": "Copy reminder (Albanian)",
-  "Kopieren (Albanisch)": "Copy (Albanian)",
   "Alle offenen Posten dieser Person, inklusive Kaution": "Everything this person still owes, including the deposit",
   "Gesamt offen: {betrag}": "Total outstanding: {betrag}",
   "Gesamtaufstellung per WhatsApp senden": "Send the full statement via WhatsApp",
   "Alle Rückstände kopieren": "Copy all arrears",
+  "Erinnerung auf": "Reminder in",
+  "Kopieren ({sprache})": "Copy ({sprache})",
+  "Albanisch": "Albanian",
+  "Bulgarisch": "Bulgarian",
+  "Rumänisch": "Romanian",
+  "Ungarisch": "Hungarian",
+  "Englisch": "English",
   "{anzahl} Bewohner ohne Mietforderung für {monat}": "{anzahl} resident(s) without a rent charge for {monat}",
   "Vertragsentwurf, noch nicht versendet": "Contract draft, not sent yet",
   "Ein Entwurf bekommt seine Forderungen, sobald der Vertrag versendet ist.": "A draft gets its charges as soon as the contract has been sent.",

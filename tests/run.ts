@@ -13,7 +13,7 @@ import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedup
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
-import { ZAHLTAG, ibanLesbar, mahnungAlbanisch, rueckstandAlbanisch, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
+import { MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -632,6 +632,51 @@ async function main() {
       ]),
       "Miete Dezember 2026, Januar 2027 + Kaution",
     );
+  });
+
+  await test("Erinnerung in fünf Sprachen: Monat, Betrag, Zahltag und deutscher Zweck überall", () => {
+    const angaben = { vorname: "Arben", jahr: 2026, monat: 9, offenCents: 47000, kontoinhaber: "Wohnwerk", iban: "DE62100110012345678924" };
+    const erwartet: Record<string, { monat: string; betrag: string; frist: string }> = {
+      sq: { monat: "shtator 2026", betrag: "470,00 €", frist: "deri më 15 shtator" },
+      bg: { monat: "септември 2026 г.", betrag: "470,00 €", frist: "до 15 септември" },
+      ro: { monat: "septembrie 2026", betrag: "470,00 €", frist: "până la 15 septembrie" },
+      hu: { monat: "2026. szeptember", betrag: "470,00 €", frist: "szeptember 15-éig" },
+      en: { monat: "September 2026", betrag: "€470.00", frist: "by 15th September" },
+    };
+    assert.deepEqual([...MAHN_SPRACHEN], Object.keys(erwartet));
+    for (const sprache of MAHN_SPRACHEN) {
+      const text = mahnungText(sprache, angaben).replace(/[\u00a0\u202f]/g, " ");
+      const e = erwartet[sprache];
+      assert.ok(text.includes(e.monat), `${sprache}: Monat "${e.monat}"`);
+      assert.ok(text.includes(e.betrag), `${sprache}: Betrag "${e.betrag}"`);
+      assert.ok(text.includes(e.frist), `${sprache}: Frist "${e.frist}"`);
+      assert.ok(text.includes("IBAN: DE62 1001 1001 2345 6789 24"), `${sprache}: IBAN`);
+      // Der Zweck bleibt deutsch - er landet auf dem deutschen Kontoauszug.
+      assert.ok(text.includes("Miete September 2026"), `${sprache}: Zweck`);
+      assert.ok(text.trimEnd().endsWith("Wohnwerk"), `${sprache}: Absender`);
+      assert.ok(!text.includes("undefined"), `${sprache}: kein undefined`);
+    }
+    assert.ok(istMahnSprache("bg"));
+    assert.ok(!istMahnSprache("de"));
+    assert.ok(!istMahnSprache(undefined));
+  });
+
+  await test("Gesamtaufstellung in fünf Sprachen: drei Posten, Summe, Kaution zuletzt", () => {
+    const posten = [
+      { art: "DEPOSIT" as const, jahr: 2026, monat: 8, offenCents: 20000 },
+      { art: "RENT" as const, jahr: 2026, monat: 9, offenCents: 47000 },
+      { art: "RENT" as const, jahr: 2026, monat: 8, offenCents: 35000 },
+    ];
+    const summe: Record<string, string> = { sq: "1020,00 €", bg: "1020,00 €", ro: "1.020,00 €", hu: "1020,00 €", en: "€1,020.00" };
+    for (const sprache of MAHN_SPRACHEN) {
+      const text = rueckstandText(sprache, { vorname: "Arben", posten, kontoinhaber: "Wohnwerk", iban: "" }).replace(/[\u00a0\u202f]/g, " ");
+      const listen = text.split("\n").filter((z) => z.startsWith("- "));
+      assert.equal(listen.length, 3, `${sprache}: drei Posten`);
+      assert.ok(listen[2].includes("200,00 €") || listen[2].includes("€200.00"), `${sprache}: Kaution zuletzt`);
+      assert.ok(text.includes(summe[sprache]), `${sprache}: Summe ${summe[sprache]}`);
+      assert.ok(text.includes("Miete August 2026, September 2026 + Kaution"), `${sprache}: Zweck`);
+      assert.ok(!text.includes("IBAN"), `${sprache}: ohne IBAN kein Bankblock`);
+    }
   });
 
   await test("WhatsApp-Nummer: Vorwahl erkannt, deutsche Null ergänzt, Kosovo bleibt Kosovo", () => {
