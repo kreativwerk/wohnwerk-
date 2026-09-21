@@ -654,6 +654,10 @@ async function main() {
       // Der Zweck bleibt deutsch - er landet auf dem deutschen Kontoauszug.
       assert.ok(text.includes("Miete September 2026"), `${sprache}: Zweck`);
       assert.ok(text.trimEnd().endsWith("Wohnwerk"), `${sprache}: Absender`);
+      // Der Hinweis auf den Vorschuss steht unten, nach dem Zweck und vor dem Dank.
+      const zweckZeile = text.split("\n").findIndex((z) => z.includes("Miete September 2026"));
+      const dankZeile = text.split("\n").length - 2;
+      assert.ok(dankZeile - zweckZeile === 4, `${sprache}: Vorschuss-Hinweis zwischen Zweck und Dank`);
       assert.ok(!text.includes("undefined"), `${sprache}: kein undefined`);
     }
     assert.ok(istMahnSprache("bg"));
