@@ -959,6 +959,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Gesamt offen: {betrag}": "Total outstanding: {betrag}",
   "Nachricht": "Message",
   "Nachricht an {name}": "Message to {name}",
+  "Nachricht gesendet am {zeitpunkt}": "Message sent on {zeitpunkt}",
+  "kopiert": "copied",
   "Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp": "Payment reminder with everything outstanding, to copy or send via WhatsApp",
   "alle offenen Monate und die Kaution in einer Nachricht": "all open months and the deposit in one message",
   "Text anzeigen": "Show text",

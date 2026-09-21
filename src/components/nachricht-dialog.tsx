@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChatCircleText, Copy, X } from "@phosphor-icons/react/dist/ssr";
+
+import { vermerkeNachricht } from "@/app/actions/erinnerungen";
 
 import { useOberflaeche } from "./sprache-kontext";
 
@@ -23,19 +26,28 @@ export type NachrichtVariante = {
  * bekommt einen Text mit der Summe, nicht zwei Erinnerungen.
  */
 export function NachrichtDialog({
+  tenantId,
   name,
   gesamt,
+  gesamtCents,
   varianten,
   telefonFehlt,
+  zuletzt,
 }: {
+  tenantId: string;
   name: string;
   gesamt: string;
+  gesamtCents: number;
   varianten: NachrichtVariante[];
   /** Link zur Person, falls keine Telefonnummer hinterlegt ist. */
   telefonFehlt?: string | null;
+  /** Letzter Versand, fertig formatiert - oder null, wenn noch nie. */
+  zuletzt?: string | null;
 }) {
-  const { t } = useOberflaeche();
+  const { t, datumZeit } = useOberflaeche();
+  const router = useRouter();
   const [offen, setOffen] = useState(false);
+  const [gesendet, setGesendet] = useState<string | null>(zuletzt ?? null);
   const [gewaehlt, setGewaehlt] = useState(varianten[0]?.code ?? "");
   const [kopiert, setKopiert] = useState<string | null>(null);
   const [manuell, setManuell] = useState(false);
@@ -62,12 +74,24 @@ export function NachrichtDialog({
 
   const aktuell = varianten.find((v) => v.code === gewaehlt) ?? varianten[0];
 
+  /** Versand festhalten - die Zeile zeigt danach "Nachricht gesendet am ...". */
+  async function vermerken(v: NachrichtVariante, kanal: "WHATSAPP" | "COPY") {
+    try {
+      const { sentAt } = await vermerkeNachricht({ tenantId, kanal, sprache: v.code, betragCents: gesamtCents });
+      setGesendet(`${datumZeit(new Date(sentAt))} (${t(v.sprache)}, ${kanal === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`);
+      router.refresh();
+    } catch {
+      // Der Vermerk ist Komfort - scheitert er, bleibt die Nachricht trotzdem kopiert.
+    }
+  }
+
   async function kopieren(v: NachrichtVariante) {
     setGewaehlt(v.code);
     try {
       await navigator.clipboard.writeText(v.text);
       setKopiert(v.code);
       setManuell(false);
+      void vermerken(v, "COPY");
     } catch {
       // Zwischenablage verweigert (http, alte WebViews): Text zum
       // Markieren anzeigen, statt stumm zu bleiben.
@@ -77,15 +101,22 @@ export function NachrichtDialog({
 
   return (
     <>
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm whitespace-nowrap"
-        onClick={() => setOffen(true)}
-        title={t("Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp")}
-      >
-        <ChatCircleText size={15} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
-        {t("Nachricht")}
-      </button>
+      <div className="inline-flex flex-col items-end gap-0.5">
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm whitespace-nowrap"
+          onClick={() => setOffen(true)}
+          title={t("Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp")}
+        >
+          <ChatCircleText size={15} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
+          {t("Nachricht")}
+        </button>
+        {gesendet && (
+          <span className="text-right text-[0.7rem] leading-tight text-emerald-700">
+            {t("Nachricht gesendet am {zeitpunkt}", { zeitpunkt: gesendet })}
+          </span>
+        )}
+      </div>
 
       {offen && (
         <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label={t("Nachricht an {name}", { name })}>
@@ -106,6 +137,11 @@ export function NachrichtDialog({
                 <p className="mt-0.5 text-[0.8rem] leading-relaxed text-ink-500">
                   {t("Gesamt offen: {betrag}", { betrag: gesamt })} · {t("alle offenen Monate und die Kaution in einer Nachricht")}
                 </p>
+                {gesendet && (
+                  <p className="mt-1 text-[0.8rem] font-medium text-emerald-700">
+                    {t("Nachricht gesendet am {zeitpunkt}", { zeitpunkt: gesendet })}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -137,7 +173,13 @@ export function NachrichtDialog({
                       {kopiert === v.code ? t("Kopiert") : t("Kopieren")}
                     </button>
                     {v.whatsapp && (
-                      <a href={v.whatsapp} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                      <a
+                        href={v.whatsapp}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void vermerken(v, "WHATSAPP")}
+                      >
                         WhatsApp
                       </a>
                     )}

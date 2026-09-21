@@ -207,6 +207,7 @@ model Tenant {
   tenancies Tenancy[]
   documents Document[]
   tickets   Ticket[]
+  reminders ReminderLog[]
 
   @@index([lastName])
   @@index([email])
@@ -570,6 +571,24 @@ model User {
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// Zahlungserinnerungen: wann wurde wem eine Nachricht geschickt?
+// ---------------------------------------------------------------------------
+
+model ReminderLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  sentAt      DateTime @default(now())
+  channel     String   // WHATSAPP | COPY
+  language    String   // sq | bg | ro | hu | en
+  amountCents Int      // Gesamtforderung zum Zeitpunkt der Nachricht
+  actor       String   // E-Mail der Hausverwaltung
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sentAt])
 }
 
 model AuditLog {

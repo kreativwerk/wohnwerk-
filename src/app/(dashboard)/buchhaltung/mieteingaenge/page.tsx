@@ -45,7 +45,7 @@ export default async function RentIncomePage({
 }: {
   searchParams: Promise<{ ok?: string; fehler?: string; monat?: string }>;
 }) {
-  const { t, datum, monat, geld } = await oberflaeche();
+  const { t, datum, datumZeit, monat, geld } = await oberflaeche();
   const params = await searchParams;
   const { year, month } = parseMonat(params.monat);
   const seite = (jahr: number, mon: number) => `/buchhaltung/mieteingaenge?monat=${monatsWert(jahr, mon)}`;
@@ -121,6 +121,22 @@ export default async function RentIncomePage({
   }
   // Je Mieter nur einmal, an der ersten offenen Zeile.
   const gesamtGezeigt = new Set<string>();
+
+  // Letzter Versand je Mieter - "Nachricht gesendet am ..." unter dem Knopf.
+  const letzteNachrichten = tenantIds.length === 0
+    ? []
+    : await prisma.reminderLog.findMany({
+        where: { tenantId: { in: tenantIds } },
+        orderBy: { sentAt: "desc" },
+        distinct: ["tenantId"],
+        select: { tenantId: true, sentAt: true, language: true, channel: true },
+      });
+  const zuletztGesendet = new Map(
+    letzteNachrichten.map((n) => [
+      n.tenantId,
+      `${datumZeit(n.sentAt)} (${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
+    ]),
+  );
 
   charges.sort((a, b) => {
     const pa = a.tenancy.bed.room.property.name;
@@ -427,10 +443,13 @@ export default async function RentIncomePage({
                                       </span>
                                     )}
                                     <NachrichtDialog
+                                      tenantId={charge.tenancy.tenantId}
                                       name={`${charge.tenancy.tenant.firstName} ${charge.tenancy.tenant.lastName}`}
                                       gesamt={geld(gesamt)}
+                                      gesamtCents={gesamt}
                                       varianten={varianten}
                                       telefonFehlt={`/mieter/${charge.tenancy.tenantId}`}
+                                      zuletzt={zuletztGesendet.get(charge.tenancy.tenantId) ?? null}
                                     />
                                   </div>
                                 );

@@ -23,7 +23,9 @@ function formatierer(locale: Locale, optionen: Intl.DateTimeFormatOptions): Intl
 }
 
 const TAG = { day: "2-digit", month: "2-digit", year: "numeric" } as const;
-const TAG_ZEIT = { ...TAG, hour: "2-digit", minute: "2-digit" } as const;
+// Uhrzeiten immer in deutscher Zeit: Der Server laeuft in UTC, die
+// Hausverwaltung sitzt in Erlangen - "13:52" soll 13:52 in Erlangen sein.
+const TAG_ZEIT = { ...TAG, hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" } as const;
 const MONAT = { month: "long", year: "numeric" } as const;
 
 export function formatDate(d: Date | string | null | undefined, locale: Locale = "de-DE"): string {
