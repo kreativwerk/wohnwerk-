@@ -943,6 +943,18 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.":
     "With country code, e.g. +49 151 2345678 - used for the WhatsApp link on rent payments.",
 
+  // --- Kontaktliste ---------------------------------------------------------
+  "Kontakte": "Contacts",
+  "Name, Telefon und private E-Mail aller Mieter – direkt in der Zeile ändern. Nichts davon ist Pflicht.":
+    "Name, phone and private email of every tenant - edit right in the row. None of it is required.",
+  "Nur aktive Mieter": "Active tenants only",
+  "Auch ehemalige Mieter": "Include former tenants",
+  "{anzahl} von {gesamt} Mietern haben noch keine Telefonnummer – ohne sie gibt es bei den Mieteingängen keinen WhatsApp-Link.":
+    "{anzahl} of {gesamt} tenants have no phone number yet - without one there is no WhatsApp link on rent payments.",
+  "E-Mail privat": "Private email",
+  "Kein Bett": "No bed",
+  "Kontakt von {name} gespeichert.": "Contact details for {name} saved.",
+
   // --- Kautionen ------------------------------------------------------------
   "Kautionen": "Deposits",
   "Einmalig zum Einzug fällig. Hier steht, welche Kaution eingegangen ist und welche noch fehlt.":

@@ -28,6 +28,7 @@ function tenantData(formData: FormData) {
     lastName: str(formData, "lastName"),
     email: str(formData, "email").toLowerCase(),
     phone: optionalStr(formData, "phone"),
+    privateEmail: optionalStr(formData, "privateEmail")?.toLowerCase() ?? null,
     company: optionalStr(formData, "company"),
     companyVatId: optionalStr(formData, "companyVatId"),
     companyStreet: optionalStr(formData, "companyStreet"),
@@ -141,6 +142,43 @@ export async function updateTenant(formData: FormData) {
 
   refresh(id);
   redirect(flash(`/mieter/${id}`, "ok", t("Mieterdaten wurden gespeichert.")));
+}
+
+/**
+ * Kontaktdaten aus der Kontaktliste - eine Zeile je Mieter.
+ *
+ * Alles freiwillig: ein leeres Namensfeld laesst den Namen stehen, statt
+ * ihn zu loeschen; leeres Telefon oder leere private E-Mail entfernen den
+ * Eintrag bewusst. Die Vertrags-E-Mail wird hier nicht angefasst.
+ */
+export async function updateTenantContact(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = str(formData, "back") || "/mieter/kontakte";
+
+  const tenant = await prisma.tenant.findUnique({ where: { id }, select: { firstName: true, lastName: true } });
+  if (!tenant) redirect(flash(back, "fehler", t("Mieter nicht gefunden.")));
+
+  const privateEmail = optionalStr(formData, "privateEmail")?.toLowerCase() ?? null;
+  if (privateEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(privateEmail)) {
+    redirect(flash(back, "fehler", t("Bitte eine gültige E-Mail-Adresse angeben.")));
+  }
+
+  await prisma.tenant.update({
+    where: { id },
+    data: {
+      firstName: str(formData, "firstName") || tenant.firstName,
+      lastName: str(formData, "lastName") || tenant.lastName,
+      phone: optionalStr(formData, "phone"),
+      privateEmail,
+    },
+  });
+  await audit(user.email, "update-contact", "Tenant", id);
+
+  refresh(id);
+  revalidatePath("/buchhaltung/mieteingaenge");
+  redirect(flash(back, "ok", t("Kontakt von {name} gespeichert.", { name: `${str(formData, "firstName") || tenant.firstName} ${str(formData, "lastName") || tenant.lastName}`.trim() })));
 }
 
 export async function deleteTenant(formData: FormData) {

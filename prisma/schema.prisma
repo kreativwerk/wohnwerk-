@@ -173,6 +173,9 @@ model Tenant {
   lastName  String
   email     String
   phone     String?
+  /// Private Adresse des Monteurs - `email` ist oft die der Firma, an die
+  /// der Vertragslink geht. Freiwillig, gepflegt ueber die Kontaktliste.
+  privateEmail String?
 
   // Auftraggeber / Entsendefirma des Monteurs
   company       String?

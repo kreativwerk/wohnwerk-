@@ -64,9 +64,14 @@ export default async function TenantsPage({
         title={t("Mieter")}
         description={t("Monteure und Mitarbeiter mit ihren Mietverhältnissen.")}
         actions={
-          <Link href="/mieter/neu" className="btn btn-primary">
-            {t("Neuer Mieter")}
-          </Link>
+          <>
+            <Link href="/mieter/kontakte" className="btn btn-secondary">
+              {t("Kontakte")}
+            </Link>
+            <Link href="/mieter/neu" className="btn btn-primary">
+              {t("Neuer Mieter")}
+            </Link>
+          </>
         }
       />
 

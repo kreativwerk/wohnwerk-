@@ -455,6 +455,10 @@ export default async function TenantDetailPage({
                 <input id="email" name="email" type="email" defaultValue={tenant.email} />
               </div>
               <div>
+                <label htmlFor="privateEmail">{t("E-Mail privat")}</label>
+                <input id="privateEmail" name="privateEmail" type="email" defaultValue={tenant.privateEmail ?? ""} />
+              </div>
+              <div>
                 <label htmlFor="phone">{t("Telefon")}</label>
                 <input id="phone" name="phone" type="tel" defaultValue={tenant.phone ?? ""} />
                 <p className="field-hint">
