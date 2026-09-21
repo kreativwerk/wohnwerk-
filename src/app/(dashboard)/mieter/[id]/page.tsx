@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createTenancy, deleteTenant, endTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
+import { createTenancy, deleteTenancy, deleteTenant, endTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
@@ -342,6 +342,27 @@ export default async function TenantDetailPage({
                         </form>
                       </Disclosure>
                     )}
+
+                    {/* Falsch platziert? Solange nichts unterschrieben und
+                        nichts bezahlt ist, darf das Mietverhaeltnis weg. */}
+                    {(tenancy.status === "DRAFT" || tenancy.status === "SENT") &&
+                      tenancy.contract?.status !== "SIGNED" &&
+                      !tenancy.charges.some((c) => c.status === "PAID" || c.allocations.length > 0) && (
+                        <Disclosure summary={t("Mietverhältnis löschen")}>
+                          <form action={deleteTenancy} className="flex flex-wrap items-center gap-3">
+                            <input type="hidden" name="id" value={tenancy.id} />
+                            <p className="text-sm text-ink-600">
+                              {t("Für Versehen: falsches Bett oder falsche Person. Vertragsentwurf und offene Forderungen werden mit entfernt, das Bett ist danach wieder frei.")}
+                            </p>
+                            <ConfirmButton
+                              message={t("Mietverhältnis {bett} wirklich löschen? Vertragsentwurf und Forderungen gehen mit.", { bett: `${tenancy.bed.room.name} · ${tenancy.bed.label}` })}
+                              className="btn btn-danger"
+                            >
+                              {t("Löschen")}
+                            </ConfirmButton>
+                          </form>
+                        </Disclosure>
+                      )}
 
                     {tenancy.charges.length > 0 && (
                       <Disclosure summary={`Mietkonto (${tenancy.charges.length} Monate)`}>

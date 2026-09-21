@@ -466,6 +466,16 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mieter zur Auswahl": "tenants to choose from",
   "Mietverhältnis bearbeiten": "Edit tenancy",
   "Mietverhältnis beenden": "End tenancy",
+  "Mietverhältnis löschen": "Delete tenancy",
+  "Für Versehen: falsches Bett oder falsche Person. Vertragsentwurf und offene Forderungen werden mit entfernt, das Bett ist danach wieder frei.":
+    "For mistakes: wrong bed or wrong person. The contract draft and open charges are removed with it, and the bed is free again afterwards.",
+  "Mietverhältnis {bett} wirklich löschen? Vertragsentwurf und Forderungen gehen mit.":
+    "Really delete the tenancy {bett}? The contract draft and charges go with it.",
+  "Der Vertrag ist unterschrieben – ein solches Mietverhältnis wird beendet, nicht gelöscht.":
+    "The contract is signed. A tenancy like this is ended, not deleted.",
+  "Zu diesem Mietverhältnis sind schon Zahlungen verbucht – bitte beenden statt löschen.":
+    "Payments have already been recorded for this tenancy. Please end it instead of deleting it.",
+  "Mietverhältnis gelöscht. Das Bett {bett} ist wieder frei.": "Tenancy deleted. Bed {bett} is free again.",
   "Mietverhältnis wirklich beenden? Das Bett wird danach wieder als frei geführt.": "Really end this tenancy? The bed will be listed as free again.",
   "Mietverhältnisse": "Tenancies",
   "Mietverhältnisse mit festem Ende": "Tenancies with a fixed end",

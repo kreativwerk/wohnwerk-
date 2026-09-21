@@ -365,6 +365,45 @@ export async function setTenancyDeposit(formData: FormData) {
   );
 }
 
+/**
+ * Loescht ein Mietverhaeltnis, das versehentlich angelegt wurde - falsches
+ * Bett, falsche Person. Geht nur, solange nichts Verbindliches dranhaengt:
+ * kein unterschriebener Vertrag, keine verbuchte Zahlung. Alles andere
+ * ist kein Versehen mehr, sondern Geschichte - dafuer gibt es "Beenden".
+ * Vertrag und Forderungen gehen per Kaskade mit.
+ */
+export async function deleteTenancy(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id },
+    include: {
+      contract: { select: { status: true } },
+      charges: { select: { status: true, allocations: { select: { id: true } } } },
+      bed: { select: { label: true, room: { select: { name: true } } } },
+    },
+  });
+  if (!tenancy) redirect(flash("/mieter", "fehler", t("Mietverhältnis nicht gefunden.")));
+  const back = `/mieter/${tenancy.tenantId}`;
+
+  if (tenancy.contract?.status === "SIGNED") {
+    redirect(flash(back, "fehler", t("Der Vertrag ist unterschrieben – ein solches Mietverhältnis wird beendet, nicht gelöscht.")));
+  }
+  const verbucht = tenancy.charges.some((c) => c.status === "PAID" || c.allocations.length > 0);
+  if (verbucht) {
+    redirect(flash(back, "fehler", t("Zu diesem Mietverhältnis sind schon Zahlungen verbucht – bitte beenden statt löschen.")));
+  }
+
+  await prisma.tenancy.delete({ where: { id } });
+  await audit(user.email, "delete", "Tenancy", id, `${tenancy.bed.room.name} · ${tenancy.bed.label}`);
+  refresh(tenancy.tenantId);
+  revalidatePath("/buchhaltung/mieteingaenge");
+  revalidatePath("/buchhaltung/kautionen");
+  redirect(flash(back, "ok", t("Mietverhältnis gelöscht. Das Bett {bett} ist wieder frei.", { bett: `${tenancy.bed.room.name} · ${tenancy.bed.label}` })));
+}
+
 /** Beendet ein Mietverhaeltnis zum angegebenen Datum. */
 export async function endTenancy(formData: FormData) {
   const user = await requireAdmin();
