@@ -366,6 +366,59 @@ export async function setTenancyDeposit(formData: FormData) {
 }
 
 /**
+ * Umzug in ein anderes Bett - auch in eine andere Wohnung oder ein anderes
+ * Objekt. Das Mietverhaeltnis bleibt, wie es ist: Beginn, Miete, Kaution,
+ * Vertrag, Forderungen und Verwendungszweck aendern sich nicht. Es wechselt
+ * nur der Schlafplatz - so, wie es in der Praxis passiert, wenn jemand
+ * intern umzieht oder beim Anlegen das falsche Bett gewaehlt wurde.
+ */
+export async function moveTenancy(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const bedId = str(formData, "bedId");
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id },
+    include: { bed: { include: { room: true } } },
+  });
+  if (!tenancy) redirect(flash("/mieter", "fehler", t("Mietverhältnis nicht gefunden.")));
+  const back = `/mieter/${tenancy.tenantId}`;
+
+  if (!bedId) redirect(flash(back, "fehler", t("Bitte ein Bett wählen.")));
+  if (bedId === tenancy.bedId) redirect(flash(back, "fehler", t("Das ist bereits das aktuelle Bett.")));
+
+  const bed = await prisma.bed.findUnique({ where: { id: bedId }, include: { room: true } });
+  if (!bed) redirect(flash(back, "fehler", t("Bett nicht gefunden.")));
+  if (bed.status === "BLOCKED") redirect(flash(back, "fehler", t("Dieses Bett ist gesperrt.")));
+
+  const conflict = await findConflictingTenancy({
+    bedId,
+    startDate: tenancy.startDate,
+    endDate: tenancy.endDate,
+    excludeTenancyId: id,
+  });
+  if (conflict) {
+    redirect(
+      flash(
+        back,
+        "fehler",
+        t("Das Bett ist im Zeitraum bereits belegt: {name}.", {
+          name: `${conflict.tenant.firstName} ${conflict.tenant.lastName}`,
+        }),
+      ),
+    );
+  }
+
+  const vorher = `${tenancy.bed.room.name} · ${tenancy.bed.label}`;
+  const nachher = `${bed.room.name} · ${bed.label}`;
+  await prisma.tenancy.update({ where: { id }, data: { bedId } });
+  await audit(user.email, "move", "Tenancy", id, `${vorher} → ${nachher}`);
+  refresh(tenancy.tenantId);
+  redirect(flash(back, "ok", t("Umgezogen: {vorher} → {nachher}. Vertrag und Forderungen bleiben unverändert.", { vorher, nachher })));
+}
+
+/**
  * Loescht ein Mietverhaeltnis, das versehentlich angelegt wurde - falsches
  * Bett, falsche Person. Geht nur, solange nichts Verbindliches dranhaengt:
  * kein unterschriebener Vertrag, keine verbuchte Zahlung. Alles andere

@@ -467,6 +467,17 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis bearbeiten": "Edit tenancy",
   "Mietverhältnis beenden": "End tenancy",
   "Mietverhältnis löschen": "Delete tenancy",
+  "Bett wechseln": "Change bed",
+  "Umzug in ein anderes Bett, auch in eine andere Wohnung. Beginn, Miete, Kaution, Vertrag und Forderungen bleiben unverändert.":
+    "Move to another bed, even in another flat. Start date, rent, deposit, contract and charges stay unchanged.",
+  "Umziehen": "Move",
+  "Bitte ein Bett wählen.": "Please choose a bed.",
+  "Das ist bereits das aktuelle Bett.": "That is already the current bed.",
+  "Bett nicht gefunden.": "Bed not found.",
+  "Dieses Bett ist gesperrt.": "This bed is blocked.",
+  "Das Bett ist im Zeitraum bereits belegt: {name}.": "The bed is already taken in that period: {name}.",
+  "Umgezogen: {vorher} → {nachher}. Vertrag und Forderungen bleiben unverändert.":
+    "Moved: {vorher} → {nachher}. Contract and charges stay unchanged.",
   "Für Versehen: falsches Bett oder falsche Person. Vertragsentwurf und offene Forderungen werden mit entfernt, das Bett ist danach wieder frei.":
     "For mistakes: wrong bed or wrong person. The contract draft and open charges are removed with it, and the bed is free again afterwards.",
   "Mietverhältnis {bett} wirklich löschen? Vertragsentwurf und Forderungen gehen mit.":

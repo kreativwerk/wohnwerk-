@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createTenancy, deleteTenancy, deleteTenant, endTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
+import { createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
@@ -319,6 +319,23 @@ export default async function TenantDetailPage({
                         </div>
                       </form>
                     </Disclosure>
+
+                    {/* Anderes Bett, gleiche Konditionen: nur der Schlafplatz
+                        wechselt, Vertrag und Forderungen bleiben. */}
+                    {tenancy.status !== "ENDED" && tenancy.status !== "CANCELLED" && (
+                      <Disclosure summary={t("Bett wechseln")}>
+                        <form action={moveTenancy} className="space-y-3">
+                          <input type="hidden" name="id" value={tenancy.id} />
+                          <p className="text-sm text-ink-600">
+                            {t("Umzug in ein anderes Bett, auch in eine andere Wohnung. Beginn, Miete, Kaution, Vertrag und Forderungen bleiben unverändert.")}
+                          </p>
+                          <BedPicker beds={beds} required rentFieldId="" idPrefix={`wechsel-${tenancy.id}-`} />
+                          <button type="submit" className="btn btn-secondary">
+                            {t("Umziehen")}
+                          </button>
+                        </form>
+                      </Disclosure>
+                    )}
 
                     {tenancy.status !== "ENDED" && tenancy.status !== "CANCELLED" && (
                       <Disclosure summary={t("Mietverhältnis beenden")}>
