@@ -14,6 +14,7 @@ import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
 import { MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
+import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -547,6 +548,34 @@ async function main() {
     assert.equal(kontextText({ seite: "/mieter" }), "Seite: /mieter");
     assert.equal(kontextText({ seite: "", fenster: null }), null);
     assert.equal(kontextText({}), null);
+  });
+
+  console.log("\nMonatsanteil");
+
+  await test("Voller Monat, Einzugsmonat und Auszugsmonat werden tageweise berechnet", () => {
+    const melos = { startDate: new Date("2026-06-17T00:00:00Z"), endDate: new Date("2026-09-24T00:00:00Z"), monthlyRentCents: 47000 };
+    assert.equal(tagespauschale(47000), 1567);
+    // Einzug 17.06.: 14 Tage x 15,67 = 219,38 (so steht es auch im Import)
+    assert.deepEqual(
+      [monatsanteil(melos, 2026, 6).amountCents, monatsanteil(melos, 2026, 6).billedDays],
+      [21938, 14],
+    );
+    // Dazwischen der volle Monat
+    const juli = monatsanteil(melos, 2026, 7);
+    assert.equal(juli.amountCents, 47000);
+    assert.equal(juli.partial, false);
+    assert.equal(anteilNotiz(juli), null);
+    // Auszug 24.09.: 24 Tage x 15,67 = 376,08
+    const sept = monatsanteil(melos, 2026, 9);
+    assert.equal(sept.amountCents, 37608);
+    assert.equal(sept.billedDays, 24);
+    assert.equal(anteilNotiz(sept), "Anteilig: 24 Tag(e) × 15,67 €");
+    // Nie mehr als eine Monatsmiete, auch im 31-Tage-Monat mit Auszug am 31.
+    const lang = { startDate: new Date("2026-01-02T00:00:00Z"), endDate: null, monthlyRentCents: 47000 };
+    assert.equal(monatsanteil(lang, 2026, 1).amountCents, Math.min(47000, 30 * 1567));
+    // Ein- und Auszug im selben Monat
+    const kurz = { startDate: new Date("2026-03-10T00:00:00Z"), endDate: new Date("2026-03-12T00:00:00Z"), monthlyRentCents: 30000 };
+    assert.equal(monatsanteil(kurz, 2026, 3).amountCents, 3 * 1000);
   });
 
   console.log("\nZahlungserinnerung");

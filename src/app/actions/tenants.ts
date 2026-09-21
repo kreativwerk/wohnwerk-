@@ -9,8 +9,9 @@ import { prisma } from "@/lib/db";
 import { cents, date, flash, int, optionalStr, str } from "@/lib/form";
 import { randomToken } from "@/lib/storage";
 import { findConflictingTenancy, nextContractNumber, nextReference } from "@/lib/tenancy";
-import { ensureRentCharges } from "@/lib/accounting";
+import { anpassenNachAuszug, ensureRentCharges } from "@/lib/accounting";
 import { formatDate } from "@/lib/dates";
+import { formatCents } from "@/lib/money";
 import { uebersetzer } from "@/lib/i18n";
 
 function refresh(tenantId?: string) {
@@ -323,9 +324,19 @@ export async function updateTenancy(formData: FormData) {
   }
 
   await ensureRentCharges({ tenancyId: id });
+  // Auszugsdatum geaendert: letzten Monat kuerzen, spaetere offene Monate entfernen.
+  const anpassung = endDate ? await anpassenNachAuszug(id) : null;
   await audit(user.email, "update", "Tenancy", id);
   refresh(tenancy.tenantId);
-  redirect(flash(back, "ok", t("Mietverhältnis wurde aktualisiert.")));
+  revalidatePath("/buchhaltung/mieteingaenge");
+  const zusatz = anpassung?.gekuerzt
+    ? " " + t("Letzter Monat auf {tage} Tage gekürzt: {nachher} statt {vorher}.", {
+        tage: anpassung.gekuerzt.tage,
+        nachher: formatCents(anpassung.gekuerzt.nachher),
+        vorher: formatCents(anpassung.gekuerzt.vorher),
+      })
+    : "";
+  redirect(flash(back, "ok", t("Mietverhältnis wurde aktualisiert.") + zusatz));
 }
 
 /**
@@ -514,6 +525,7 @@ export async function deleteTenancy(formData: FormData) {
 
 /** Beendet ein Mietverhaeltnis zum angegebenen Datum. */
 export async function endTenancy(formData: FormData) {
+  const t = await uebersetzer();
   const user = await requireAdmin();
   const id = str(formData, "id");
   const endDate = date(formData, "endDate") ?? new Date();
@@ -523,13 +535,37 @@ export async function endTenancy(formData: FormData) {
     data: { endDate, status: "ENDED" },
   });
 
+  // Der letzte Monat wird nur bis zum Auszugstag geschuldet - die
+  // Forderung dafuer war als voller Monat angelegt. Jetzt kuerzen; die
+  // Nachricht an den Mieter nimmt den neuen Betrag automatisch.
+  const anpassung = await anpassenNachAuszug(id);
+
   await audit(user.email, "end", "Tenancy", id, formatDate(endDate));
   refresh(tenancy.tenantId);
-  redirect(
-    flash(
-      `/mieter/${tenancy.tenantId}`,
-      "ok",
-      `Mietverhältnis wurde zum ${formatDate(endDate)} beendet. Das Bett ist ab dann wieder frei.`,
-    ),
-  );
+  revalidatePath("/buchhaltung/mieteingaenge");
+  redirect(flash(`/mieter/${tenancy.tenantId}`, "ok", auszugMeldung(t, endDate, anpassung)));
+}
+
+function auszugMeldung(
+  t: Awaited<ReturnType<typeof uebersetzer>>,
+  endDate: Date,
+  anpassung: Awaited<ReturnType<typeof anpassenNachAuszug>>,
+): string {
+  const teile = [t("Mietverhältnis wurde zum {datum} beendet. Das Bett ist ab dann wieder frei.", { datum: formatDate(endDate) })];
+  if (anpassung.gekuerzt) {
+    teile.push(
+      t("Letzter Monat auf {tage} Tage gekürzt: {nachher} statt {vorher}.", {
+        tage: anpassung.gekuerzt.tage,
+        nachher: formatCents(anpassung.gekuerzt.nachher),
+        vorher: formatCents(anpassung.gekuerzt.vorher),
+      }),
+    );
+  }
+  if (anpassung.bezahltZuViel > 0) {
+    teile.push(t("Der letzte Monat ist schon voll bezahlt – {betrag} zu viel, bitte mit der Kaution verrechnen.", { betrag: formatCents(anpassung.bezahltZuViel) }));
+  }
+  if (anpassung.entfernt > 0) {
+    teile.push(t("{anzahl} offene Forderung(en) nach dem Auszug entfernt.", { anzahl: anpassung.entfernt }));
+  }
+  return teile.join(" ");
 }

@@ -220,16 +220,19 @@ export default async function DepositsPage({
                     const istErlassen = lage === "erlassen";
                     const perKonto = (charge?.allocations.length ?? 0) > 0;
                     const teilOffen = lage === "offen" && bezahlt > 0 ? soll - bezahlt : 0;
+                    // Nach jeder Zeilenaktion zurueck zu dieser Zeile, nicht an den Seitenanfang.
+                    const backZeile = `${back}#kaution-${tenancy.id}`;
                     return (
                       <tr
                         key={tenancy.id}
-                        className={
+                        id={`kaution-${tenancy.id}`}
+                        className={`scroll-mt-24 ${
                           istBezahlt
                             ? "bg-emerald-50/50"
                             : lage === "ohneKaution"
                               ? "bg-amber-50/40 hover:bg-amber-50/70"
                               : "hover:bg-ink-50"
-                        }
+                        }`}
                       >
                         <Td>
                           <span
@@ -293,12 +296,12 @@ export default async function DepositsPage({
                             {lage === "ohneKaution" && (
                               <form action={setTenancyDeposit} className="flex items-center justify-end gap-1.5">
                                 <input type="hidden" name="id" value={tenancy.id} />
-                                <input type="hidden" name="back" value={back} />
-                                <label htmlFor={`kaution-${tenancy.id}`} className="sr-only">
+                                <input type="hidden" name="back" value={backZeile} />
+                                <label htmlFor={`kaution-betrag-${tenancy.id}`} className="sr-only">
                                   {t("Kaution")}
                                 </label>
                                 <input
-                                  id={`kaution-${tenancy.id}`}
+                                  id={`kaution-betrag-${tenancy.id}`}
                                   name="depositCents"
                                   inputMode="decimal"
                                   defaultValue={centsToInput(UEBLICHE_KAUTION_CENTS)}
@@ -320,7 +323,7 @@ export default async function DepositsPage({
                             {(lage === "ohneKaution" || (lage === "offen" && !perKonto) || lage === "ohneForderung") && (
                               <form action={setNoDeposit} className="mt-1.5 flex justify-end">
                                 <input type="hidden" name="id" value={tenancy.id} />
-                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="back" value={backZeile} />
                                 <button
                                   type="submit"
                                   className="btn btn-ghost btn-sm whitespace-nowrap"
@@ -333,7 +336,7 @@ export default async function DepositsPage({
                             {lage === "keineKaution" && (
                               <form action={undoNoDeposit}>
                                 <input type="hidden" name="id" value={tenancy.id} />
-                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="back" value={backZeile} />
                                 <button type="submit" className="btn btn-ghost btn-sm" title={t("„Keine Kaution“ zurücknehmen")}>
                                   {t("Rückgängig")}
                                 </button>
@@ -342,7 +345,7 @@ export default async function DepositsPage({
                             {lage === "ohneForderung" && (
                               <form action={setTenancyDeposit}>
                                 <input type="hidden" name="id" value={tenancy.id} />
-                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="back" value={backZeile} />
                                 <input type="hidden" name="depositCents" value={centsToInput(tenancy.depositCents)} />
                                 <button type="submit" className="btn btn-secondary btn-sm whitespace-nowrap">
                                   {t("Forderung erzeugen")}
@@ -352,7 +355,7 @@ export default async function DepositsPage({
                             {lage === "offen" && charge && (
                               <form action={markChargePaid}>
                                 <input type="hidden" name="id" value={charge.id} />
-                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="back" value={backZeile} />
                                 <button
                                   type="submit"
                                   className="btn btn-secondary btn-sm"
@@ -365,7 +368,7 @@ export default async function DepositsPage({
                             {istBezahlt && !perKonto && charge && (
                               <form action={reopenCharge}>
                                 <input type="hidden" name="id" value={charge.id} />
-                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="back" value={backZeile} />
                                 <button type="submit" className="btn btn-ghost btn-sm" title={t("Haken zurücknehmen")}>
                                   {t("Rückgängig")}
                                 </button>

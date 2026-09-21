@@ -347,11 +347,14 @@ export default async function RentIncomePage({
                       const istBezahlt = charge.status === "PAID";
                       const istErlassen = charge.status === "WAIVED";
                       const perKonto = charge.allocations.length > 0;
+                      // Nach Abhaken zurueck zu dieser Zeile, nicht an den Seitenanfang.
+                      const backZeile = `${back}#forderung-${charge.id}`;
 
                       return (
                         <tr
                           key={charge.id}
-                          className={istBezahlt ? "bg-emerald-50/50" : "hover:bg-ink-50"}
+                          id={`forderung-${charge.id}`}
+                          className={`scroll-mt-24 ${istBezahlt ? "bg-emerald-50/50" : "hover:bg-ink-50"}`}
                         >
                           <Td>
                             <span
@@ -457,7 +460,7 @@ export default async function RentIncomePage({
                               {!istBezahlt && !istErlassen && (
                                 <form action={markChargePaid}>
                                   <input type="hidden" name="id" value={charge.id} />
-                                  <input type="hidden" name="back" value={back} />
+                                  <input type="hidden" name="back" value={backZeile} />
                                   <button
                                     type="submit"
                                     className="btn btn-secondary btn-sm"
@@ -470,7 +473,7 @@ export default async function RentIncomePage({
                               {istBezahlt && !perKonto && (
                                 <form action={reopenCharge}>
                                   <input type="hidden" name="id" value={charge.id} />
-                                  <input type="hidden" name="back" value={back} />
+                                  <input type="hidden" name="back" value={backZeile} />
                                   <button
                                     type="submit"
                                     className="btn btn-ghost btn-sm"

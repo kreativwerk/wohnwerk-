@@ -467,6 +467,10 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis bearbeiten": "Edit tenancy",
   "Mietverhältnis beenden": "End tenancy",
   "Mietverhältnis löschen": "Delete tenancy",
+  "Mietverhältnis wurde zum {datum} beendet. Das Bett ist ab dann wieder frei.": "Tenancy ended on {datum}. The bed is free again from then on.",
+  "Letzter Monat auf {tage} Tage gekürzt: {nachher} statt {vorher}.": "Last month reduced to {tage} days: {nachher} instead of {vorher}.",
+  "Der letzte Monat ist schon voll bezahlt – {betrag} zu viel, bitte mit der Kaution verrechnen.": "The last month is already paid in full: {betrag} too much, please offset it against the deposit.",
+  "{anzahl} offene Forderung(en) nach dem Auszug entfernt.": "{anzahl} open charge(s) after the move-out removed.",
   "Bett wechseln": "Change bed",
   "Umzug in ein anderes Bett, auch in eine andere Wohnung. Beginn, Miete, Kaution, Vertrag und Forderungen bleiben unverändert.":
     "Move to another bed, even in another flat. Start date, rent, deposit, contract and charges stay unchanged.",

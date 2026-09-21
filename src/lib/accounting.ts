@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { monthsBetween } from "./dates";
+import { anteilNotiz, monatsanteil } from "./mietanteil";
 
 /**
  * Offene Posten und Zahlungszuordnung.
@@ -74,48 +75,21 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
       });
     }
 
-    // Tagespauschale: Monatsmiete geteilt durch 30, kaufmaennisch auf den
-    // Cent gerundet. Bei 470 Euro sind das die vertraglichen 15,67 pro Tag.
-    const daily = Math.round(tenancy.monthlyRentCents / 30);
-
     for (const period of monthsBetween(from, to)) {
       if (existing.has(`RENT:${period.year}-${period.month}`)) continue;
 
       const daysInMonth = new Date(Date.UTC(period.year, period.month, 0)).getUTCDate();
       const day = Math.min(Math.max(tenancy.billingDay, 1), daysInMonth);
-
-      // Erster und letzter Monat werden tageweise berechnet, wenn der Ein-
-      // oder Auszug nicht auf Monatsgrenzen faellt. Nie mehr als eine volle
-      // Monatsmiete.
-      let firstDay = 1;
-      let lastDay = daysInMonth;
-      if (period.year === startYear && period.month === startMonth) {
-        firstDay = tenancy.startDate.getUTCDate();
-      }
-      if (
-        tenancy.endDate &&
-        period.year === tenancy.endDate.getUTCFullYear() &&
-        period.month === tenancy.endDate.getUTCMonth() + 1
-      ) {
-        lastDay = tenancy.endDate.getUTCDate();
-      }
-
-      const billedDays = lastDay - firstDay + 1;
-      const partial = firstDay !== 1 || lastDay !== daysInMonth;
-      const amountCents = partial
-        ? Math.min(tenancy.monthlyRentCents, billedDays * daily)
-        : tenancy.monthlyRentCents;
+      const anteil = monatsanteil(tenancy, period.year, period.month);
 
       rows.push({
         tenancyId: tenancy.id,
         periodYear: period.year,
         periodMonth: period.month,
         dueDate: new Date(Date.UTC(period.year, period.month - 1, day)),
-        amountCents,
+        amountCents: anteil.amountCents,
         kind: "RENT",
-        notes: partial
-          ? `Anteilig: ${billedDays} Tag(e) × ${(daily / 100).toFixed(2).replace(".", ",")} €`
-          : null,
+        notes: anteilNotiz(anteil),
       });
     }
   }
@@ -123,6 +97,71 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
   if (rows.length === 0) return 0;
   const result = await prisma.rentCharge.createMany({ data: rows, skipDuplicates: true });
   return result.count;
+}
+
+export type AuszugAnpassung = {
+  /** Der letzte Monat wurde auf den Auszugstag gekuerzt. */
+  gekuerzt: { year: number; month: number; vorher: number; nachher: number; tage: number } | null;
+  /** Offene Forderungen fuer Monate nach dem Auszug, die entfernt wurden. */
+  entfernt: number;
+  /** Der letzte Monat ist schon bezahlt - da wird nichts angefasst. */
+  bezahltZuViel: number;
+};
+
+/**
+ * Nach einem Auszug stimmt die Forderung des letzten Monats nicht mehr:
+ * Sie wurde als voller Monat erzeugt, geschuldet sind aber nur die Tage
+ * bis zum Auszug. Hier wird sie auf den Anteil gekuerzt, und offene
+ * Forderungen fuer Monate danach verschwinden. Bezahltes bleibt - Geld,
+ * das geflossen ist, wird nicht per Formular umgebucht; das steht dann
+ * als Hinweis in der Rueckmeldung.
+ */
+export async function anpassenNachAuszug(tenancyId: string): Promise<AuszugAnpassung> {
+  const leer: AuszugAnpassung = { gekuerzt: null, entfernt: 0, bezahltZuViel: 0 };
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id: tenancyId },
+    include: {
+      charges: { where: { kind: "RENT" }, include: { allocations: { select: { amountCents: true } } } },
+    },
+  });
+  if (!tenancy?.endDate) return leer;
+  const end = tenancy.endDate;
+  const endIndex = end.getUTCFullYear() * 12 + end.getUTCMonth();
+
+  const ergebnis = { ...leer };
+  for (const charge of tenancy.charges) {
+    const index = charge.periodYear * 12 + (charge.periodMonth - 1);
+    const unberuehrt = charge.status === "OPEN" && charge.allocations.length === 0;
+
+    if (index > endIndex) {
+      if (unberuehrt) {
+        await prisma.rentCharge.delete({ where: { id: charge.id } });
+        ergebnis.entfernt += 1;
+      }
+      continue;
+    }
+    if (index !== endIndex) continue;
+
+    const anteil = monatsanteil(tenancy, charge.periodYear, charge.periodMonth);
+    if (anteil.amountCents === charge.amountCents) continue;
+
+    if (charge.status === "PAID" || charge.allocations.length > 0) {
+      ergebnis.bezahltZuViel = Math.max(0, charge.amountCents - anteil.amountCents);
+      continue;
+    }
+    await prisma.rentCharge.update({
+      where: { id: charge.id },
+      data: { amountCents: anteil.amountCents, notes: anteilNotiz(anteil) },
+    });
+    ergebnis.gekuerzt = {
+      year: charge.periodYear,
+      month: charge.periodMonth,
+      vorher: charge.amountCents,
+      nachher: anteil.amountCents,
+      tage: anteil.billedDays,
+    };
+  }
+  return ergebnis;
 }
 
 /** Setzt den Status einer Forderung aus der Summe ihrer Zuordnungen neu. */

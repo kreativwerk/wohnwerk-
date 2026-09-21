@@ -56,10 +56,13 @@ export function assert(condition: unknown, message: string): asserts condition {
  * Formulare auch ohne JavaScript.
  */
 export function flash(path: string, kind: "ok" | "fehler", message: string): string {
-  const [pathname, existingQuery] = path.split("?");
+  // Ein Anker ("#forderung-123") bleibt erhalten: Nach dem Abhaken landet
+  // die Seite wieder bei der Zeile, nicht ganz oben.
+  const [ohneAnker, anker] = path.split("#");
+  const [pathname, existingQuery] = ohneAnker.split("?");
   const params = new URLSearchParams(existingQuery ?? "");
   params.delete("ok");
   params.delete("fehler");
   params.set(kind, message);
-  return `${pathname}?${params.toString()}`;
+  return `${pathname}?${params.toString()}${anker ? `#${anker}` : ""}`;
 }
