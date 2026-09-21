@@ -159,7 +159,7 @@ type Sprachpaket = {
   kontoinhaber: string;
   bank: string;
   zweck: string;
-  /** Wer knapp ist, soll den Arbeitgeber fragen - steht unten in jeder Nachricht. */
+  /** Wer neu ist und noch nicht genug verdient hat, soll den Arbeitgeber um Vorschuss bitten - steht unten in jeder Nachricht. */
   vorschuss: string;
   dank: string;
 };
@@ -182,7 +182,7 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     kontoinhaber: "Mbajtësi i llogarisë:",
     bank: "Banka:",
     zweck: "Qëllimi i pagesës:",
-    vorschuss: "Nëse ende nuk keni para të mjaftueshme, mund të kërkoni një paradhënie nga firma juaj.",
+    vorschuss: "Nëse jeni të rinj dhe ende nuk keni fituar para të mjaftueshme, mund të kërkoni një paradhënie nga firma juaj.",
     dank: "Faleminderit!",
   },
   bg: {
@@ -202,7 +202,7 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     kontoinhaber: "Титуляр на сметката:",
     bank: "Банка:",
     zweck: "Основание за плащане:",
-    vorschuss: "Ако все още нямате достатъчно пари, можете да поискате аванс от вашата фирма.",
+    vorschuss: "Ако сте нови и още не сте изкарали достатъчно пари, можете да поискате аванс от вашата фирма.",
     dank: "Благодарим!",
   },
   ro: {
@@ -222,7 +222,7 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     kontoinhaber: "Titularul contului:",
     bank: "Banca:",
     zweck: "Detalii plată:",
-    vorschuss: "Dacă încă nu aveți destui bani, puteți cere un avans de la firma dumneavoastră.",
+    vorschuss: "Dacă sunteți noi și încă nu ați câștigat destui bani, puteți cere un avans de la firma dumneavoastră.",
     dank: "Mulțumim!",
   },
   hu: {
@@ -244,7 +244,7 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     kontoinhaber: "Számlatulajdonos:",
     bank: "Bank:",
     zweck: "Közlemény:",
-    vorschuss: "Ha még nincs elég pénze, kérhet előleget a cégétől.",
+    vorschuss: "Ha új és még nem keresett elég pénzt, kérhet előleget a cégétől.",
     dank: "Köszönjük!",
   },
   en: {
@@ -264,7 +264,7 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     kontoinhaber: "Account holder:",
     bank: "Bank:",
     zweck: "Payment reference:",
-    vorschuss: "If you do not have enough money yet, you can ask your company for an advance.",
+    vorschuss: "If you are new and have not earned enough money yet, you can ask your company for an advance.",
     dank: "Thank you!",
   },
 };
