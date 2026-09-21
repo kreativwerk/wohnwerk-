@@ -943,6 +943,14 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.":
     "With country code, e.g. +49 151 2345678 - used for the WhatsApp link on rent payments.",
 
+  // --- Unterkunft auf der Mieterseite ---------------------------------------
+  "seit {datum}": "since {datum}",
+  "bis {datum}": "until {datum}",
+  "Ändern": "Change",
+  "Bett zuweisen": "Assign a bed",
+  "Diese Person hat noch keine Unterkunft. Objekt, Zimmer und Bett wählen – der Vertragsentwurf entsteht dabei.":
+    "This person has no accommodation yet. Choose property, room and bed - the draft contract is created along the way.",
+
   // --- Kontaktliste ---------------------------------------------------------
   "Kontakte": "Contacts",
   "Name, Telefon und private E-Mail aller Mieter – direkt in der Zeile ändern. Nichts davon ist Pflicht.":
@@ -957,17 +965,28 @@ export const WOERTERBUCH_EN: Record<string, string> = {
 
   // --- Kautionen ------------------------------------------------------------
   "Kautionen": "Deposits",
-  "Einmalig zum Einzug fällig. Hier steht, welche Kaution eingegangen ist und welche noch fehlt.":
-    "Due once at move-in. This shows which deposits have arrived and which are still missing.",
+  "Einmalig zum Einzug fällig. Hier steht für jeden Bewohner, ob die Kaution eingegangen ist, noch fehlt oder erst eingetragen werden muss.":
+    "Due once at move-in. For every resident this shows whether the deposit has arrived, is still missing or has yet to be entered.",
+  "Ohne Kaution": "No deposit",
+  "Bewohner, bei denen noch kein Betrag eingetragen ist": "Residents with no amount entered yet",
+  "Jeder Bewohner mit Bett erscheint hier – auch ohne vereinbarte Kaution.":
+    "Every resident with a bed appears here, even without an agreed deposit.",
+  "Keine Kaution eingetragen": "No deposit entered",
+  "Forderung fehlt": "Charge missing",
+  "Forderung erzeugen": "Create charge",
+  "Betrag rechts eintragen": "Enter the amount on the right",
+  "Forderung noch nicht erzeugt": "Charge not created yet",
+  "Kaution im Mietverhältnis eintragen und Forderung erzeugen": "Enter the deposit in the tenancy and create the charge",
+  "Eintragen": "Enter",
+  "Bitte einen Kautionsbetrag über 0,00 € eingeben.": "Please enter a deposit amount above €0.00.",
+  "Kaution hinterlegt, Forderung erzeugt.": "Deposit saved, charge created.",
+  "Kaution hinterlegt. Die Forderung entsteht, sobald der Vertrag versandt ist.":
+    "Deposit saved. The charge is created once the contract has been sent.",
   "Kautionen gesamt": "Deposits in total",
   "{anzahl} Mietverhältnisse": "{anzahl} tenancies",
   "{anzahl} Kaution(en) fehlen": "{anzahl} deposit(s) missing",
-  "Ohne Forderung": "Without a charge",
-  "Kaution vereinbart, Forderung noch nicht erzeugt": "Deposit agreed, charge not created yet",
   "Alle Kautionen sind eingegangen.": "All deposits have arrived.",
   "Keine Kautionen": "No deposits",
-  "Eine Kautionsforderung entsteht mit „Forderungen erzeugen“ für jedes Mietverhältnis, in dem eine Kaution vereinbart ist.":
-    "A deposit charge is created with \"Create charges\" for every tenancy that has a deposit agreed.",
   "Einzug": "Move-in",
 
   // --- Zuordnung von Zahlungen --------------------------------------------

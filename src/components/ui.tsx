@@ -59,6 +59,7 @@ export function Card({
   children,
   className = "",
   padded = true,
+  id,
 }: {
   title?: string;
   description?: string;
@@ -66,9 +67,11 @@ export function Card({
   children: ReactNode;
   className?: string;
   padded?: boolean;
+  /** Sprungziel fuer Links wie "#mietverhaeltnisse" innerhalb der Seite. */
+  id?: string;
 }) {
   return (
-    <section className={`card ${className}`}>
+    <section id={id} className={`card ${className}`}>
       {(title || actions) && (
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200/70 px-5 py-4">
           <div className="min-w-0">

@@ -1,11 +1,13 @@
 import Link from "next/link";
 
-import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
+import { markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
+import { setTenancyDeposit } from "@/app/actions/tenants";
 import { AdminOnly } from "@/components/admin-only";
 import { TenancyBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
+import { centsToInput } from "@/lib/money";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
 export async function generateMetadata() {
@@ -18,12 +20,26 @@ const ANSICHTEN = ["offen", "bezahlt", "alle"] as const;
 type Ansicht = (typeof ANSICHTEN)[number];
 
 /**
+ * In welchem Zustand die Kaution eines Mietverhaeltnisses ist.
+ *
+ *   bezahlt        - Forderung beglichen (per Konto oder von Hand abgehakt)
+ *   offen          - Forderung da, Geld fehlt ganz oder teilweise
+ *   erlassen       - Forderung bewusst erlassen
+ *   ohneForderung  - Kaution vereinbart, Forderung noch nicht erzeugt
+ *   ohneKaution    - im Mietverhaeltnis steht 0,00 - Betrag muss nachgetragen werden
+ */
+type Lage = "bezahlt" | "offen" | "erlassen" | "ohneForderung" | "ohneKaution";
+
+/** Vorschlag beim Nachtragen: die uebliche Kaution im Haus. */
+const UEBLICHE_KAUTION_CENTS = 20000;
+
+/**
  * Kautionszahlungen - einmal je Mietverhaeltnis, deshalb ohne Monatswahl.
  *
- * Die Mieteingaenge zeigen die Kaution nur im Einzugsmonat, danach ist sie
- * aus dem Blick. Hier stehen alle Kautionen nebeneinander: was eingegangen
- * ist, was noch fehlt, und bei wem. Abhaken und Zuruecknehmen laufen ueber
- * dieselben Aktionen wie bei der Miete.
+ * Ausgangspunkt sind die Mietverhaeltnisse, nicht die Forderungen: Wer bei
+ * der Zuweisung ohne Kaution angelegt wurde, hat keine Forderung und
+ * wuerde sonst nie auftauchen - und genau die Faelle muessen sichtbar
+ * sein. Fehlt der Betrag, wird er hier direkt in der Zeile nachgetragen.
  */
 export default async function DepositsPage({
   searchParams,
@@ -37,50 +53,53 @@ export default async function DepositsPage({
     : "offen";
   const back = `/buchhaltung/kautionen${ansicht === "offen" ? "" : `?ansicht=${ansicht}`}`;
 
-  const [charges, ohneForderung] = await Promise.all([
-    prisma.rentCharge.findMany({
-      where: { kind: "DEPOSIT" },
-      include: {
-        allocations: {
-          include: { bankTransaction: { select: { bookingDate: true, counterpartyName: true } } },
-        },
-        tenancy: {
-          include: {
-            tenant: true,
-            bed: { include: { room: { include: { property: true } } } },
+  const tenancies = await prisma.tenancy.findMany({
+    where: { status: { in: ["DRAFT", "SENT", "ACTIVE", "ENDED"] } },
+    include: {
+      tenant: true,
+      bed: { include: { room: { include: { property: true } } } },
+      charges: {
+        where: { kind: "DEPOSIT" },
+        orderBy: { createdAt: "desc" },
+        include: {
+          allocations: {
+            include: { bankTransaction: { select: { bookingDate: true, counterpartyName: true } } },
           },
         },
       },
-    }),
-    // Kaution vereinbart, aber noch keine Forderung erzeugt - das passiert
-    // erst beim naechsten Lauf von "Forderungen erzeugen".
-    prisma.tenancy.count({
-      where: {
-        depositCents: { gt: 0 },
-        status: { in: ["SENT", "ACTIVE", "ENDED"] },
-        charges: { none: { kind: "DEPOSIT" } },
-      },
-    }),
-  ]);
+    },
+  });
 
-  const eingegangenVon = (charge: (typeof charges)[number]): number => {
-    if (charge.status === "PAID") return charge.amountCents;
-    return Math.min(
-      charge.amountCents,
-      charge.allocations.reduce((sum, a) => sum + a.amountCents, 0),
-    );
-  };
+  const zeilen = tenancies.map((tenancy) => {
+    const charge = tenancy.charges[0] ?? null;
+    let lage: Lage;
+    if (charge?.status === "PAID") lage = "bezahlt";
+    else if (charge?.status === "WAIVED") lage = "erlassen";
+    else if (charge) lage = "offen";
+    else if (tenancy.depositCents > 0) lage = "ohneForderung";
+    else lage = "ohneKaution";
 
-  const relevante = charges.filter((c) => c.status !== "WAIVED");
-  const sollGesamt = relevante.reduce((sum, c) => sum + c.amountCents, 0);
-  const eingegangen = relevante.reduce((sum, c) => sum + eingegangenVon(c), 0);
+    const soll = charge?.amountCents ?? tenancy.depositCents;
+    const eingegangen =
+      charge === null
+        ? 0
+        : charge.status === "PAID"
+          ? charge.amountCents
+          : Math.min(charge.amountCents, charge.allocations.reduce((sum, a) => sum + a.amountCents, 0));
+    return { tenancy, charge, lage, soll, eingegangen };
+  });
+
+  const relevante = zeilen.filter((z) => z.lage !== "erlassen" && z.lage !== "ohneKaution");
+  const sollGesamt = relevante.reduce((sum, z) => sum + z.soll, 0);
+  const eingegangen = relevante.reduce((sum, z) => sum + z.eingegangen, 0);
   const offen = sollGesamt - eingegangen;
-  const offeneAnzahl = relevante.filter((c) => c.status !== "PAID").length;
+  const offeneAnzahl = relevante.filter((z) => z.lage !== "bezahlt").length;
+  const ohneKaution = zeilen.filter((z) => z.lage === "ohneKaution").length;
 
-  const gezeigt = charges.filter((c) => {
+  const gezeigt = zeilen.filter((z) => {
     if (ansicht === "alle") return true;
-    if (ansicht === "bezahlt") return c.status === "PAID";
-    return c.status === "OPEN" || c.status === "PARTIAL";
+    if (ansicht === "bezahlt") return z.lage === "bezahlt";
+    return z.lage !== "bezahlt" && z.lage !== "erlassen";
   });
 
   gezeigt.sort((a, b) => {
@@ -91,25 +110,25 @@ export default async function DepositsPage({
     return b.tenancy.startDate.getTime() - a.tenancy.startDate.getTime();
   });
 
-  const gruppen = new Map<string, { name: string; charges: typeof gezeigt }>();
-  for (const charge of gezeigt) {
-    const property = charge.tenancy.bed.room.property;
-    const gruppe = gruppen.get(property.id) ?? { name: property.name, charges: [] };
-    gruppe.charges.push(charge);
+  const gruppen = new Map<string, { name: string; zeilen: typeof gezeigt }>();
+  for (const zeile of gezeigt) {
+    const property = zeile.tenancy.bed.room.property;
+    const gruppe = gruppen.get(property.id) ?? { name: property.name, zeilen: [] };
+    gruppe.zeilen.push(zeile);
     gruppen.set(property.id, gruppe);
   }
 
   const chips: Array<{ wert: Ansicht; label: string; zahl: number }> = [
-    { wert: "offen", label: t("Offen"), zahl: offeneAnzahl },
-    { wert: "bezahlt", label: t("Eingegangen"), zahl: relevante.length - offeneAnzahl },
-    { wert: "alle", label: t("Alle"), zahl: charges.length },
+    { wert: "offen", label: t("Offen"), zahl: offeneAnzahl + ohneKaution },
+    { wert: "bezahlt", label: t("Eingegangen"), zahl: zeilen.filter((z) => z.lage === "bezahlt").length },
+    { wert: "alle", label: t("Alle"), zahl: zeilen.length },
   ];
 
   return (
     <>
       <PageHeader
         title={t("Kautionen")}
-        description={t("Einmalig zum Einzug fällig. Hier steht, welche Kaution eingegangen ist und welche noch fehlt.")}
+        description={t("Einmalig zum Einzug fällig. Hier steht für jeden Bewohner, ob die Kaution eingegangen ist, noch fehlt oder erst eingetragen werden muss.")}
         breadcrumb={[{ label: t("Buchhaltung"), href: "/buchhaltung" }, { label: t("Kautionen") }]}
         actions={
           <>
@@ -140,23 +159,12 @@ export default async function DepositsPage({
           tone={offen > 0 ? "warning" : "success"}
         />
         <StatCard
-          label={t("Ohne Forderung")}
-          value={String(ohneForderung)}
-          hint={t("Kaution vereinbart, Forderung noch nicht erzeugt")}
-          tone={ohneForderung > 0 ? "warning" : "neutral"}
+          label={t("Ohne Kaution")}
+          value={String(ohneKaution)}
+          hint={t("Bewohner, bei denen noch kein Betrag eingetragen ist")}
+          tone={ohneKaution > 0 ? "warning" : "neutral"}
         />
       </div>
-
-      {ohneForderung > 0 && (
-        <AdminOnly>
-          <form action={generateCharges} className="mt-4">
-            <input type="hidden" name="back" value={back} />
-            <button type="submit" className="btn btn-secondary">
-              {t("Forderungen erzeugen")}
-            </button>
-          </form>
-        </AdminOnly>
-      )}
 
       <div className="scroll-schatten -mx-1 mb-5 mt-6 flex gap-2 overflow-x-auto px-1 pb-1">
         {chips.map((chip) => {
@@ -185,7 +193,7 @@ export default async function DepositsPage({
         <Card>
           <EmptyState
             title={ansicht === "offen" ? t("Alle Kautionen sind eingegangen.") : t("Keine Kautionen")}
-            description={t("Eine Kautionsforderung entsteht mit „Forderungen erzeugen“ für jedes Mietverhältnis, in dem eine Kaution vereinbart ist.")}
+            description={t("Jeder Bewohner mit Bett erscheint hier – auch ohne vereinbarte Kaution.")}
           />
         </Card>
       ) : (
@@ -205,13 +213,22 @@ export default async function DepositsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {gruppe.charges.map((charge) => {
-                    const chargeOffen = charge.amountCents - eingegangenVon(charge);
-                    const istBezahlt = charge.status === "PAID";
-                    const istErlassen = charge.status === "WAIVED";
-                    const perKonto = charge.allocations.length > 0;
+                  {gruppe.zeilen.map(({ tenancy, charge, lage, soll, eingegangen: bezahlt }) => {
+                    const istBezahlt = lage === "bezahlt";
+                    const istErlassen = lage === "erlassen";
+                    const perKonto = (charge?.allocations.length ?? 0) > 0;
+                    const teilOffen = lage === "offen" && bezahlt > 0 ? soll - bezahlt : 0;
                     return (
-                      <tr key={charge.id} className={istBezahlt ? "bg-emerald-50/50" : "hover:bg-ink-50"}>
+                      <tr
+                        key={tenancy.id}
+                        className={
+                          istBezahlt
+                            ? "bg-emerald-50/50"
+                            : lage === "ohneKaution"
+                              ? "bg-amber-50/40 hover:bg-amber-50/70"
+                              : "hover:bg-ink-50"
+                        }
+                      >
                         <Td>
                           <span
                             aria-hidden
@@ -227,42 +244,82 @@ export default async function DepositsPage({
                           </span>
                         </Td>
                         <Td>
-                          <Link href={`/mieter/${charge.tenancy.tenantId}`} className="font-medium hover:text-brand-700">
-                            {charge.tenancy.tenant.firstName} {charge.tenancy.tenant.lastName}
+                          <Link href={`/mieter/${tenancy.tenantId}`} className="font-medium hover:text-brand-700">
+                            {tenancy.tenant.firstName} {tenancy.tenant.lastName}
                           </Link>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            <TenancyBadge status={charge.tenancy.status} />
+                            <TenancyBadge status={tenancy.status} />
                             {istErlassen && <Badge tone="neutral">{t("Erlassen")}</Badge>}
+                            {lage === "ohneKaution" && <Badge tone="warning">{t("Keine Kaution eingetragen")}</Badge>}
+                            {lage === "ohneForderung" && <Badge tone="warning">{t("Forderung fehlt")}</Badge>}
                           </div>
                         </Td>
                         <Td className="text-ink-600">
-                          {charge.tenancy.bed.room.name} · {charge.tenancy.bed.label}
+                          {tenancy.bed.room.name} · {tenancy.bed.label}
                         </Td>
-                        <Td className="whitespace-nowrap text-ink-600">{datum(charge.tenancy.startDate)}</Td>
+                        <Td className="whitespace-nowrap text-ink-600">{datum(tenancy.startDate)}</Td>
                         <Td align="right" className="tabular-nums">
-                          {geld(charge.amountCents)}
-                          {!istBezahlt && !istErlassen && chargeOffen < charge.amountCents && (
+                          {lage === "ohneKaution" ? <span className="text-ink-400">–</span> : geld(soll)}
+                          {teilOffen > 0 && (
                             <p className="text-xs text-amber-600">
-                              {t("noch {betrag} offen", { betrag: geld(chargeOffen) })}
+                              {t("noch {betrag} offen", { betrag: geld(teilOffen) })}
                             </p>
                           )}
                         </Td>
                         <Td className="text-xs text-ink-600">
                           {perKonto ? (
-                            charge.allocations.map((a) => (
+                            charge?.allocations.map((a) => (
                               <p key={a.id}>
                                 {datum(a.bankTransaction.bookingDate)} · {geld(a.amountCents)}
                               </p>
                             ))
                           ) : istBezahlt ? (
                             <span>{t("von Hand abgehakt")}</span>
+                          ) : lage === "ohneKaution" ? (
+                            <span className="text-ink-400">{t("Betrag rechts eintragen")}</span>
+                          ) : lage === "ohneForderung" ? (
+                            <span className="text-ink-400">{t("Forderung noch nicht erzeugt")}</span>
                           ) : (
                             <span className="text-ink-400">–</span>
                           )}
                         </Td>
                         <Td align="right">
                           <AdminOnly>
-                            {!istBezahlt && !istErlassen && (
+                            {lage === "ohneKaution" && (
+                              <form action={setTenancyDeposit} className="flex items-center justify-end gap-1.5">
+                                <input type="hidden" name="id" value={tenancy.id} />
+                                <input type="hidden" name="back" value={back} />
+                                <label htmlFor={`kaution-${tenancy.id}`} className="sr-only">
+                                  {t("Kaution")}
+                                </label>
+                                <input
+                                  id={`kaution-${tenancy.id}`}
+                                  name="depositCents"
+                                  inputMode="decimal"
+                                  defaultValue={centsToInput(UEBLICHE_KAUTION_CENTS)}
+                                  className="!w-24 text-right"
+                                  aria-label={t("Kaution")}
+                                />
+                                <button
+                                  type="submit"
+                                  className="btn btn-secondary btn-sm whitespace-nowrap"
+                                  title={t("Kaution im Mietverhältnis eintragen und Forderung erzeugen")}
+                                >
+                                  {t("Eintragen")}
+                                </button>
+                              </form>
+                            )}
+                            {lage === "ohneForderung" && (
+                              <form action={setTenancyDeposit}>
+                                <input type="hidden" name="id" value={tenancy.id} />
+                                <input type="hidden" name="back" value={back} />
+                                <input type="hidden" name="depositCents" value={centsToInput(tenancy.depositCents)} />
+                                <button type="submit" className="btn btn-secondary btn-sm whitespace-nowrap">
+                                  {t("Forderung erzeugen")}
+                                </button>
+                              </form>
+                            )}
+                            {lage === "offen" && charge && (
                               <form action={markChargePaid}>
                                 <input type="hidden" name="id" value={charge.id} />
                                 <input type="hidden" name="back" value={back} />
@@ -275,7 +332,7 @@ export default async function DepositsPage({
                                 </button>
                               </form>
                             )}
-                            {istBezahlt && !perKonto && (
+                            {istBezahlt && !perKonto && charge && (
                               <form action={reopenCharge}>
                                 <input type="hidden" name="id" value={charge.id} />
                                 <input type="hidden" name="back" value={back} />

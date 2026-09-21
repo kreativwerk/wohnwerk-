@@ -326,6 +326,45 @@ export async function updateTenancy(formData: FormData) {
   redirect(flash(back, "ok", t("Mietverhältnis wurde aktualisiert.")));
 }
 
+/**
+ * Kaution von der Kautionsseite aus nachtragen - ohne den Umweg ueber das
+ * Mietverhaeltnis-Formular. Setzt den Betrag und erzeugt die Forderung
+ * gleich mit, damit die Zeile sofort abgehakt werden kann. Dient auch
+ * dazu, fuer eine vereinbarte Kaution die fehlende Forderung anzulegen.
+ */
+export async function setTenancyDeposit(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = optionalStr(formData, "back") ?? "/buchhaltung/kautionen";
+
+  const tenancy = await prisma.tenancy.findUnique({ where: { id } });
+  if (!tenancy) redirect(flash(back, "fehler", t("Mietverhältnis nicht gefunden.")));
+
+  const depositCents = cents(formData, "depositCents", tenancy.depositCents);
+  if (depositCents <= 0) {
+    redirect(flash(back, "fehler", t("Bitte einen Kautionsbetrag über 0,00 € eingeben.")));
+  }
+
+  if (depositCents !== tenancy.depositCents) {
+    await prisma.tenancy.update({ where: { id }, data: { depositCents } });
+  }
+  const erzeugt = await ensureRentCharges({ tenancyId: id });
+  await audit(user.email, "update", "Tenancy", id);
+  refresh(tenancy.tenantId);
+  revalidatePath("/buchhaltung/kautionen");
+  revalidatePath("/buchhaltung/mieteingaenge");
+  redirect(
+    flash(
+      back,
+      "ok",
+      erzeugt > 0
+        ? t("Kaution hinterlegt, Forderung erzeugt.")
+        : t("Kaution hinterlegt. Die Forderung entsteht, sobald der Vertrag versandt ist."),
+    ),
+  );
+}
+
 /** Beendet ein Mietverhaeltnis zum angegebenen Datum. */
 export async function endTenancy(formData: FormData) {
   const user = await requireAdmin();

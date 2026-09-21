@@ -11,7 +11,7 @@ import { bedOptions } from "@/lib/options";
 import { centsToInput } from "@/lib/money";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
-import { oberflaeche } from "@/lib/i18n";
+import { oberflaeche, type Uebersetzen } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +58,16 @@ export default async function TenantDetailPage({
 
   const beds = await bedOptions();
 
+  // Das laufende Mietverhaeltnis - das, was man beim Oeffnen wissen will.
+  // Ein Entwurf zaehlt mit: das Bett ist damit schon vergeben, nur der
+  // Vertrag noch nicht unterwegs.
+  const aktuell =
+    ["ACTIVE", "SENT", "DRAFT"]
+      .map((status) => tenant.tenancies.find((ty) => ty.status === status))
+      .find(Boolean) ?? null;
+  // Ohne laufendes Mietverhaeltnis steht das Zuweisungsformular ganz oben.
+  const formularOben = !aktuell && tenant.status !== "EHEMALIG";
+
   const openTotal = tenant.tenancies
     .flatMap((tenancy) => tenancy.charges)
     .filter((charge) => charge.status === "OPEN" || charge.status === "PARTIAL")
@@ -98,8 +108,52 @@ export default async function TenantDetailPage({
 
       <Flash ok={flash.ok} fehler={flash.fehler} />
 
+      {/* --- Unterkunft ------------------------------------------------------
+          Ganz oben, weil es die erste Frage ist: Wo wohnt die Person? Ohne
+          Bett steht hier gleich das Formular, statt versteckt weiter unten. */}
+      <div className="mb-6">
+        {aktuell ? (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-ink-500">
+                  {t("Unterkunft")}
+                </p>
+                <p className="mt-1 text-[1.25rem] font-semibold leading-tight text-ink-900">
+                  <Link href={`/objekte/${aktuell.bed.room.propertyId}`} className="hover:text-brand-700">
+                    {aktuell.bed.room.property.name}
+                  </Link>
+                </p>
+                <p className="mt-0.5 text-[0.95rem] text-ink-700">
+                  {aktuell.bed.room.name} · {aktuell.bed.label}
+                </p>
+                <p className="mt-1 text-[0.8rem] text-ink-500">
+                  {t("{betrag} / Monat", { betrag: geld(aktuell.monthlyRentCents) })} · {t("seit {datum}", { datum: datum(aktuell.startDate) })}
+                  {aktuell.endDate && ` · ${t("bis {datum}", { datum: datum(aktuell.endDate) })}`}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <TenancyBadge status={aktuell.status} />
+                <a href="#mietverhaeltnisse" className="btn btn-ghost btn-sm">
+                  {t("Ändern")}
+                </a>
+              </div>
+            </div>
+          </Card>
+        ) : !formularOben ? null : (
+          <Card
+            title={t("Bett zuweisen")}
+            description={t("Diese Person hat noch keine Unterkunft. Objekt, Zimmer und Bett wählen – der Vertragsentwurf entsteht dabei.")}
+          >
+            <BettZuweisen tenantId={tenant.id} beds={beds} t={t} prefix="oben" />
+          </Card>
+        )}
+      </div>
+
       {/* --- Mietverhaeltnisse -------------------------------------------- */}
       <Card
+        id="mietverhaeltnisse"
+        className="scroll-mt-4"
         title={t("Mietverhältnisse")}
         description={
           openTotal > 0
@@ -331,57 +385,14 @@ export default async function TenantDetailPage({
           </ul>
         )}
 
-        <div className="mt-5 border-t border-ink-200 pt-4">
-          <Disclosure summary={t("Weiteres Bett zuweisen")}>
-            <form action={createTenancy} className="space-y-4">
-              <input type="hidden" name="tenantId" value={tenant.id} />
-              <BedPicker beds={beds} required rentFieldId="newTenancyRent" />
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label htmlFor="newStart">{t("Mietbeginn *")}</label>
-                  <input
-                    id="newStart"
-                    name="startDate"
-                    type="date"
-                    required
-                    defaultValue={toDateInput(new Date())}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newEnd">{t("Mietende")}</label>
-                  <input id="newEnd" name="endDate" type="date" />
-                </div>
-                <div>
-                  <label htmlFor="newBillingDay">{t("Fällig am")}</label>
-                  <input
-                    id="newBillingDay"
-                    name="billingDay"
-                    type="number"
-                    min={1}
-                    max={28}
-                    defaultValue={1}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newTenancyRent">{t("Miete / Monat")}</label>
-                  <input id="newTenancyRent" name="monthlyRentCents" inputMode="decimal" />
-                </div>
-                <div>
-                  <label htmlFor="newUtilities">{t("davon Nebenkosten")}</label>
-                  <input id="newUtilities" name="utilitiesCents" inputMode="decimal" defaultValue="0,00" />
-                </div>
-                <div>
-                  <label htmlFor="newDeposit">{t("Kaution")}</label>
-                  <input id="newDeposit" name="depositCents" inputMode="decimal" defaultValue="200,00" />
-                  <p className="field-hint">{t("0,00 eintragen = keine Kaution")}</p>
-                </div>
-              </div>
-              <button type="submit" className="btn btn-primary">
-                {t("Bett zuweisen und Vertrag erzeugen")}
-              </button>
-            </form>
-          </Disclosure>
-        </div>
+        {/* Steht das Formular schon oben, waere es hier nur ein Doppel. */}
+        {!formularOben && (
+          <div className="mt-5 border-t border-ink-200 pt-4">
+            <Disclosure summary={t("Weiteres Bett zuweisen")}>
+              <BettZuweisen tenantId={tenant.id} beds={beds} t={t} prefix="unten" />
+            </Disclosure>
+          </div>
+        )}
       </Card>
 
       {/* --- Dokumente ----------------------------------------------------- */}
@@ -562,5 +573,74 @@ export default async function TenantDetailPage({
         </Card>
       </div>
     </>
+  );
+}
+
+/**
+ * Bett zuweisen - einmal ganz oben, wenn noch keins da ist, sonst unten
+ * eingeklappt fuer ein weiteres. Dieselben Felder, damit sich nichts
+ * auseinanderentwickelt.
+ */
+function BettZuweisen({
+  tenantId,
+  beds,
+  t,
+  prefix,
+}: {
+  tenantId: string;
+  beds: Awaited<ReturnType<typeof bedOptions>>;
+  t: Uebersetzen;
+  /** Eindeutige Feld-IDs, falls das Formular zweimal auf der Seite steht. */
+  prefix: string;
+}) {
+  const id = (name: string) => `${prefix}-${name}`;
+  return (
+    <form action={createTenancy} className="space-y-4">
+      <input type="hidden" name="tenantId" value={tenantId} />
+      <BedPicker beds={beds} required rentFieldId={id("newTenancyRent")} idPrefix={`${prefix}-`} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label htmlFor={id("newStart")}>{t("Mietbeginn *")}</label>
+          <input
+            id={id("newStart")}
+            name="startDate"
+            type="date"
+            required
+            defaultValue={toDateInput(new Date())}
+          />
+        </div>
+        <div>
+          <label htmlFor={id("newEnd")}>{t("Mietende")}</label>
+          <input id={id("newEnd")} name="endDate" type="date" />
+        </div>
+        <div>
+          <label htmlFor={id("newBillingDay")}>{t("Fällig am")}</label>
+          <input
+            id={id("newBillingDay")}
+            name="billingDay"
+            type="number"
+            min={1}
+            max={28}
+            defaultValue={1}
+          />
+        </div>
+        <div>
+          <label htmlFor={id("newTenancyRent")}>{t("Miete / Monat")}</label>
+          <input id={id("newTenancyRent")} name="monthlyRentCents" inputMode="decimal" />
+        </div>
+        <div>
+          <label htmlFor={id("newUtilities")}>{t("davon Nebenkosten")}</label>
+          <input id={id("newUtilities")} name="utilitiesCents" inputMode="decimal" defaultValue="0,00" />
+        </div>
+        <div>
+          <label htmlFor={id("newDeposit")}>{t("Kaution")}</label>
+          <input id={id("newDeposit")} name="depositCents" inputMode="decimal" defaultValue="200,00" />
+          <p className="field-hint">{t("0,00 eintragen = keine Kaution")}</p>
+        </div>
+      </div>
+      <button type="submit" className="btn btn-primary">
+        {t("Bett zuweisen und Vertrag erzeugen")}
+      </button>
+    </form>
   );
 }

@@ -87,11 +87,14 @@ export function BedPicker({
   defaultBedId,
   rentFieldId = "monthlyRentCents",
   required = false,
+  idPrefix = "",
 }: {
   beds: BedOption[];
   defaultBedId?: string;
   rentFieldId?: string;
   required?: boolean;
+  /** Steht der Waehler mehrmals auf einer Seite, haelt das die IDs eindeutig. */
+  idPrefix?: string;
 }) {
   const { t } = useOberflaeche();
   const initial = beds.find((bed) => bed.id === defaultBedId);
@@ -126,9 +129,9 @@ export function BedPicker({
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <div>
-        <label htmlFor="propertyPicker">{t("Objekt")}</label>
+        <label htmlFor={`${idPrefix}propertyPicker`}>{t("Objekt")}</label>
         <select
-          id="propertyPicker"
+          id={`${idPrefix}propertyPicker`}
           value={propertyId}
           required={required}
           onChange={(event) => {
@@ -147,9 +150,9 @@ export function BedPicker({
       </div>
 
       <div>
-        <label htmlFor="roomPicker">{t("Zimmer")}</label>
+        <label htmlFor={`${idPrefix}roomPicker`}>{t("Zimmer")}</label>
         <select
-          id="roomPicker"
+          id={`${idPrefix}roomPicker`}
           value={roomId}
           required={required}
           disabled={!propertyId}
@@ -168,9 +171,9 @@ export function BedPicker({
       </div>
 
       <div>
-        <label htmlFor="bedId">{t("Bett")}</label>
+        <label htmlFor={`${idPrefix}bedId`}>{t("Bett")}</label>
         <select
-          id="bedId"
+          id={`${idPrefix}bedId`}
           name="bedId"
           value={bedId}
           required={required}
