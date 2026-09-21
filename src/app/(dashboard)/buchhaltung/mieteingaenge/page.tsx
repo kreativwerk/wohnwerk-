@@ -319,7 +319,6 @@ export default async function RentIncomePage({
                                   kontoinhaber: einstellungen.companyName,
                                   iban: einstellungen.bankIban,
                                   bank: einstellungen.bankName,
-                                  verwendungszweck: charge.tenancy.reference,
                                 });
                                 const whatsapp = whatsappLink(charge.tenancy.tenant.phone, text);
                                 return (

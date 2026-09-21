@@ -26,8 +26,18 @@ export type MahnungAngaben = {
   kontoinhaber: string;
   iban: string;
   bank?: string | null;
-  verwendungszweck?: string | null;
 };
+
+/**
+ * Der Verwendungszweck steht auf dem deutschen Kontoauszug - deshalb
+ * deutsch, auch wenn die Nachricht albanisch ist: "Miete September 2026".
+ * Immer nach diesem Muster, unabhaengig von der Vertragsnummer; so
+ * erkennt die Buchhaltung auf einen Blick, welcher Monat gezahlt wurde.
+ */
+export function verwendungszweck(jahr: number, monat: number): string {
+  const name = new Intl.DateTimeFormat("de-DE", { month: "long" }).format(new Date(Date.UTC(jahr, monat - 1, 1)));
+  return `Miete ${name} ${jahr}`;
+}
 
 const MONATE_SQ = [
   "janar", "shkurt", "mars", "prill", "maj", "qershor",
@@ -98,8 +108,8 @@ export function mahnungAlbanisch(a: MahnungAngaben): string {
       `IBAN: ${ibanLesbar(iban)}`,
     );
     if (a.bank?.trim()) zeilen.push(`Banka: ${a.bank.trim()}`);
-    if (a.verwendungszweck?.trim()) zeilen.push(`Qëllimi i pagesës: ${a.verwendungszweck.trim()}`);
   }
+  zeilen.push("", `Qëllimi i pagesës: ${verwendungszweck(a.jahr, a.monat)}`);
 
   zeilen.push("", "Faleminderit!", "Wohnwerk");
   return zeilen.join("\n");

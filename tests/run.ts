@@ -560,7 +560,6 @@ async function main() {
       kontoinhaber: "Wohnwerk Immobilien eGbR",
       iban: "DE62100110012345678924",
       bank: "Qonto",
-      verwendungszweck: "WW-2026-0001",
     });
     assert.ok(text.startsWith("Përshëndetje Arben,"));
     assert.ok(text.includes("shtator 2026"), "albanischer Monatsname");
@@ -569,7 +568,8 @@ async function main() {
     assert.ok(text.includes(`deri më ${ZAHLTAG} të çdo muaji`), "Regel: immer zum 15.");
     assert.ok(text.includes("IBAN: DE62 1001 1001 2345 6789 24"), "IBAN in Vierergruppen");
     assert.ok(text.includes("Banka: Qonto"));
-    assert.ok(text.includes("Qëllimi i pagesës: WW-2026-0001"));
+    // Verwendungszweck deutsch und immer "Miete <Monat> <Jahr>" - er landet auf dem Kontoauszug.
+    assert.ok(text.includes("Qëllimi i pagesës: Miete September 2026"), "Verwendungszweck");
     assert.equal(ZAHLTAG, 15);
   });
 
@@ -585,6 +585,7 @@ async function main() {
     assert.ok(!text.includes("IBAN"));
     assert.ok(!text.includes("Të dhënat e bankës"));
     assert.ok(text.includes("janar 2026"));
+    assert.ok(text.includes("Qëllimi i pagesës: Miete Januar 2026"), "Zweck auch ohne IBAN");
     assert.equal(ibanLesbar(" DE62 1001 1001 2345 6789 24 "), "DE62 1001 1001 2345 6789 24");
   });
 
