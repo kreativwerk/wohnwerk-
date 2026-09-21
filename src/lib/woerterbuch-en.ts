@@ -1006,6 +1006,15 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Jeder Bewohner mit Bett erscheint hier – auch ohne vereinbarte Kaution.":
     "Every resident with a bed appears here, even without an agreed deposit.",
   "Keine Kaution eingetragen": "No deposit entered",
+  "Keine Kaution vereinbart": "No deposit agreed",
+  "Vertrag ohne Kaution": "Contract without a deposit",
+  "Keine Kaution": "No deposit",
+  "Vertrag ohne Kaution – es wird keine Kaution berechnet": "Contract without a deposit; no deposit will be charged",
+  "„Keine Kaution“ zurücknehmen": "Undo \"no deposit\"",
+  "Die Kaution ist schon bezahlt oder einem Kontoeingang zugeordnet – sie lässt sich nicht auf „keine Kaution“ setzen.":
+    "The deposit is already paid or matched to a bank receipt. It cannot be set to \"no deposit\".",
+  "Als „keine Kaution“ vermerkt. Es wird keine Kaution berechnet.": "Noted as \"no deposit\". No deposit will be charged.",
+  "„Keine Kaution“ zurückgenommen – der Betrag kann jetzt eingetragen werden.": "\"No deposit\" undone. The amount can now be entered.",
   "Forderung fehlt": "Charge missing",
   "Forderung erzeugen": "Create charge",
   "Betrag rechts eintragen": "Enter the amount on the right",

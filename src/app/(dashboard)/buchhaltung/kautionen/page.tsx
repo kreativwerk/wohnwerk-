@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
-import { setTenancyDeposit } from "@/app/actions/tenants";
+import { setNoDeposit, setTenancyDeposit, undoNoDeposit } from "@/app/actions/tenants";
 import { AdminOnly } from "@/components/admin-only";
 import { TenancyBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
@@ -27,8 +27,9 @@ type Ansicht = (typeof ANSICHTEN)[number];
  *   erlassen       - Forderung bewusst erlassen
  *   ohneForderung  - Kaution vereinbart, Forderung noch nicht erzeugt
  *   ohneKaution    - im Mietverhaeltnis steht 0,00 - Betrag muss nachgetragen werden
+ *   keineKaution   - bewusst ohne Kaution (aeltere Vertraege) - nichts zu tun
  */
-type Lage = "bezahlt" | "offen" | "erlassen" | "ohneForderung" | "ohneKaution";
+type Lage = "bezahlt" | "offen" | "erlassen" | "ohneForderung" | "ohneKaution" | "keineKaution";
 
 /** Vorschlag beim Nachtragen: die uebliche Kaution im Haus. */
 const UEBLICHE_KAUTION_CENTS = 20000;
@@ -77,6 +78,7 @@ export default async function DepositsPage({
     else if (charge?.status === "WAIVED") lage = "erlassen";
     else if (charge) lage = "offen";
     else if (tenancy.depositCents > 0) lage = "ohneForderung";
+    else if (tenancy.noDeposit) lage = "keineKaution";
     else lage = "ohneKaution";
 
     const soll = charge?.amountCents ?? tenancy.depositCents;
@@ -89,7 +91,7 @@ export default async function DepositsPage({
     return { tenancy, charge, lage, soll, eingegangen };
   });
 
-  const relevante = zeilen.filter((z) => z.lage !== "erlassen" && z.lage !== "ohneKaution");
+  const relevante = zeilen.filter((z) => z.lage !== "erlassen" && z.lage !== "ohneKaution" && z.lage !== "keineKaution");
   const sollGesamt = relevante.reduce((sum, z) => sum + z.soll, 0);
   const eingegangen = relevante.reduce((sum, z) => sum + z.eingegangen, 0);
   const offen = sollGesamt - eingegangen;
@@ -99,7 +101,7 @@ export default async function DepositsPage({
   const gezeigt = zeilen.filter((z) => {
     if (ansicht === "alle") return true;
     if (ansicht === "bezahlt") return z.lage === "bezahlt";
-    return z.lage !== "bezahlt" && z.lage !== "erlassen";
+    return z.lage !== "bezahlt" && z.lage !== "erlassen" && z.lage !== "keineKaution";
   });
 
   gezeigt.sort((a, b) => {
@@ -251,6 +253,7 @@ export default async function DepositsPage({
                             <TenancyBadge status={tenancy.status} />
                             {istErlassen && <Badge tone="neutral">{t("Erlassen")}</Badge>}
                             {lage === "ohneKaution" && <Badge tone="warning">{t("Keine Kaution eingetragen")}</Badge>}
+                            {lage === "keineKaution" && <Badge tone="neutral">{t("Keine Kaution vereinbart")}</Badge>}
                             {lage === "ohneForderung" && <Badge tone="warning">{t("Forderung fehlt")}</Badge>}
                           </div>
                         </Td>
@@ -259,7 +262,7 @@ export default async function DepositsPage({
                         </Td>
                         <Td className="whitespace-nowrap text-ink-600">{datum(tenancy.startDate)}</Td>
                         <Td align="right" className="tabular-nums">
-                          {lage === "ohneKaution" ? <span className="text-ink-400">–</span> : geld(soll)}
+                          {lage === "ohneKaution" || lage === "keineKaution" ? <span className="text-ink-400">–</span> : geld(soll)}
                           {teilOffen > 0 && (
                             <p className="text-xs text-amber-600">
                               {t("noch {betrag} offen", { betrag: geld(teilOffen) })}
@@ -277,6 +280,8 @@ export default async function DepositsPage({
                             <span>{t("von Hand abgehakt")}</span>
                           ) : lage === "ohneKaution" ? (
                             <span className="text-ink-400">{t("Betrag rechts eintragen")}</span>
+                          ) : lage === "keineKaution" ? (
+                            <span className="text-ink-400">{t("Vertrag ohne Kaution")}</span>
                           ) : lage === "ohneForderung" ? (
                             <span className="text-ink-400">{t("Forderung noch nicht erzeugt")}</span>
                           ) : (
@@ -306,6 +311,31 @@ export default async function DepositsPage({
                                   title={t("Kaution im Mietverhältnis eintragen und Forderung erzeugen")}
                                 >
                                   {t("Eintragen")}
+                                </button>
+                              </form>
+                            )}
+                            {/* Aeltere Vertraege liefen ohne Kaution: ein Klick, und die
+                                Zeile ist keine offene Kaution mehr. Nur solange nichts
+                                bezahlt ist. */}
+                            {(lage === "ohneKaution" || (lage === "offen" && !perKonto) || lage === "ohneForderung") && (
+                              <form action={setNoDeposit} className="mt-1.5 flex justify-end">
+                                <input type="hidden" name="id" value={tenancy.id} />
+                                <input type="hidden" name="back" value={back} />
+                                <button
+                                  type="submit"
+                                  className="btn btn-ghost btn-sm whitespace-nowrap"
+                                  title={t("Vertrag ohne Kaution – es wird keine Kaution berechnet")}
+                                >
+                                  {t("Keine Kaution")}
+                                </button>
+                              </form>
+                            )}
+                            {lage === "keineKaution" && (
+                              <form action={undoNoDeposit}>
+                                <input type="hidden" name="id" value={tenancy.id} />
+                                <input type="hidden" name="back" value={back} />
+                                <button type="submit" className="btn btn-ghost btn-sm" title={t("„Keine Kaution“ zurücknehmen")}>
+                                  {t("Rückgängig")}
                                 </button>
                               </form>
                             )}

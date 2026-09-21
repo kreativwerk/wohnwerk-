@@ -227,6 +227,9 @@ model Tenancy {
 
   monthlyRentCents Int
   depositCents     Int @default(0)
+  // Bewusst ohne Kaution (aeltere Vertraege) - dann fehlt sie nicht, sie
+  // ist nicht vereinbart, und es wird auch keine berechnet.
+  noDeposit        Boolean @default(false)
   // Nebenkosten-Pauschale, im Mietpreis enthalten oder zusaetzlich
   utilitiesCents   Int @default(0)
 

@@ -304,6 +304,8 @@ export async function updateTenancy(formData: FormData) {
       endDate,
       monthlyRentCents: cents(formData, "monthlyRentCents", tenancy.monthlyRentCents),
       depositCents: cents(formData, "depositCents", tenancy.depositCents),
+      // Wer hier eine Kaution eintraegt, meint sie auch - "keine Kaution" faellt dann.
+      noDeposit: cents(formData, "depositCents", tenancy.depositCents) > 0 ? false : tenancy.noDeposit,
       utilitiesCents: cents(formData, "utilitiesCents", tenancy.utilitiesCents),
       billingDay: Math.min(Math.max(int(formData, "billingDay", tenancy.billingDay), 1), 28),
       notes: optionalStr(formData, "notes"),
@@ -346,8 +348,8 @@ export async function setTenancyDeposit(formData: FormData) {
     redirect(flash(back, "fehler", t("Bitte einen Kautionsbetrag über 0,00 € eingeben.")));
   }
 
-  if (depositCents !== tenancy.depositCents) {
-    await prisma.tenancy.update({ where: { id }, data: { depositCents } });
+  if (depositCents !== tenancy.depositCents || tenancy.noDeposit) {
+    await prisma.tenancy.update({ where: { id }, data: { depositCents, noDeposit: false } });
   }
   const erzeugt = await ensureRentCharges({ tenancyId: id });
   await audit(user.email, "update", "Tenancy", id);
@@ -363,6 +365,59 @@ export async function setTenancyDeposit(formData: FormData) {
         : t("Kaution hinterlegt. Die Forderung entsteht, sobald der Vertrag versandt ist."),
     ),
   );
+}
+
+/**
+ * "Keine Kaution" - bewusst, nicht vergessen. Aeltere Vertraege liefen
+ * ohne Kaution; die sollen nicht ewig als "fehlt" in der Liste stehen.
+ * Setzt den Betrag auf 0, nimmt eine unbezahlte Kautionsforderung heraus
+ * und merkt sich die Entscheidung. Eine schon bezahlte oder per Konto
+ * zugeordnete Kaution bleibt - Geld, das geflossen ist, verschwindet
+ * nicht durch einen Klick.
+ */
+export async function setNoDeposit(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = optionalStr(formData, "back") ?? "/buchhaltung/kautionen";
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id },
+    include: { charges: { where: { kind: "DEPOSIT" }, include: { allocations: { select: { id: true } } } } },
+  });
+  if (!tenancy) redirect(flash(back, "fehler", t("Mietverhältnis nicht gefunden.")));
+
+  const verbucht = tenancy.charges.some((c) => c.status === "PAID" || c.allocations.length > 0);
+  if (verbucht) {
+    redirect(flash(back, "fehler", t("Die Kaution ist schon bezahlt oder einem Kontoeingang zugeordnet – sie lässt sich nicht auf „keine Kaution“ setzen.")));
+  }
+
+  await prisma.$transaction([
+    prisma.rentCharge.deleteMany({ where: { tenancyId: id, kind: "DEPOSIT", status: { in: ["OPEN", "PARTIAL", "WAIVED"] } } }),
+    prisma.tenancy.update({ where: { id }, data: { depositCents: 0, noDeposit: true } }),
+  ]);
+  await audit(user.email, "no-deposit", "Tenancy", id);
+  refresh(tenancy.tenantId);
+  revalidatePath("/buchhaltung/kautionen");
+  revalidatePath("/buchhaltung/mieteingaenge");
+  redirect(flash(back, "ok", t("Als „keine Kaution“ vermerkt. Es wird keine Kaution berechnet.")));
+}
+
+/** Nimmt "keine Kaution" zurueck - die Zeile steht dann wieder zum Eintragen bereit. */
+export async function undoNoDeposit(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+  const back = optionalStr(formData, "back") ?? "/buchhaltung/kautionen";
+
+  const tenancy = await prisma.tenancy.findUnique({ where: { id } });
+  if (!tenancy) redirect(flash(back, "fehler", t("Mietverhältnis nicht gefunden.")));
+
+  await prisma.tenancy.update({ where: { id }, data: { noDeposit: false } });
+  await audit(user.email, "no-deposit-undo", "Tenancy", id);
+  refresh(tenancy.tenantId);
+  revalidatePath("/buchhaltung/kautionen");
+  redirect(flash(back, "ok", t("„Keine Kaution“ zurückgenommen – der Betrag kann jetzt eingetragen werden.")));
 }
 
 /**
