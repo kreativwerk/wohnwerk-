@@ -3,20 +3,11 @@ import Link from "next/link";
 import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
-import { TextKopieren } from "@/components/mahnung-kopieren";
+import { NachrichtDialog } from "@/components/nachricht-dialog";
 import { ensureRentCharges } from "@/lib/accounting";
 import { getSessionUser, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import {
-  MAHN_SPRACHEN,
-  MAHN_SPRACHE_NAME,
-  istMahnSprache,
-  mahnungText,
-  rueckstandText,
-  whatsappLink,
-  type MahnSprache,
-  type OffenerPosten,
-} from "@/lib/mahnung";
+import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
@@ -52,16 +43,12 @@ function verschiebe(year: number, month: number, um: number): { year: number; mo
 export default async function RentIncomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; fehler?: string; monat?: string; sprache?: string }>;
+  searchParams: Promise<{ ok?: string; fehler?: string; monat?: string }>;
 }) {
   const { t, datum, monat, geld } = await oberflaeche();
   const params = await searchParams;
   const { year, month } = parseMonat(params.monat);
-  // Sprache der Erinnerungstexte - Albanisch ist die Vorgabe. Die Wahl
-  // haengt an der URL, damit sie Abhaken und Monatswechsel ueberlebt.
-  const sprache: MahnSprache = istMahnSprache(params.sprache) ? params.sprache : "sq";
-  const sprachSuffix = sprache === "sq" ? "" : `&sprache=${sprache}`;
-  const seite = (jahr: number, mon: number) => `/buchhaltung/mieteingaenge?monat=${monatsWert(jahr, mon)}${sprachSuffix}`;
+  const seite = (jahr: number, mon: number) => `/buchhaltung/mieteingaenge?monat=${monatsWert(jahr, mon)}`;
   const back = seite(year, month);
 
   const zurueck = verschiebe(year, month, -1);
@@ -228,36 +215,11 @@ export default async function RentIncomePage({
 
       {!istAktuellerMonat && (
         <div className="mb-5 -mt-2">
-          <Link href={`/buchhaltung/mieteingaenge${sprachSuffix ? `?${sprachSuffix.slice(1)}` : ""}`} className="btn btn-ghost btn-sm">
+          <Link href="/buchhaltung/mieteingaenge" className="btn btn-ghost btn-sm">
             {t("Zum aktuellen Monat")}
           </Link>
         </div>
       )}
-
-      {/* --- Sprache der Erinnerung ------------------------------------------
-          Gilt fuer alle WhatsApp- und Kopieren-Knoepfe auf der Seite. */}
-      <div className="scroll-schatten -mx-1 mb-5 flex items-center gap-2 overflow-x-auto px-1 pb-1">
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.06em] text-ink-500">
-          {t("Erinnerung auf")}
-        </span>
-        {MAHN_SPRACHEN.map((code) => {
-          const aktiv = code === sprache;
-          return (
-            <Link
-              key={code}
-              href={`/buchhaltung/mieteingaenge?monat=${monatsWert(year, month)}${code === "sq" ? "" : `&sprache=${code}`}`}
-              aria-current={aktiv ? "true" : undefined}
-              className={`flex min-h-8 shrink-0 items-center rounded-full px-3 text-[0.8rem] font-medium transition-colors ${
-                aktiv
-                  ? "bg-brand-700 text-white"
-                  : "bg-white text-ink-600 ring-1 ring-inset ring-ink-200 hover:text-brand-700"
-              }`}
-            >
-              {t(MAHN_SPRACHE_NAME[code])}
-            </Link>
-          );
-        })}
-      </div>
 
       {ohneForderung.length > 0 && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -434,82 +396,42 @@ export default async function RentIncomePage({
                           </Td>
                           <Td align="right">
                             <AdminOnly>
-                              {/* Erinnerung in der gewaehlten Sprache mit dem
-                                  offenen Rest dieses Monats - nur fuer Mieten,
-                                  eine Kaution ist keine Monatsmiete. */}
-                              {!istBezahlt && !istErlassen && charge.kind === "RENT" && (() => {
-                                const text = mahnungText(sprache, {
-                                  vorname: charge.tenancy.tenant.firstName,
-                                  jahr: year,
-                                  monat: month,
-                                  offenCents: chargeOffen,
-                                  kontoinhaber: einstellungen.companyName,
-                                  iban: einstellungen.bankIban,
-                                  bank: einstellungen.bankName,
-                                });
-                                const whatsapp = whatsappLink(charge.tenancy.tenant.phone, text);
-                                return (
-                                  <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
-                                    {/* Mit Telefonnummer geht es direkt in WhatsApp, der
-                                        Text steht schon im Feld. Ohne Nummer bleibt
-                                        Kopieren - und ein Hinweis, warum. */}
-                                    {whatsapp ? (
-                                      <a
-                                        href={whatsapp}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        title={t("Erinnerung per WhatsApp senden")}
-                                      >
-                                        WhatsApp
-                                      </a>
-                                    ) : (
-                                      <Link
-                                        href={`/mieter/${charge.tenancy.tenantId}`}
-                                        className="text-xs text-ink-500 hover:text-brand-700"
-                                        title={t("Telefonnummer beim Mieter hinterlegen, dann erscheint hier ein WhatsApp-Link")}
-                                      >
-                                        {t("Keine Telefonnummer")}
-                                      </Link>
-                                    )}
-                                    <TextKopieren label={t("Kopieren ({sprache})", { sprache: t(MAHN_SPRACHE_NAME[sprache]) })} text={text} />
-                                  </div>
-                                );
-                              })()}
-                              {/* Gesamtaufstellung: alle offenen Monate plus Kaution in
-                                  einer Nachricht. Nur wo es mehr als diesen einen Posten
-                                  gibt - oder bei der Kaution, die sonst keinen Text hat. */}
+                              {/* Ein Knopf je Mieter: die Gesamtforderung - alle
+                                  offenen Monate plus Kaution - in jeder Sprache.
+                                  An der ersten offenen Zeile der Person. */}
                               {!istBezahlt && !istErlassen && (() => {
                                 const posten = rueckstaende.get(charge.tenancy.tenantId) ?? [];
-                                const lohnt = posten.length >= 2 || charge.kind === "DEPOSIT";
-                                if (!lohnt || posten.length === 0 || gesamtGezeigt.has(charge.tenancy.tenantId)) return null;
+                                if (posten.length === 0 || gesamtGezeigt.has(charge.tenancy.tenantId)) return null;
                                 gesamtGezeigt.add(charge.tenancy.tenantId);
                                 const gesamt = posten.reduce((sum, p) => sum + p.offenCents, 0);
-                                const text = rueckstandText(sprache, {
-                                  vorname: charge.tenancy.tenant.firstName,
-                                  posten,
-                                  kontoinhaber: einstellungen.companyName,
-                                  iban: einstellungen.bankIban,
-                                  bank: einstellungen.bankName,
+                                const varianten = MAHN_SPRACHEN.map((code) => {
+                                  const text = rueckstandText(code, {
+                                    vorname: charge.tenancy.tenant.firstName,
+                                    posten,
+                                    kontoinhaber: einstellungen.companyName,
+                                    iban: einstellungen.bankIban,
+                                    bank: einstellungen.bankName,
+                                  });
+                                  return {
+                                    code,
+                                    sprache: MAHN_SPRACHE_NAME[code],
+                                    text,
+                                    whatsapp: whatsappLink(charge.tenancy.tenant.phone, text),
+                                  };
                                 });
-                                const whatsapp = whatsappLink(charge.tenancy.tenant.phone, text);
                                 return (
                                   <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
-                                    <span className="text-xs text-amber-700" title={t("Alle offenen Posten dieser Person, inklusive Kaution")}>
-                                      {t("Gesamt offen: {betrag}", { betrag: geld(gesamt) })}
-                                    </span>
-                                    {whatsapp && (
-                                      <a
-                                        href={whatsapp}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        title={t("Gesamtaufstellung per WhatsApp senden")}
-                                      >
-                                        WhatsApp
-                                      </a>
+                                    {posten.length > 1 && (
+                                      <span className="text-xs text-amber-700">
+                                        {t("Gesamt offen: {betrag}", { betrag: geld(gesamt) })}
+                                      </span>
                                     )}
-                                    <TextKopieren label={t("Alle Rückstände kopieren")} text={text} />
+                                    <NachrichtDialog
+                                      name={`${charge.tenancy.tenant.firstName} ${charge.tenancy.tenant.lastName}`}
+                                      gesamt={geld(gesamt)}
+                                      varianten={varianten}
+                                      telefonFehlt={`/mieter/${charge.tenancy.tenantId}`}
+                                    />
                                   </div>
                                 );
                               })()}

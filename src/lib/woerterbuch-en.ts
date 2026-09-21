@@ -956,12 +956,16 @@ export const WOERTERBUCH_EN: Record<string, string> = {
 
   // --- Zahlungserinnerung -------------------------------------------------
   "Erinnerung kopieren (Albanisch)": "Copy reminder (Albanian)",
-  "Alle offenen Posten dieser Person, inklusive Kaution": "Everything this person still owes, including the deposit",
   "Gesamt offen: {betrag}": "Total outstanding: {betrag}",
-  "Gesamtaufstellung per WhatsApp senden": "Send the full statement via WhatsApp",
-  "Alle Rückstände kopieren": "Copy all arrears",
-  "Erinnerung auf": "Reminder in",
-  "Kopieren ({sprache})": "Copy ({sprache})",
+  "Nachricht": "Message",
+  "Nachricht an {name}": "Message to {name}",
+  "Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp": "Payment reminder with everything outstanding, to copy or send via WhatsApp",
+  "alle offenen Monate und die Kaution in einer Nachricht": "all open months and the deposit in one message",
+  "Text anzeigen": "Show text",
+  "Kein WhatsApp-Link: Es ist keine Telefonnummer hinterlegt.": "No WhatsApp link: no phone number on file.",
+  "Nummer eintragen": "Add a number",
+  "Text der Nachricht": "Message text",
+  "Der Browser hat die Zwischenablage verweigert – Text oben markieren und von Hand kopieren.": "The browser refused clipboard access. Select the text above and copy it by hand.",
   "Albanisch": "Albanian",
   "Bulgarisch": "Bulgarian",
   "Rumänisch": "Romanian",
@@ -970,10 +974,6 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "{anzahl} Bewohner ohne Mietforderung für {monat}": "{anzahl} resident(s) without a rent charge for {monat}",
   "Vertragsentwurf, noch nicht versendet": "Contract draft, not sent yet",
   "Ein Entwurf bekommt seine Forderungen, sobald der Vertrag versendet ist.": "A draft gets its charges as soon as the contract has been sent.",
-  "Erinnerung per WhatsApp senden": "Send reminder via WhatsApp",
-  "Keine Telefonnummer": "No phone number",
-  "Telefonnummer beim Mieter hinterlegen, dann erscheint hier ein WhatsApp-Link":
-    "Store a phone number on the tenant and a WhatsApp link appears here",
   "Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.":
     "With country code, e.g. +49 151 2345678 - used for the WhatsApp link on rent payments.",
 
