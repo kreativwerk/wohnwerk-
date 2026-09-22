@@ -6,6 +6,7 @@ import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td,
 import { NachrichtDialog } from "@/components/nachricht-dialog";
 import { ensureRentCharges } from "@/lib/accounting";
 import { getSessionUser, isAdmin } from "@/lib/auth";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
@@ -286,6 +287,7 @@ export default async function RentIncomePage({
         <StatCard label={t("Soll gesamt")} value={geld(sollGesamt)} />
       </div>
 
+      <ListenFilter placeholder={t("Mieter, Zimmer, Objekt …")} zeilen="tbody tr" gruppen=".card" className="mt-6">
       {charges.length === 0 ? (
         <div className="mt-6">
           <Card>
@@ -495,6 +497,8 @@ export default async function RentIncomePage({
           );
         })
       )}
+
+      </ListenFilter>
 
       <p className="mt-6 text-xs text-ink-500">
         {t("Per Kontoauszug bestätigte Eingänge lassen sich hier nicht zurücknehmen – die Zuordnung dazu wird unter")}{" "}

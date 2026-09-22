@@ -7,6 +7,7 @@ import { BelegDatei } from "@/components/beleg-datei";
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 
 import { requireAdmin } from "@/lib/auth";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import {
   TICKET_ART,
@@ -147,6 +148,7 @@ export default async function TicketsPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* min-w-0: sonst zieht die Tabelle die Spalte am Handy in die Breite. */}
         <div className="min-w-0 lg:col-span-2">
+          <ListenFilter placeholder={t("Titel, Objekt, Mieter …")} zeilen="tbody tr, ul.divide-y > li">
           <Card padded={false}>
             {tickets.length === 0 ? (
               <div className="p-5">
@@ -307,6 +309,7 @@ export default async function TicketsPage({
               </>
             )}
           </Card>
+          </ListenFilter>
         </div>
 
         <div className="min-w-0">

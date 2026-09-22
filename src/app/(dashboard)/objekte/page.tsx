@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, Table, Td, Th } from "@/components/ui";
 import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { monthlyCostCents } from "@/components/cost-card";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { occupancySummary } from "@/lib/tenancy";
 
@@ -56,6 +57,7 @@ export default async function PropertiesPage({
 
       <Flash ok={params.ok} fehler={params.fehler} />
 
+      <ListenFilter placeholder={t("Objekt, Adresse …")}>
       <Card padded={false}>
         {properties.length === 0 ? (
           <div className="p-5">
@@ -177,6 +179,7 @@ export default async function PropertiesPage({
           </Table>
         )}
       </Card>
+      </ListenFilter>
     </>
   );
 }

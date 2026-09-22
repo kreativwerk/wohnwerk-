@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { ConfirmButton } from "@/components/interactive";
 import { ContractBadge } from "@/components/status";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 
 import { requireAdmin } from "@/lib/auth";
@@ -183,6 +184,7 @@ export default async function ContractsPage({
         </div>
       )}
 
+      <ListenFilter placeholder={t("Name, Vertragsnummer, Objekt …")} zeilen="tbody tr" gruppen=".card" className="mt-6">
       {ohneVertrag.length > 0 && (
         <div className="mt-6">
           <Card
@@ -461,6 +463,7 @@ export default async function ContractsPage({
           </Card>
         </div>
       )}
+      </ListenFilter>
     </>
   );
 }

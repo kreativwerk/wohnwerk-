@@ -4,6 +4,7 @@ import { updateTenantContact } from "@/app/actions/tenants";
 import { AdminOnly } from "@/components/admin-only";
 import { Card, EmptyState, Flash, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 import { whatsappNummer } from "@/lib/mahnung";
@@ -87,6 +88,7 @@ export default async function ContactsPage({
           <EmptyState title={t("Noch keine Mieter")} />
         </Card>
       ) : (
+        <ListenFilter placeholder={t("Name, Telefon, E-Mail …")} zeilen="ul.divide-y > li">
         <Card padded={false}>
           {/* Kopfzeile nur am Schreibtisch; am Handy traegt jedes Feld seine
               eigene Beschriftung, sonst weiss man nicht, was wohin gehoert. */}
@@ -170,6 +172,7 @@ export default async function ContactsPage({
             })}
           </ul>
         </Card>
+        </ListenFilter>
       )}
     </>
   );

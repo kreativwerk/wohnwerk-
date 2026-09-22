@@ -6,6 +6,7 @@ import {
 } from "@/app/actions/accounting";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 
 import { AdminOnly } from "@/components/admin-only";
@@ -174,6 +175,7 @@ export default async function StatementsPage({
       </div>
 
       <div className="mt-6">
+        <ListenFilter placeholder={t("Konto, Datei, Datum …")}>
         <Card title={t("Importierte Auszüge")} padded={false}>
           {statements.length === 0 ? (
             <div className="p-5">
@@ -253,6 +255,7 @@ export default async function StatementsPage({
             </Table>
           )}
         </Card>
+        </ListenFilter>
       </div>
     </>
   );

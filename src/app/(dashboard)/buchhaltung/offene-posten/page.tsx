@@ -12,6 +12,7 @@ import {
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { centsToInput } from "@/lib/money";
 
@@ -138,6 +139,7 @@ export default async function OpenItemsPage({
       </div>
 
       <div className="mt-6">
+        <ListenFilter placeholder={t("Mieter, Monat, Objekt …")}>
         <Card padded={false}>
           <AdminOnly>
             <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
@@ -337,6 +339,7 @@ export default async function OpenItemsPage({
             </Table>
           )}
         </Card>
+        </ListenFilter>
       </div>
 
       {unallocatedPayments.length > 0 && (

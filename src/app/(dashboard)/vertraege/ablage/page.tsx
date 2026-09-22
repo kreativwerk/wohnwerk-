@@ -8,6 +8,7 @@ import {
 import { deleteDocument } from "@/app/actions/accounting";
 import { ConfirmButton } from "@/components/interactive";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 
 import { requireAdmin } from "@/lib/auth";
@@ -94,6 +95,7 @@ export default async function ContractInboxPage({
       </div>
 
       <div className="mt-6">
+        <ListenFilter placeholder={t("Datei, Mieter …")}>
         <Card padded={false}>
           {offene.length === 0 ? (
             <div className="p-5">
@@ -213,6 +215,7 @@ export default async function ContractInboxPage({
             </Table>
           )}
         </Card>
+        </ListenFilter>
       </div>
 
       <p className="mt-6 text-xs text-ink-500">

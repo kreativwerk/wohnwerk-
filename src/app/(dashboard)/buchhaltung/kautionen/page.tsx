@@ -5,6 +5,7 @@ import { setNoDeposit, setTenancyDeposit, undoNoDeposit } from "@/app/actions/te
 import { AdminOnly } from "@/components/admin-only";
 import { TenancyBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 import { centsToInput } from "@/lib/money";
@@ -191,6 +192,7 @@ export default async function DepositsPage({
         })}
       </div>
 
+      <ListenFilter placeholder={t("Mieter, Zimmer, Objekt …")} zeilen="tbody tr" gruppen=".card">
       {gezeigt.length === 0 ? (
         <Card>
           <EmptyState
@@ -385,6 +387,7 @@ export default async function DepositsPage({
           </div>
         ))
       )}
+      </ListenFilter>
     </>
   );
 }
