@@ -99,67 +99,96 @@ export async function ensureRentCharges(options: { tenancyId?: string; until?: D
   return result.count;
 }
 
-export type AuszugAnpassung = {
+export type ForderungsAbgleich = {
   /** Der letzte Monat wurde auf den Auszugstag gekuerzt. */
   gekuerzt: { year: number; month: number; vorher: number; nachher: number; tage: number } | null;
-  /** Offene Forderungen fuer Monate nach dem Auszug, die entfernt wurden. */
+  /** Offene Forderungen ausserhalb des Mietzeitraums, die entfernt wurden. */
   entfernt: number;
   /** Der letzte Monat ist schon bezahlt - da wird nichts angefasst. */
   bezahltZuViel: number;
+  /** Sonstige offene Monate, deren Betrag neu gerechnet wurde (z. B. nach geaendertem Einzug). */
+  neuBerechnet: number;
 };
 
 /**
- * Nach einem Auszug stimmt die Forderung des letzten Monats nicht mehr:
- * Sie wurde als voller Monat erzeugt, geschuldet sind aber nur die Tage
- * bis zum Auszug. Hier wird sie auf den Anteil gekuerzt, und offene
- * Forderungen fuer Monate danach verschwinden. Bezahltes bleibt - Geld,
- * das geflossen ist, wird nicht per Formular umgebucht; das steht dann
- * als Hinweis in der Rueckmeldung.
+ * Bringt die offenen Forderungen mit dem Mietzeitraum in Einklang -
+ * nach einem Auszug, aber auch nach einem geaenderten Einzugsdatum oder
+ * einer anderen Miete. Was noch nicht bezahlt und keinem Kontoeingang
+ * zugeordnet ist, wird neu gerechnet: Monate ausserhalb des Zeitraums
+ * verschwinden, angebrochene Monate bekommen ihren Tagesanteil, volle
+ * Monate die volle Miete. Die Kaution wandert mit auf den Einzugstag.
+ * Bezahltes bleibt - Geld, das geflossen ist, wird nicht per Formular
+ * umgebucht; das steht dann als Hinweis in der Rueckmeldung.
  */
-export async function anpassenNachAuszug(tenancyId: string): Promise<AuszugAnpassung> {
-  const leer: AuszugAnpassung = { gekuerzt: null, entfernt: 0, bezahltZuViel: 0 };
+export async function forderungenAbgleichen(tenancyId: string): Promise<ForderungsAbgleich> {
+  const ergebnis: ForderungsAbgleich = { gekuerzt: null, entfernt: 0, bezahltZuViel: 0, neuBerechnet: 0 };
   const tenancy = await prisma.tenancy.findUnique({
     where: { id: tenancyId },
-    include: {
-      charges: { where: { kind: "RENT" }, include: { allocations: { select: { amountCents: true } } } },
-    },
+    include: { charges: { include: { allocations: { select: { amountCents: true } } } } },
   });
-  if (!tenancy?.endDate) return leer;
+  if (!tenancy) return ergebnis;
+
+  const start = tenancy.startDate;
+  const startIndex = start.getUTCFullYear() * 12 + start.getUTCMonth();
   const end = tenancy.endDate;
-  const endIndex = end.getUTCFullYear() * 12 + end.getUTCMonth();
+  const endIndex = end ? end.getUTCFullYear() * 12 + end.getUTCMonth() : Number.POSITIVE_INFINITY;
 
-  const ergebnis = { ...leer };
   for (const charge of tenancy.charges) {
+    const unberuehrt =
+      (charge.status === "OPEN" || charge.status === "PARTIAL") && charge.allocations.length === 0;
     const index = charge.periodYear * 12 + (charge.periodMonth - 1);
-    const unberuehrt = charge.status === "OPEN" && charge.allocations.length === 0;
 
-    if (index > endIndex) {
+    if (charge.kind === "DEPOSIT") {
+      // Die Kaution gehoert zum Einzug - auch wenn der spaeter verschoben wurde.
+      if (!unberuehrt || tenancy.depositCents <= 0) continue;
+      const passt =
+        index === startIndex &&
+        charge.dueDate.getTime() === start.getTime() &&
+        charge.amountCents === tenancy.depositCents;
+      if (passt) continue;
+      await prisma.rentCharge.update({
+        where: { id: charge.id },
+        data: {
+          periodYear: start.getUTCFullYear(),
+          periodMonth: start.getUTCMonth() + 1,
+          dueDate: start,
+          amountCents: tenancy.depositCents,
+        },
+      });
+      continue;
+    }
+    if (charge.kind !== "RENT") continue;
+
+    if (index < startIndex || index > endIndex) {
       if (unberuehrt) {
         await prisma.rentCharge.delete({ where: { id: charge.id } });
         ergebnis.entfernt += 1;
       }
       continue;
     }
-    if (index !== endIndex) continue;
 
     const anteil = monatsanteil(tenancy, charge.periodYear, charge.periodMonth);
     if (anteil.amountCents === charge.amountCents) continue;
 
-    if (charge.status === "PAID" || charge.allocations.length > 0) {
-      ergebnis.bezahltZuViel = Math.max(0, charge.amountCents - anteil.amountCents);
+    if (!unberuehrt) {
+      if (index === endIndex) ergebnis.bezahltZuViel = Math.max(0, charge.amountCents - anteil.amountCents);
       continue;
     }
     await prisma.rentCharge.update({
       where: { id: charge.id },
       data: { amountCents: anteil.amountCents, notes: anteilNotiz(anteil) },
     });
-    ergebnis.gekuerzt = {
-      year: charge.periodYear,
-      month: charge.periodMonth,
-      vorher: charge.amountCents,
-      nachher: anteil.amountCents,
-      tage: anteil.billedDays,
-    };
+    if (index === endIndex && anteil.amountCents < charge.amountCents) {
+      ergebnis.gekuerzt = {
+        year: charge.periodYear,
+        month: charge.periodMonth,
+        vorher: charge.amountCents,
+        nachher: anteil.amountCents,
+        tage: anteil.billedDays,
+      };
+    } else {
+      ergebnis.neuBerechnet += 1;
+    }
   }
   return ergebnis;
 }

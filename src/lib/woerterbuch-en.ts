@@ -471,6 +471,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Letzter Monat auf {tage} Tage gekürzt: {nachher} statt {vorher}.": "Last month reduced to {tage} days: {nachher} instead of {vorher}.",
   "Der letzte Monat ist schon voll bezahlt – {betrag} zu viel, bitte mit der Kaution verrechnen.": "The last month is already paid in full: {betrag} too much, please offset it against the deposit.",
   "{anzahl} offene Forderung(en) nach dem Auszug entfernt.": "{anzahl} open charge(s) after the move-out removed.",
+  "{anzahl} offene Forderung(en) neu berechnet.": "{anzahl} open charge(s) recalculated.",
+  "{anzahl} offene Forderung(en) außerhalb des Zeitraums entfernt.": "{anzahl} open charge(s) outside the period removed.",
   "Bett wechseln": "Change bed",
   "Umzug in ein anderes Bett, auch in eine andere Wohnung. Beginn, Miete, Kaution, Vertrag und Forderungen bleiben unverändert.":
     "Move to another bed, even in another flat. Start date, rent, deposit, contract and charges stay unchanged.",

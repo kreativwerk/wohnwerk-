@@ -398,7 +398,12 @@ export default async function TenantDetailPage({
                               const paid = charge.allocations.reduce((s, a) => s + a.amountCents, 0);
                               return (
                                 <tr key={charge.id}>
-                                  <Td>{monat(charge.periodYear, charge.periodMonth)}</Td>
+                                  <Td>
+                                    {monat(charge.periodYear, charge.periodMonth)}
+                                    {charge.kind === "DEPOSIT" && (
+                                      <span className="ml-2"><Badge tone="brand">{t("Kaution")}</Badge></span>
+                                    )}
+                                  </Td>
                                   <Td className="text-ink-600">{datum(charge.dueDate)}</Td>
                                   <Td align="right" className="tabular-nums">
                                     {geld(charge.amountCents)}
