@@ -3,6 +3,7 @@ import Link from "next/link";
 import { deleteDocument, updateDocument, uploadDocument } from "@/app/actions/accounting";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
+import { SuchFeld } from "@/components/suchfeld";
 import { prisma } from "@/lib/db";
 import { DOCUMENT_KIND_LABEL, EXPENSE_CATEGORIES } from "@/lib/enums";
 import { propertyOptions } from "@/lib/options";
@@ -121,7 +122,7 @@ export default async function DocumentsPage({
               <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
                 <div className="min-w-40 flex-1">
                   <label htmlFor="q">{t("Suche")}</label>
-                  <input id="q" name="q" defaultValue={params.q ?? ""} placeholder={t("Titel, Lieferant")} />
+                  <SuchFeld defaultValue={params.q ?? ""} placeholder={t("Titel, Lieferant")} />
                 </div>
                 <div className="min-w-36 flex-1 sm:w-44 sm:flex-none">
                   <label htmlFor="art">{t("Art")}</label>

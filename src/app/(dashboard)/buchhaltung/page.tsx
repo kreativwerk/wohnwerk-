@@ -4,6 +4,7 @@ import { updateTransaction, uploadDocument } from "@/app/actions/accounting";
 import { Disclosure } from "@/components/interactive";
 import { ReviewBadge } from "@/components/status";
 import { Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { SuchFeld } from "@/components/suchfeld";
 import { prisma } from "@/lib/db";
 import { periodSummary } from "@/lib/accounting";
 import { EXPENSE_CATEGORIES } from "@/lib/enums";
@@ -128,7 +129,7 @@ export default async function AccountingPage({
             <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
               <div className="min-w-52 flex-1">
                 <label htmlFor="q">{t("Suche")}</label>
-                <input id="q" name="q" defaultValue={params.q ?? ""} placeholder={t("Zweck, Name, Kategorie")} />
+                <SuchFeld defaultValue={params.q ?? ""} placeholder={t("Zweck, Name, Kategorie")} />
               </div>
               <div className="w-40">
                 <label htmlFor="richtung">{t("Richtung")}</label>

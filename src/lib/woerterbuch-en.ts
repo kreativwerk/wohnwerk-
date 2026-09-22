@@ -469,6 +469,12 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "Suchen: Mieter, Objekt, Zimmer, Vertrag, Ticket …": "Search: tenant, property, room, contract, ticket …",
+  "Suche …": "Searching …",
+  "Nichts gefunden.": "Nothing found.",
+  "Verträge": "Contracts",
+  "ohne Bett": "no bed",
+  "{anzahl} Betten": "{anzahl} beds",
   "{belegt} belegt · {frei} frei · {gesamt} Betten gesamt": "{belegt} occupied · {frei} free · {gesamt} beds in total",
   "Zimmer und Betten bearbeiten": "Edit rooms and beds",
   "noch nie zugewiesen": "never assigned",

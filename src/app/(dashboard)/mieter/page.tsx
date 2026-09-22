@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge, Card, EmptyState, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { TenancyBadge } from "@/components/status";
+import { SuchFeld } from "@/components/suchfeld";
 import { prisma } from "@/lib/db";
 
 import { requireAdmin } from "@/lib/auth";
@@ -81,7 +82,7 @@ export default async function TenantsPage({
         <form className="flex flex-wrap items-end gap-3 border-b border-ink-200 p-4">
           <div className="min-w-56 flex-1">
             <label htmlFor="q">{t("Suche")}</label>
-            <input id="q" name="q" defaultValue={query} placeholder={t("Name, E-Mail oder Firma")} />
+            <SuchFeld defaultValue={query} placeholder={t("Name, E-Mail oder Firma")} />
           </div>
           <div className="w-48">
             <label htmlFor="status">{t("Status")}</label>
