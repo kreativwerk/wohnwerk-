@@ -105,6 +105,9 @@ export default async function PropertyDetailPage({
             <Link href={`/belegung?objekt=${property.id}`} className="btn btn-secondary">
               {t("Belegungsplan")}
             </Link>
+            <Link href={`/objekte/${property.id}/zimmerplan`} className="btn btn-primary">
+              {t("Zimmerplan")}
+            </Link>
           </>
         }
       />
@@ -329,7 +332,7 @@ export default async function PropertyDetailPage({
                         </div>
                         <div>
                           <label htmlFor={`room-floor-${room.id}`}>{t("Etage")}</label>
-                          <input id={`room-floor-${room.id}`} name="floor" defaultValue={room.floor ?? ""} />
+                          <input id={`room-floor-${room.id}`} name="floor" defaultValue={room.floor ?? ""} list="etagen-vorschlaege" />
                         </div>
                         <div>
                           <label htmlFor={`room-size-${room.id}`}>{t("Größe (m²)")}</label>
@@ -392,7 +395,12 @@ export default async function PropertyDetailPage({
             </div>
             <div>
               <label htmlFor="new-room-floor">{t("Etage")}</label>
-              <input id="new-room-floor" name="floor" placeholder="EG" />
+              <input id="new-room-floor" name="floor" placeholder="EG" list="etagen-vorschlaege" />
+              <datalist id="etagen-vorschlaege">
+                {Array.from(new Set(["KG", "EG", "1. OG", "2. OG", "DG", ...property.rooms.map((r) => r.floor?.trim()).filter(Boolean)])).map((e) => (
+                  <option key={e as string} value={e as string} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label htmlFor="new-room-size">{t("Größe (m²)")}</label>

@@ -15,6 +15,7 @@ import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/name
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
 import { MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
+import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -576,6 +577,19 @@ async function main() {
     // Ein- und Auszug im selben Monat
     const kurz = { startDate: new Date("2026-03-10T00:00:00Z"), endDate: new Date("2026-03-12T00:00:00Z"), monthlyRentCents: 30000 };
     assert.equal(monatsanteil(kurz, 2026, 3).amountCents, 3 * 1000);
+  });
+
+  console.log("\nStockwerke");
+
+  await test("Stockwerke sortieren sich wie im Haus: Keller, EG, 1. OG, 2. OG, DG, Unbekanntes, Leeres", () => {
+    assert.deepEqual(
+      sortiereStockwerke(["DG", "Erdgeschoss", "2. OG", "KG", "1 OG", "Anbau", ""]),
+      ["KG", "Erdgeschoss", "1 OG", "2. OG", "DG", "Anbau", ""],
+    );
+    assert.equal(stockwerkRang("Obergeschoss"), 1);
+    assert.equal(stockwerkRang("3. Stock links"), 3);
+    assert.equal(stockwerkRang("Dachgeschoss"), 100);
+    assert.equal(stockwerkRang(null), 1000);
   });
 
   console.log("\nZahlungserinnerung");
