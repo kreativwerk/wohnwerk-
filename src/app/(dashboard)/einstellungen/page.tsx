@@ -123,40 +123,6 @@ export default async function SettingsPage({
           </div>
         </Card>
 
-        <Card
-          title={t("Unterschrift der Hausverwaltung")}
-          description={t("Wird in die Wohnungsgeberbestätigung gesetzt, wenn der Vordruck des Objekts ein Unterschriftsfeld dafür hat. Weißer Hintergrund wird automatisch entfernt.")}
-        >
-          <div className="flex flex-wrap items-center gap-4">
-            {settings.landlordSignature ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={settings.landlordSignature}
-                alt={t("Unterschrift der Hausverwaltung")}
-                className="h-16 max-w-[16rem] rounded-lg border border-ink-200 bg-white object-contain px-3"
-              />
-            ) : (
-              <p className="text-sm text-ink-500">{t("Noch keine Unterschrift hinterlegt.")}</p>
-            )}
-            <form action={uploadLandlordSignature} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
-              <div>
-                <label htmlFor="signature-file">{t("Bilddatei (PNG oder JPG)")}</label>
-                <input id="signature-file" name="file" type="file" accept="image/png,image/jpeg" required />
-              </div>
-              <button type="submit" className="btn btn-secondary">
-                {settings.landlordSignature ? t("Ersetzen") : t("Hochladen")}
-              </button>
-            </form>
-            {settings.landlordSignature && (
-              <form action={removeLandlordSignature}>
-                <button type="submit" className="btn btn-ghost">
-                  {t("Entfernen")}
-                </button>
-              </form>
-            )}
-          </div>
-        </Card>
-
         <Card title={t("Bankverbindung")} description={t("Steht im Vertrag als Zahlungsziel für die Miete.")}>
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
@@ -235,6 +201,45 @@ export default async function SettingsPage({
           {t("Einstellungen speichern")}
         </button>
       </form>
+
+      {/* Eigene Formulare (Datei-Upload) - ausserhalb des grossen
+          Einstellungsformulars, ein Formular im Formular gibt es nicht. */}
+      <div className="mt-6">
+        <Card
+          title={t("Unterschrift der Hausverwaltung")}
+          description={t("Wird in die Wohnungsgeberbestätigung gesetzt, wenn der Vordruck des Objekts ein Unterschriftsfeld dafür hat. Weißer Hintergrund wird automatisch entfernt.")}
+        >
+          <div className="flex flex-wrap items-center gap-4">
+            {settings.landlordSignature ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={settings.landlordSignature}
+                alt={t("Unterschrift der Hausverwaltung")}
+                className="h-16 max-w-[16rem] rounded-lg border border-ink-200 bg-white object-contain px-3"
+              />
+            ) : (
+              <p className="text-sm text-ink-500">{t("Noch keine Unterschrift hinterlegt.")}</p>
+            )}
+            <form action={uploadLandlordSignature} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
+              <div>
+                <label htmlFor="signature-file">{t("Bilddatei (PNG oder JPG)")}</label>
+                <input id="signature-file" name="file" type="file" accept="image/png,image/jpeg" required />
+              </div>
+              <button type="submit" className="btn btn-secondary">
+                {settings.landlordSignature ? t("Ersetzen") : t("Hochladen")}
+              </button>
+            </form>
+            {settings.landlordSignature && (
+              <form action={removeLandlordSignature}>
+                <button type="submit" className="btn btn-ghost">
+                  {t("Entfernen")}
+                </button>
+              </form>
+            )}
+          </div>
+        </Card>
+
+      </div>
 
       {/* --- Zugaenge -------------------------------------------------------- */}
       <div className="mt-8">
