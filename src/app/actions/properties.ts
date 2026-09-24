@@ -182,11 +182,9 @@ export async function createRoom(formData: FormData) {
   const t = await uebersetzer();
   const user = await requireAdmin();
   const propertyId = str(formData, "propertyId");
-  const name = str(formData, "name");
-
-  if (!name) {
-    redirect(flash(`/objekte/${propertyId}`, "fehler", t("Das Zimmer braucht eine Bezeichnung.")));
-  }
+  // Ohne Bezeichnung: "Zimmer N" - der Ein-Klick-Weg von der Objektseite.
+  const vorhandene = await prisma.room.count({ where: { propertyId } });
+  const name = str(formData, "name") || t("Zimmer {n}", { n: vorhandene + 1 });
 
   const defaultBedRentCents = cents(formData, "defaultBedRentCents", 35000);
   const bedCount = Math.max(0, Math.min(int(formData, "bedCount", 0), 20));

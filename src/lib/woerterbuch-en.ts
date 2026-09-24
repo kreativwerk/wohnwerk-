@@ -469,6 +469,16 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "„+ Zimmer“ legt das nächste Zimmer im Stockwerk an, „+ Bett“ das nächste Bett. Zum Ändern auf ein Bett oder den Stift tippen.":
+    "\"+ Room\" adds the next room on the floor, \"+ Bed\" the next bed. Tap a bed or the pencil to change details.",
+  "{zimmer} Zimmer · {betten} Betten · {belegt} belegt": "{zimmer} rooms · {betten} beds · {belegt} occupied",
+  "Nächstes Zimmer in diesem Stockwerk anlegen": "Add the next room on this floor",
+  "{belegt} von {anzahl} belegt": "{belegt} of {anzahl} occupied",
+  "Bett bearbeiten": "Edit bed",
+  "Nächstes Bett anlegen: {name}, {betrag} / Monat": "Add the next bed: {name}, {betrag} / month",
+  "Ein neuer Etagenname ergibt ein neues Stockwerk. Bezeichnung leer lassen – dann heißt es „Zimmer {n}“.":
+    "A new floor name creates a new floor. Leave the name empty and it becomes \"Room {n}\".",
+  "Zimmer {n}": "Room {n}",
   "Verträge": "Contracts",
   "Liste filtern – tippen genügt": "Filter the list – just start typing",
   "Liste filtern": "Filter the list",
