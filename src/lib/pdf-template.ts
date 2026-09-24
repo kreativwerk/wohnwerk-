@@ -69,7 +69,18 @@ export type PlaceholderKey =
   | "heute"
   | "ort"
   | "ortDatum"
-  | "mieter.unterschrift";
+  | "mieter.unterschrift"
+  | "vermieter.plzOrtStrasse"
+  | "vermieter.telefonEmail"
+  | "vermieter.unterschrift"
+  | "vermieter.istFirma"
+  | "vermieter.istEigentuemer"
+  | "vermieter.nichtEigentuemer"
+  | "eigentuemer.name"
+  | "eigentuemer.anschrift"
+  | "eigentuemer.kontakt"
+  | "objekt.plzOrtStrasse"
+  | "lage";
 
 export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: string }> = [
   { key: "mieter.vorname", label: "Vorname", group: "Mieter" },
@@ -101,10 +112,22 @@ export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: st
   { key: "objekt.plz", label: "PLZ", group: "Objekt" },
   { key: "objekt.ort", label: "Ort", group: "Objekt" },
   { key: "objekt.plzOrt", label: "PLZ und Ort", group: "Objekt" },
+  { key: "objekt.plzOrtStrasse", label: "PLZ, Ort, Straße und Hausnummer", group: "Objekt" },
+  { key: "lage", label: "Lage im Haus (Stockwerk, Zimmer, Bett)", group: "Objekt" },
 
   { key: "vermieter.name", label: "Name", group: "Vermieter" },
   { key: "vermieter.strasse", label: "Straße und Hausnummer", group: "Vermieter" },
   { key: "vermieter.plzOrt", label: "PLZ und Ort", group: "Vermieter" },
+  { key: "vermieter.plzOrtStrasse", label: "PLZ, Ort, Straße und Hausnummer", group: "Vermieter" },
+  { key: "vermieter.telefonEmail", label: "Telefon / E-Mail", group: "Vermieter" },
+  { key: "vermieter.unterschrift", label: "Unterschrift (Bild aus den Einstellungen)", group: "Vermieter" },
+  { key: "vermieter.istFirma", label: "Kästchen: Hausverwaltung/Firma", group: "Vermieter" },
+  { key: "vermieter.istEigentuemer", label: "Kästchen: ist Eigentümer", group: "Vermieter" },
+  { key: "vermieter.nichtEigentuemer", label: "Kästchen: ist nicht Eigentümer", group: "Vermieter" },
+
+  { key: "eigentuemer.name", label: "Name", group: "Eigentümer" },
+  { key: "eigentuemer.anschrift", label: "Anschrift", group: "Eigentümer" },
+  { key: "eigentuemer.kontakt", label: "Telefon / E-Mail", group: "Eigentümer" },
 
   { key: "heute", label: "Heutiges Datum", group: "Ausstellung" },
   { key: "ort", label: "Ausstellungsort", group: "Ausstellung" },
@@ -180,7 +203,11 @@ export function autoMap(fieldNames: string[]): Record<string, PlaceholderKey> {
     const hat = (...teile: string[]) => teile.some((t) => n.includes(t));
 
     // Reihenfolge zaehlt: "vorname" enthaelt "name".
-    if (hat("unterschrift", "signatur")) map[name] = "mieter.unterschrift";
+    if (hat("unterschrift", "signatur") && hat("wohnungsgeber", "vermieter")) map[name] = "vermieter.unterschrift";
+    else if (hat("unterschrift", "signatur")) map[name] = "mieter.unterschrift";
+    else if (hat("eigentumer") && hat("anschrift", "adresse")) map[name] = "eigentuemer.anschrift";
+    else if (hat("eigentumer")) map[name] = "eigentuemer.name";
+    else if (hat("wohnungsgeber", "vermieter") && hat("name")) map[name] = "vermieter.name";
     else if (hat("vorname")) map[name] = "mieter.vorname";
     else if (hat("familienname", "nachname", "zuname")) map[name] = "mieter.nachname";
     else if (hat("geburtsdatum", "geboren am")) map[name] = "mieter.geburtsdatum";
@@ -265,7 +292,14 @@ export function parseFieldMap(json: string): Record<string, PlaceholderKey> {
 export type FillValues = Partial<Record<PlaceholderKey, string>> & {
   /** PNG als Data-URL, wird in das Feld fuer die Unterschrift gezeichnet. */
   "mieter.unterschrift"?: string;
+  /** Unterschrift der Hausverwaltung, ebenfalls PNG als Data-URL. */
+  "vermieter.unterschrift"?: string;
 };
+
+/** Platzhalter, hinter denen ein Bild statt Text steht. */
+export function istBildPlatzhalter(key: PlaceholderKey): boolean {
+  return key.endsWith(".unterschrift");
+}
 
 /**
  * Fuellt die Formularfelder und schreibt sie fest, damit im Amt niemand
@@ -281,6 +315,10 @@ export async function fillTemplate(
   const form = doc.getForm();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const pages = doc.getPages();
+  // Bilder erst nach dem Festschreiben zeichnen: Beim Flatten malt pdf-lib
+  // die Feldflaechen (oft mit weissem Grund) auf die Seite - eine vorher
+  // gezeichnete Unterschrift laege darunter und waere unsichtbar.
+  const bilder: Array<() => Promise<void>> = [];
 
   for (const [feldName, platzhalter] of Object.entries(fieldMap)) {
     let field;
@@ -290,8 +328,10 @@ export async function fillTemplate(
       continue; // Feld existiert in dieser Datei nicht mehr.
     }
 
-    if (platzhalter === "mieter.unterschrift") {
-      await drawSignature(doc, pages, field, values["mieter.unterschrift"]);
+    if (istBildPlatzhalter(platzhalter)) {
+      const ziele = signaturZiele(pages, field);
+      const dataUrl = values[platzhalter];
+      bilder.push(() => drawSignature(doc, ziele, dataUrl));
       continue;
     }
 
@@ -311,25 +351,38 @@ export async function fillTemplate(
   // Festschreiben: aus Eingabefeldern wird gedruckter Text.
   form.flatten();
 
+  for (const zeichnen of bilder) await zeichnen();
+
   return Buffer.from(await doc.save());
 }
 
-/** Zeichnet die erfasste Unterschrift in das Rechteck ihres Formularfeldes. */
-async function drawSignature(
-  doc: PDFDocument,
+type SignaturZiel = { seite: ReturnType<PDFDocument["getPages"]>[number]; rect: { x: number; y: number; width: number; height: number } };
+
+/** Seite und Rechteck jedes Widgets eines Feldes - vor dem Flatten gemerkt. */
+function signaturZiele(
   pages: ReturnType<PDFDocument["getPages"]>,
   field: ReturnType<ReturnType<PDFDocument["getForm"]>["getField"]>,
-  dataUrl: string | undefined,
-): Promise<void> {
+): SignaturZiel[] {
+  const ziele: SignaturZiel[] = [];
+  for (const widget of field.acroField.getWidgets()) {
+    // Seitenverweis ueber den Text vergleichen: Ein nachtraeglich
+    // eingebautes Feld traegt einen eigenen Ref-Gegenstand fuer dieselbe
+    // Seite, und "===" ginge ins Leere. Ohne Verweis: erste Seite.
+    const ref = widget.P()?.toString();
+    const seite = pages.find((p) => p.ref.toString() === ref) ?? (ref ? undefined : pages[0]);
+    if (!seite) continue;
+    ziele.push({ seite, rect: widget.getRectangle() });
+  }
+  return ziele;
+}
+
+/** Zeichnet die erfasste Unterschrift in das Rechteck ihres Formularfeldes. */
+async function drawSignature(doc: PDFDocument, ziele: SignaturZiel[], dataUrl: string | undefined): Promise<void> {
   if (!dataUrl?.startsWith("data:image/png;base64,")) return;
 
   const png = await doc.embedPng(Buffer.from(dataUrl.split(",")[1] ?? "", "base64"));
 
-  for (const widget of field.acroField.getWidgets()) {
-    const seite = pages.find((p) => p.ref === widget.P());
-    if (!seite) continue;
-
-    const rect = widget.getRectangle();
+  for (const { seite, rect } of ziele) {
     // In das Feld einpassen, Seitenverhaeltnis behalten, etwas Luft lassen.
     const maxBreite = rect.width * 0.94;
     const maxHoehe = rect.height * 0.94;

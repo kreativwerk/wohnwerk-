@@ -40,6 +40,9 @@ model Property {
   /// ANGEMIETET = fremdes Objekt (ownerName = Vermieter), EIGENTUM = gehoert Wohnwerk
   tenure        String  @default("ANGEMIETET")
   ownerName     String?
+  /// Anschrift und Kontakt des Eigentuemers - fuer die Wohnungsgeberbestaetigung
+  ownerAddress  String?
+  ownerContact  String?
   /// Bankkonto, ueber das dieses Objekt laeuft. Eingehende Zahlungen auf dem
   /// Konto werden beim Import automatisch diesem Objekt zugeordnet, wenn das
   /// Konto nur zu einem Objekt gehoert.

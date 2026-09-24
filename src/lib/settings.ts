@@ -22,6 +22,9 @@ export type AppSettings = {
   contractNoticePeriod: string;
 
   appUrl: string;
+
+  /** Unterschrift der Hausverwaltung als PNG-Data-URL - fuer die Wohnungsgeberbestaetigung. */
+  landlordSignature: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -61,6 +64,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     "Das Mietverhältnis kann von beiden Seiten mit einer Frist von 14 Tagen zum Monatsende in Textform gekündigt werden.",
 
   appUrl: "",
+
+  landlordSignature: "",
 };
 
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as Array<keyof AppSettings>;

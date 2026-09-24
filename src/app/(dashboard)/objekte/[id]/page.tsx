@@ -483,6 +483,15 @@ export default async function PropertyDetailPage({
                 <input id="ownerName" name="ownerName" defaultValue={property.ownerName ?? ""} />
               </div>
               <div>
+                <label htmlFor="ownerAddress">{t("Anschrift des Eigentümers")}</label>
+                <input id="ownerAddress" name="ownerAddress" defaultValue={property.ownerAddress ?? ""} placeholder={t("Straße Nr., PLZ Ort")} />
+                <p className="field-hint">{t("Steht in der Wohnungsgeberbestätigung, wenn wir nicht Eigentümer sind.")}</p>
+              </div>
+              <div>
+                <label htmlFor="ownerContact">{t("Telefon / E-Mail des Eigentümers")}</label>
+                <input id="ownerContact" name="ownerContact" defaultValue={property.ownerContact ?? ""} />
+              </div>
+              <div>
                 <label htmlFor="managerName">{t("Betreuung")}</label>
                 <input id="managerName" name="managerName" defaultValue={property.managerName ?? ""} />
               </div>

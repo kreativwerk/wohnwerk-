@@ -26,6 +26,8 @@ const schritte = [
   ["node", ["scripts/vertraege-nacharbeiten.mjs"]],
   // Original-Vertragsvorlage bei den Objekten hinterlegen (idempotent)
   ["node", ["scripts/vorlagen-einrichten.mjs"]],
+  // Kommunale Wohnungsgeberbestaetigungen und Unterschrift (idempotent)
+  ["node", ["scripts/wohnungsgeber-vorlagen.mjs"]],
   ["npx", ["next", "build"]],
 ];
 

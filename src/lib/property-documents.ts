@@ -67,6 +67,19 @@ export async function buildTemplateValues(
     "vermieter.name": settings.companyName,
     "vermieter.strasse": settings.companyStreet,
     "vermieter.plzOrt": `${settings.companyZip} ${settings.companyCity}`,
+    "vermieter.plzOrtStrasse": `${settings.companyZip} ${settings.companyCity}, ${settings.companyStreet}`,
+    "vermieter.telefonEmail": [settings.companyPhone, settings.companyEmail].filter(Boolean).join(" · "),
+    // Wohnwerk ist eine Firma; ob es auch Eigentuemer ist, sagt das Objekt.
+    "vermieter.istFirma": "ja",
+    "vermieter.istEigentuemer": property.tenure === "EIGENTUM" ? "ja" : "nein",
+    "vermieter.nichtEigentuemer": property.tenure === "EIGENTUM" ? "nein" : "ja",
+
+    "eigentuemer.name": property.tenure === "EIGENTUM" ? "" : (property.ownerName ?? ""),
+    "eigentuemer.anschrift": property.tenure === "EIGENTUM" ? "" : (property.ownerAddress ?? ""),
+    "eigentuemer.kontakt": property.tenure === "EIGENTUM" ? "" : (property.ownerContact ?? ""),
+
+    "objekt.plzOrtStrasse": `${property.zip} ${property.city}, ${property.street}`,
+    lage: [room.floor, room.name, bed.label].filter(Boolean).join(", "),
 
     heute,
     ort,
@@ -75,6 +88,9 @@ export async function buildTemplateValues(
 
   if (contract.signatureData) {
     werte["mieter.unterschrift"] = contract.signatureData;
+  }
+  if (settings.landlordSignature.startsWith("data:image/png;base64,")) {
+    werte["vermieter.unterschrift"] = settings.landlordSignature;
   }
 
   return werte;

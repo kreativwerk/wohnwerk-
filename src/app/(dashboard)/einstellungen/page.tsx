@@ -1,4 +1,4 @@
-import { changePassword, createUser, deactivateUser, updateSettings } from "@/app/actions/settings";
+import { changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { requireUser, requireAdmin } from "@/lib/auth";
@@ -120,6 +120,40 @@ export default async function SettingsPage({
               <label htmlFor="companyRegister">{t("Handelsregister")}</label>
               <input id="companyRegister" name="companyRegister" defaultValue={settings.companyRegister} />
             </div>
+          </div>
+        </Card>
+
+        <Card
+          title={t("Unterschrift der Hausverwaltung")}
+          description={t("Wird in die Wohnungsgeberbestätigung gesetzt, wenn der Vordruck des Objekts ein Unterschriftsfeld dafür hat. Weißer Hintergrund wird automatisch entfernt.")}
+        >
+          <div className="flex flex-wrap items-center gap-4">
+            {settings.landlordSignature ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={settings.landlordSignature}
+                alt={t("Unterschrift der Hausverwaltung")}
+                className="h-16 max-w-[16rem] rounded-lg border border-ink-200 bg-white object-contain px-3"
+              />
+            ) : (
+              <p className="text-sm text-ink-500">{t("Noch keine Unterschrift hinterlegt.")}</p>
+            )}
+            <form action={uploadLandlordSignature} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
+              <div>
+                <label htmlFor="signature-file">{t("Bilddatei (PNG oder JPG)")}</label>
+                <input id="signature-file" name="file" type="file" accept="image/png,image/jpeg" required />
+              </div>
+              <button type="submit" className="btn btn-secondary">
+                {settings.landlordSignature ? t("Ersetzen") : t("Hochladen")}
+              </button>
+            </form>
+            {settings.landlordSignature && (
+              <form action={removeLandlordSignature}>
+                <button type="submit" className="btn btn-ghost">
+                  {t("Entfernen")}
+                </button>
+              </form>
+            )}
           </div>
         </Card>
 
