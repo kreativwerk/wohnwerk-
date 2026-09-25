@@ -26,10 +26,11 @@ const VORDRUCKE = [
     kind: "LANDLORD_CONFIRMATION",
     // "Stand" im Titel: Aendert sich die Lage des Unterschriftsfelds, zaehlt
     // der Stand hoch, und die Vorlage wird beim naechsten Deploy ersetzt.
-    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf) · Stand 3",
-    // Das Unterschriftsfeld fuellt den Kasten unten rechts fast ganz aus und
-    // sitzt tief - so wirkt die Unterschrift wie von Hand gesetzt.
-    unterschriftsfeld: { name: "Unterschrift Wohnungsgeber", seite: 1, x: 378, y: 59, width: 226, height: 40 },
+    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf) · Stand 4",
+    // Das Unterschriftsfeld ist bewusst hoeher als der Kasten unten rechts:
+    // Eine Unterschrift von Hand haelt sich auch nicht an den Rahmen, und
+    // klein gedruckt wirkt sie wie ein Stempel.
+    unterschriftsfeld: { name: "Unterschrift Wohnungsgeber", seite: 1, x: 372, y: 50, width: 234, height: 60 },
     feldzuordnung: {
       Kontrollkästchen25: "vermieter.istFirma",
       Text1: "vermieter.name",

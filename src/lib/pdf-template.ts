@@ -335,6 +335,9 @@ export async function fillTemplate(
     if (istBildPlatzhalter(platzhalter)) {
       const ziele = signaturZiele(pages, field);
       const dataUrl = values[platzhalter];
+      // Das Feld selbst wird nicht gebraucht - nur sein Rechteck. Bliebe es,
+      // malte das Flatten seine weisse Flaeche ueber Rahmen und Beschriftung.
+      form.removeField(field);
       bilder.push(() => drawSignature(doc, ziele, dataUrl));
       continue;
     }
