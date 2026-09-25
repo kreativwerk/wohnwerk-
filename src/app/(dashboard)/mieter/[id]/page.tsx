@@ -568,6 +568,16 @@ export default async function TenantDetailPage({
                 />
               </div>
               <div>
+                <label htmlFor="gender">{t("Geschlecht")}</label>
+                <select id="gender" name="gender" defaultValue={tenant.gender ?? ""}>
+                  <option value="">{t("– keine Angabe –")}</option>
+                  <option value="M">{t("männlich")}</option>
+                  <option value="W">{t("weiblich")}</option>
+                  <option value="D">{t("divers")}</option>
+                </select>
+                <p className="field-hint">{t("Für die Kästchen in der Wohnungsgeberbestätigung.")}</p>
+              </div>
+              <div>
                 <label htmlFor="nationality">{t("Staatsangehörigkeit")}</label>
                 <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
               </div>

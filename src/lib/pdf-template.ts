@@ -80,7 +80,9 @@ export type PlaceholderKey =
   | "eigentuemer.anschrift"
   | "eigentuemer.kontakt"
   | "objekt.plzOrtStrasse"
-  | "lage";
+  | "lage"
+  | "mieter.maennlich"
+  | "mieter.weiblich";
 
 export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: string }> = [
   { key: "mieter.vorname", label: "Vorname", group: "Mieter" },
@@ -98,6 +100,8 @@ export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: st
   { key: "mieter.email", label: "E-Mail", group: "Mieter" },
   { key: "mieter.arbeitgeber", label: "Arbeitgeber", group: "Mieter" },
   { key: "mieter.unterschrift", label: "Unterschrift (Bild)", group: "Mieter" },
+  { key: "mieter.maennlich", label: "Kästchen: männlich", group: "Mieter" },
+  { key: "mieter.weiblich", label: "Kästchen: weiblich", group: "Mieter" },
 
   { key: "mietbeginn", label: "Mietbeginn / Einzugsdatum", group: "Mietverhältnis" },
   { key: "mietende", label: "Mietende", group: "Mietverhältnis" },

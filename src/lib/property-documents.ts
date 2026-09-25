@@ -49,6 +49,10 @@ export async function buildTemplateValues(
     "mieter.telefon": tenant.phone ?? "",
     "mieter.email": tenant.email,
     "mieter.arbeitgeber": tenant.company ?? "",
+    // Die Kaestchen der Wohnungsgeberbestaetigung; "divers" oder keine
+    // Angabe laesst beide leer.
+    "mieter.maennlich": tenant.gender === "M" ? "ja" : "nein",
+    "mieter.weiblich": tenant.gender === "W" ? "ja" : "nein",
 
     mietbeginn: formatDate(tenancy.startDate),
     mietende: tenancy.endDate ? formatDate(tenancy.endDate) : "unbefristet",

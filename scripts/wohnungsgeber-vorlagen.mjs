@@ -26,7 +26,7 @@ const VORDRUCKE = [
     kind: "LANDLORD_CONFIRMATION",
     // "Stand" im Titel: Aendert sich die Lage des Unterschriftsfelds, zaehlt
     // der Stand hoch, und die Vorlage wird beim naechsten Deploy ersetzt.
-    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf) · Stand 2",
+    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf) · Stand 3",
     // Das Unterschriftsfeld fuellt den Kasten unten rechts fast ganz aus und
     // sitzt tief - so wirkt die Unterschrift wie von Hand gesetzt.
     unterschriftsfeld: { name: "Unterschrift Wohnungsgeber", seite: 1, x: 378, y: 59, width: 226, height: 40 },
@@ -44,6 +44,8 @@ const VORDRUCKE = [
       Text10: "lage",
       Text11: "mietbeginn",
       Text13: "mieter.name",
+      Kontrollkästchen30: "mieter.maennlich",
+      Kontrollkästchen31: "mieter.weiblich",
       Text19: "mieter.geburtsdatum",
       Text18: "ortDatum",
       "Unterschrift Wohnungsgeber": "vermieter.unterschrift",

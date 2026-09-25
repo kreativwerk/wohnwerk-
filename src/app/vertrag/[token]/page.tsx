@@ -63,6 +63,9 @@ async function signContract(formData: FormData) {
       phone: optionalStr(formData, "phone") ?? contract.tenancy.tenant.phone,
       birthDate: fromDateInput(str(formData, "birthDate")) ?? contract.tenancy.tenant.birthDate,
       nationality: optionalStr(formData, "nationality") ?? contract.tenancy.tenant.nationality,
+      gender: ["M", "W", "D"].includes(str(formData, "gender").toUpperCase())
+        ? str(formData, "gender").toUpperCase()
+        : contract.tenancy.tenant.gender,
       idNumber: optionalStr(formData, "idNumber") ?? contract.tenancy.tenant.idNumber,
       street: optionalStr(formData, "street") ?? contract.tenancy.tenant.street,
       zip: optionalStr(formData, "zip") ?? contract.tenancy.tenant.zip,
@@ -214,6 +217,15 @@ export default async function PublicContractPage({
             <div>
               <label htmlFor="nationality">{t("Staatsangehörigkeit")}</label>
               <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
+            </div>
+            <div>
+              <label htmlFor="gender">{t("Geschlecht")}</label>
+              <select id="gender" name="gender" defaultValue={tenant.gender ?? ""}>
+                <option value="">{t("– keine Angabe –")}</option>
+                <option value="M">{t("männlich")}</option>
+                <option value="W">{t("weiblich")}</option>
+                <option value="D">{t("divers")}</option>
+              </select>
             </div>
             <div>
               <label htmlFor="idNumber">{t("Ausweis-/Passnummer")}</label>

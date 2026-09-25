@@ -23,6 +23,12 @@ function refresh(tenantId?: string) {
   if (tenantId) revalidatePath(`/mieter/${tenantId}`);
 }
 
+/** Geschlecht nur in den drei bekannten Werten - alles andere bleibt leer. */
+function geschlecht(formData: FormData): string | null {
+  const wert = str(formData, "gender").toUpperCase();
+  return wert === "M" || wert === "W" || wert === "D" ? wert : null;
+}
+
 function tenantData(formData: FormData) {
   return {
     firstName: str(formData, "firstName"),
@@ -36,6 +42,7 @@ function tenantData(formData: FormData) {
     companyZip: optionalStr(formData, "companyZip"),
     companyCity: optionalStr(formData, "companyCity"),
     birthDate: date(formData, "birthDate"),
+    gender: geschlecht(formData),
     nationality: optionalStr(formData, "nationality"),
     idType: optionalStr(formData, "idType"),
     idNumber: optionalStr(formData, "idNumber"),

@@ -469,6 +469,13 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "Geschlecht": "Gender",
+  "männlich": "male",
+  "weiblich": "female",
+  "divers": "diverse",
+  "Für die Kästchen in der Wohnungsgeberbestätigung.": "For the checkboxes in the landlord confirmation.",
+  "Kästchen: männlich": "Checkbox: male",
+  "Kästchen: weiblich": "Checkbox: female",
   "Wohnungsgeberbestätigung (PDF)": "Landlord confirmation (PDF)",
   "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",
   "Kein Vordruck für die Wohnungsgeberbestätigung": "No form for the landlord confirmation",

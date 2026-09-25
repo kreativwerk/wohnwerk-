@@ -188,6 +188,8 @@ model Tenant {
   companyCity   String?
 
   birthDate   DateTime?
+  /// M | W | D - fuer die Kaestchen "maennlich/weiblich" in der Wohnungsgeberbestaetigung
+  gender      String?
   nationality String?
   idType      String? // Personalausweis / Reisepass
   idNumber    String?
