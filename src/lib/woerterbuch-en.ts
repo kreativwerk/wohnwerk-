@@ -469,6 +469,10 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "Wohnungsgeberbestätigung (PDF)": "Landlord confirmation (PDF)",
+  "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",
+  "Kein Vordruck für die Wohnungsgeberbestätigung": "No form for the landlord confirmation",
+  "Mietvertrag für Wohnraum": "Residential tenancy agreement",
   "Anschrift des Eigentümers": "Owner's address",
   "Straße Nr., PLZ Ort": "Street no., postcode town",
   "Steht in der Wohnungsgeberbestätigung, wenn wir nicht Eigentümer sind.": "Appears in the landlord confirmation when we are not the owner.",
@@ -588,7 +592,6 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietvertrag mit Wohnungsgeberbestätigung": "Rental contract with landlord confirmation",
   "Mietvertrag und Wohnungsgeberbestätigung als PDF. Wohnwerk füllt nur die Formularfelder aus – am Layout ändert sich nichts.": "Rental contract and landlord confirmation as a PDF. Wohnwerk only fills in the form fields - the layout stays untouched.",
   "Mit der Kanzlei abstimmen": "Agree with your accountant",
-  "Möblierter Schlafplatz zum vorübergehenden Gebrauch (Monteurunterkunft)": "Furnished sleeping place for temporary use (contractor accommodation)",
   "Monat": "Month",
   "Monat für Monat abhaken, welche Mieten schon da sind – von Hand oder automatisch per Kontoauszug.": "Tick off month by month which rent has arrived - by hand or automatically from a bank statement.",
   "monatlich": "monthly",

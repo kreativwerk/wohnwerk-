@@ -35,8 +35,14 @@ export async function buildContractData(
   if (contract.snapshot) {
     try {
       const stored = JSON.parse(contract.snapshot) as ContractData;
+      // Die Unterschrift der Hausverwaltung ist kein Vertragsinhalt, sondern
+      // Ausstattung: Fehlt sie im aelteren Snapshot, kommt sie aus den
+      // aktuellen Einstellungen.
+      const landlordSignatureDataUrl =
+        stored.landlordSignatureDataUrl ?? (await getSettings()).landlordSignature ?? null;
       return {
         ...stored,
+        landlordSignatureDataUrl: landlordSignatureDataUrl || null,
         startDate: new Date(stored.startDate),
         endDate: stored.endDate ? new Date(stored.endDate) : null,
         signature:
@@ -108,6 +114,7 @@ export async function buildContractData(
       ? `${settings.contractHouseRules}\n\nHausordnung des Objekts: ${property.houseRulesUrl}`
       : settings.contractHouseRules,
     noticePeriod: settings.contractNoticePeriod,
+    landlordSignatureDataUrl: settings.landlordSignature || null,
 
     signature:
       options.includeSignature && contract.signedAt

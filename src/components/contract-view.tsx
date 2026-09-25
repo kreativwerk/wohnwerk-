@@ -37,10 +37,7 @@ export async function ContractView({ data }: { data: ContractData }) {
         <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
           {t("Vertrag {nummer}", { nummer: data.contractNumber })}
         </p>
-        <h2 className="mt-1 text-xl font-semibold text-ink-900">{t("Mietvertrag")}</h2>
-        <p className="mt-0.5 text-sm text-ink-500">
-          {t("Möblierter Schlafplatz zum vorübergehenden Gebrauch (Monteurunterkunft)")}
-        </p>
+        <h2 className="mt-1 text-xl font-semibold text-ink-900">{t("Mietvertrag für Wohnraum")}</h2>
       </header>
 
       <Section title={t("1. Vertragsparteien")}>

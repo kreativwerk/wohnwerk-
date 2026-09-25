@@ -43,11 +43,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   bankBic: "",
 
   contractIntro:
-    "Zwischen dem Vermieter und dem Mieter wird folgender Vertrag über die Überlassung " +
-    "eines möblierten Schlafplatzes zum vorübergehenden Gebrauch (Monteurunterkunft) geschlossen.",
+    "Zwischen dem Vermieter und dem Mieter wird folgender Mietvertrag für Wohnraum über " +
+    "einen möblierten Schlafplatz im genannten Zimmer geschlossen.",
   contractClauses: [
     "1. Mietgegenstand: Überlassen wird der oben bezeichnete Schlafplatz im genannten Zimmer zur alleinigen Nutzung. Küche, Bad und Aufenthaltsräume werden gemeinschaftlich mit den übrigen Bewohnern genutzt.",
-    "2. Mietzweck: Die Überlassung erfolgt ausschließlich zum vorübergehenden Gebrauch im Rahmen einer auswärtigen Tätigkeit (§ 549 Abs. 2 Nr. 1 BGB). Ein Wohnraummietverhältnis auf Dauer wird nicht begründet.",
+    "2. Mietzweck: Die Überlassung erfolgt zu Wohnzwecken im Rahmen einer auswärtigen Tätigkeit des Mieters.",
     "3. Miete: Die Miete ist im Voraus bis zum vereinbarten Fälligkeitstag auf das Konto des Vermieters zu zahlen. Betriebs- und Nebenkosten sowie Strom, Wasser, Heizung und Internet sind in der Miete enthalten, sofern nicht abweichend vereinbart.",
     "4. Kaution: Eine vereinbarte Kaution ist vor Bezug zu hinterlegen und wird nach ordnungsgemäßer Rückgabe des Schlafplatzes und Ausgleich aller Forderungen zurückgezahlt.",
     "5. Nutzung: Die Unterkunft darf nur von der im Vertrag genannten Person genutzt werden. Die Aufnahme weiterer Personen sowie eine Untervermietung sind nicht gestattet.",
@@ -61,7 +61,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     "Nachtruhe 22:00–06:00 Uhr · Rauchverbot in allen Innenräumen · Küche und Bad nach Benutzung sauber hinterlassen · " +
     "Müll getrennt entsorgen · Keine Haustiere · Besuch nur nach Absprache",
   contractNoticePeriod:
-    "Das Mietverhältnis kann von beiden Seiten mit einer Frist von 14 Tagen zum Monatsende in Textform gekündigt werden.",
+    "Das Mietverhältnis kann von beiden Seiten mit einer Frist von einem Monat zum Monatsende in Textform gekündigt werden.",
 
   appUrl: "",
 

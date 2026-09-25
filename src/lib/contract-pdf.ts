@@ -59,6 +59,9 @@ export type ContractData = {
     ip: string | null;
     dataUrl: string | null;
   } | null;
+
+  /** Unterschrift der Hausverwaltung (PNG-Data-URL) - steht auf der Vermieterseite. */
+  landlordSignatureDataUrl?: string | null;
 };
 
 const MARGIN = 56;
@@ -236,9 +239,9 @@ function fullAddress(street: string | null, zip: string | null, city: string | n
 
 export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Mietvertrag ${data.contractNumber}`);
+  doc.setTitle(`Mietvertrag für Wohnraum ${data.contractNumber}`);
   doc.setAuthor(data.landlordName);
-  doc.setSubject("Mietvertrag über einen möblierten Schlafplatz zum vorübergehenden Gebrauch");
+  doc.setSubject("Mietvertrag für Wohnraum");
   doc.setProducer("Wohnwerk");
   doc.setCreator("Wohnwerk");
 
@@ -255,11 +258,8 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
     color: ACCENT,
   });
 
-  layout.text("MIETVERTRAG", { size: 20, bold: true });
-  layout.text("Möblierter Schlafplatz zum vorübergehenden Gebrauch (Monteurunterkunft)", {
-    size: 9.5,
-    color: MUTED,
-  });
+  layout.text("MIETVERTRAG FÜR WOHNRAUM", { size: 20, bold: true });
+  layout.text(`Vertragsnummer ${data.contractNumber}`, { size: 9.5, color: MUTED });
   layout.space(4);
   layout.text(`Vertragsnummer ${data.contractNumber}`, { size: 9.5, bold: true, color: ACCENT });
   layout.space(6);
@@ -296,7 +296,7 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   layout.row("Objekt", data.propertyName);
   layout.row("Anschrift", fullAddress(data.propertyStreet, data.propertyZip, data.propertyCity));
   layout.row("Zimmer", data.roomName);
-  layout.row("Schlafplatz", data.bedLabel);
+  layout.row("Bett", data.bedLabel);
   layout.space(4);
   layout.text(data.intro, { size: 9.5 });
 
@@ -324,7 +324,11 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
 
   // --- Bedingungen --------------------------------------------------------
   layout.heading("4. Vertragsbedingungen");
-  layout.text(data.clauses, { size: 9.5 });
+  // Jede Klausel als eigener Absatz - in einem Block liest niemand zehn Punkte.
+  for (const klausel of data.clauses.split(/\r?\n/).map((z) => z.trim()).filter(Boolean)) {
+    layout.text(klausel, { size: 9.5 });
+    layout.space(3);
+  }
 
   layout.heading("5. Hausordnung");
   layout.text(data.houseRules, { size: 9.5 });
@@ -341,7 +345,8 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   const columnWidth = (layout.contentWidth - 30) / 2;
   const signatureTop = layout.y;
 
-  // Vermieterseite
+  // Vermieterseite - mit der hinterlegten Unterschrift der Hausverwaltung,
+  // damit der Vertrag beidseitig unterschrieben aus dem System kommt.
   layout.page.drawText(winAnsi(data.landlordName), {
     x: MARGIN,
     y: signatureTop - 12,
@@ -349,6 +354,22 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
     font: regular,
     color: INK,
   });
+  if (data.landlordSignatureDataUrl?.startsWith("data:image/png;base64,")) {
+    try {
+      const png = await doc.embedPng(Buffer.from(data.landlordSignatureDataUrl.split(",")[1] ?? "", "base64"));
+      const maxWidth = columnWidth * 0.8;
+      const maxHeight = 40;
+      const scale = Math.min(maxWidth / png.width, maxHeight / png.height);
+      layout.page.drawImage(png, {
+        x: MARGIN + 4,
+        y: signatureTop - 56,
+        width: png.width * scale,
+        height: png.height * scale,
+      });
+    } catch (error) {
+      console.error("[contract-pdf] Unterschrift der Hausverwaltung konnte nicht eingebettet werden:", error);
+    }
+  }
   layout.page.drawLine({
     start: { x: MARGIN, y: signatureTop - 60 },
     end: { x: MARGIN + columnWidth, y: signatureTop - 60 },
@@ -410,11 +431,6 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
       `Elektronisch unterschrieben am ${formatDateTime(data.signature.signedAt)}` +
         (data.signature.ip ? ` von IP-Adresse ${data.signature.ip}` : "") +
         `. Signaturprotokoll zur Vertragsnummer ${data.contractNumber}.`,
-      { size: 8, color: MUTED },
-    );
-  } else {
-    layout.text(
-      "Dieses Dokument ist ein Entwurf und wird mit der elektronischen Unterschrift des Mieters gültig.",
       { size: 8, color: MUTED },
     );
   }
