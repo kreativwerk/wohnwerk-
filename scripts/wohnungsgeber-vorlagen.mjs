@@ -24,8 +24,12 @@ const VORDRUCKE = [
     // Gemeinde Strullendorf, EIBL-Verlag 15013 - Objekt Forchheimer Str. 48
     passtZu: { strasse: "Forchheimer Str", ort: "Strullendorf" },
     kind: "LANDLORD_CONFIRMATION",
-    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf)",
-    unterschriftsfeld: { name: "Unterschrift Wohnungsgeber", seite: 1, x: 380, y: 67, width: 222, height: 33 },
+    // "Stand" im Titel: Aendert sich die Lage des Unterschriftsfelds, zaehlt
+    // der Stand hoch, und die Vorlage wird beim naechsten Deploy ersetzt.
+    title: "Wohnungsgeberbestätigung (Gemeinde Strullendorf) · Stand 2",
+    // Das Unterschriftsfeld fuellt den Kasten unten rechts fast ganz aus und
+    // sitzt tief - so wirkt die Unterschrift wie von Hand gesetzt.
+    unterschriftsfeld: { name: "Unterschrift Wohnungsgeber", seite: 1, x: 378, y: 59, width: 226, height: 40 },
     feldzuordnung: {
       Kontrollkästchen25: "vermieter.istFirma",
       Text1: "vermieter.name",
@@ -95,13 +99,13 @@ try {
         street: { contains: vordruck.passtZu.strasse, mode: "insensitive" },
         city: { contains: vordruck.passtZu.ort, mode: "insensitive" },
       },
-      include: { templates: { select: { id: true, kind: true, fieldNames: true, fieldMap: true, fileName: true } } },
+      include: { templates: { select: { id: true, kind: true, title: true, fieldNames: true, fieldMap: true, fileName: true } } },
     });
 
     for (const objekt of objekte) {
-      const schonDa = objekt.templates.find(
-        (t) => t.kind === vordruck.kind && t.fieldMap.includes("vermieter.unterschrift"),
-      );
+      // Gleicher Titel = gleicher Stand: nichts zu tun. Ein aelterer Stand
+      // derselben Art wird unten mit ersetzt.
+      const schonDa = objekt.templates.find((t) => t.kind === vordruck.kind && t.title === vordruck.title);
       if (schonDa) {
         console.log(`[wohnungsgeber] "${objekt.name}": Vorlage schon eingerichtet.`);
         continue;
