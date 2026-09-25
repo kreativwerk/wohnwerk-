@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
+import { markChargePaid, reopenCharge } from "@/app/actions/accounting";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
@@ -30,7 +31,7 @@ export default async function TenantDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string; fehler?: string }>;
+  searchParams: Promise<{ ok?: string; fehler?: string; konto?: string }>;
 }) {
   const { t, datum, monat, geld } = await oberflaeche();
   await requireAdmin();
@@ -421,44 +422,83 @@ export default async function TenantDetailPage({
                       )}
 
                     {tenancy.charges.length > 0 && (
-                      <Disclosure summary={`Mietkonto (${tenancy.charges.length} Monate)`}>
-                        <Table>
-                          <thead>
-                            <tr>
-                              <Th>{t("Monat")}</Th>
-                              <Th>{t("Fällig")}</Th>
-                              <Th align="right">{t("Soll")}</Th>
-                              <Th align="right">{t("Bezahlt")}</Th>
-                              <Th align="right">{t("Status")}</Th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {tenancy.charges.map((charge) => {
-                              const paid = charge.allocations.reduce((s, a) => s + a.amountCents, 0);
-                              return (
-                                <tr key={charge.id}>
-                                  <Td>
-                                    {monat(charge.periodYear, charge.periodMonth)}
-                                    {charge.kind === "DEPOSIT" && (
-                                      <span className="ml-2"><Badge tone="brand">{t("Kaution")}</Badge></span>
-                                    )}
-                                  </Td>
-                                  <Td className="text-ink-600">{datum(charge.dueDate)}</Td>
-                                  <Td align="right" className="tabular-nums">
-                                    {geld(charge.amountCents)}
-                                  </Td>
-                                  <Td align="right" className="tabular-nums">
-                                    {geld(paid)}
-                                  </Td>
-                                  <Td align="right">
-                                    <ChargeBadge status={charge.status} />
-                                  </Td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </Table>
-                      </Disclosure>
+                      <div id={`konto-${tenancy.id}`} className="scroll-mt-24">
+                        {/* Nach dem Abhaken bleibt das Konto offen und die Seite
+                            landet wieder hier - ueber ?konto= und den Anker. */}
+                        <Disclosure summary={`Mietkonto (${tenancy.charges.length} Monate)`} defaultOpen={flash.konto === tenancy.id}>
+                          <Table>
+                            <thead>
+                              <tr>
+                                <Th>{t("Monat")}</Th>
+                                <Th>{t("Fällig")}</Th>
+                                <Th align="right">{t("Soll")}</Th>
+                                <Th align="right">{t("Bezahlt")}</Th>
+                                <Th align="right">{t("Status")}</Th>
+                                <Th align="right">{t("Aktion")}</Th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tenancy.charges.map((charge) => {
+                                const zugeordnet = charge.allocations.reduce((s, a) => s + a.amountCents, 0);
+                                const paid = charge.status === "PAID" ? charge.amountCents : Math.min(charge.amountCents, zugeordnet);
+                                const perKonto = charge.allocations.length > 0;
+                                const istBezahlt = charge.status === "PAID";
+                                const istErlassen = charge.status === "WAIVED";
+                                const zurueck = `/mieter/${tenant.id}?konto=${tenancy.id}#konto-${tenancy.id}`;
+                                return (
+                                  <tr key={charge.id} className={istBezahlt ? "bg-emerald-50/50" : ""}>
+                                    <Td>
+                                      {monat(charge.periodYear, charge.periodMonth)}
+                                      {charge.kind === "DEPOSIT" && (
+                                        <span className="ml-2"><Badge tone="brand">{t("Kaution")}</Badge></span>
+                                      )}
+                                    </Td>
+                                    <Td className="text-ink-600">{datum(charge.dueDate)}</Td>
+                                    <Td align="right" className="tabular-nums">
+                                      {geld(charge.amountCents)}
+                                    </Td>
+                                    <Td align="right" className="tabular-nums">
+                                      {geld(paid)}
+                                      {!istBezahlt && !istErlassen && paid > 0 && (
+                                        <p className="text-xs text-amber-600">
+                                          {t("noch {betrag} offen", { betrag: geld(charge.amountCents - paid) })}
+                                        </p>
+                                      )}
+                                    </Td>
+                                    <Td align="right">
+                                      <ChargeBadge status={charge.status} />
+                                    </Td>
+                                    <Td align="right">
+                                      {!istBezahlt && !istErlassen && (
+                                        <form action={markChargePaid}>
+                                          <input type="hidden" name="id" value={charge.id} />
+                                          <input type="hidden" name="back" value={zurueck} />
+                                          <button
+                                            type="submit"
+                                            className="btn btn-secondary btn-sm whitespace-nowrap"
+                                            title={t("Eingang im Online-Banking gesehen – als bezahlt abhaken")}
+                                          >
+                                            {t("✓ Abhaken")}
+                                          </button>
+                                        </form>
+                                      )}
+                                      {istBezahlt && !perKonto && (
+                                        <form action={reopenCharge}>
+                                          <input type="hidden" name="id" value={charge.id} />
+                                          <input type="hidden" name="back" value={zurueck} />
+                                          <button type="submit" className="btn btn-ghost btn-sm" title={t("Haken zurücknehmen")}>
+                                            {t("Rückgängig")}
+                                          </button>
+                                        </form>
+                                      )}
+                                    </Td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </Table>
+                        </Disclosure>
+                      </div>
                     )}
                   </div>
                 </li>
