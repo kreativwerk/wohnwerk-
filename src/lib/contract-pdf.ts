@@ -259,7 +259,6 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   });
 
   layout.text("MIETVERTRAG FÜR WOHNRAUM", { size: 20, bold: true });
-  layout.text(`Vertragsnummer ${data.contractNumber}`, { size: 9.5, color: MUTED });
   layout.space(4);
   layout.text(`Vertragsnummer ${data.contractNumber}`, { size: 9.5, bold: true, color: ACCENT });
   layout.space(6);
@@ -357,12 +356,14 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   if (data.landlordSignatureDataUrl?.startsWith("data:image/png;base64,")) {
     try {
       const png = await doc.embedPng(Buffer.from(data.landlordSignatureDataUrl.split(",")[1] ?? "", "base64"));
-      const maxWidth = columnWidth * 0.8;
-      const maxHeight = 40;
+      // Gross genug, um als Unterschrift zu wirken, und auf der Linie
+      // sitzend statt darueber schwebend.
+      const maxWidth = columnWidth * 0.95;
+      const maxHeight = 50;
       const scale = Math.min(maxWidth / png.width, maxHeight / png.height);
       layout.page.drawImage(png, {
         x: MARGIN + 4,
-        y: signatureTop - 56,
+        y: signatureTop - 68,
         width: png.width * scale,
         height: png.height * scale,
       });

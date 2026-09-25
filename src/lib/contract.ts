@@ -38,10 +38,25 @@ export async function buildContractData(
       // Die Unterschrift der Hausverwaltung ist kein Vertragsinhalt, sondern
       // Ausstattung: Fehlt sie im aelteren Snapshot, kommt sie aus den
       // aktuellen Einstellungen.
-      const landlordSignatureDataUrl =
-        stored.landlordSignatureDataUrl ?? (await getSettings()).landlordSignature ?? null;
+      const settings = await getSettings();
+      const landlordSignatureDataUrl = stored.landlordSignatureDataUrl ?? settings.landlordSignature ?? null;
+      // Solange nicht unterschrieben ist, gelten die aktuellen Vertragstexte:
+      // Wer die Kuendigungsfrist in den Einstellungen aendert, will sie auch
+      // in den schon versendeten, noch offenen Vertraegen sehen. Ab der
+      // Unterschrift friert der Snapshot alles ein.
+      const texte = contract.signedAt
+        ? {}
+        : {
+            intro: settings.contractIntro,
+            clauses: settings.contractClauses,
+            noticePeriod: settings.contractNoticePeriod,
+            houseRules: contract.tenancy.bed.room.property.houseRulesUrl
+              ? `${settings.contractHouseRules}\n\nHausordnung des Objekts: ${contract.tenancy.bed.room.property.houseRulesUrl}`
+              : settings.contractHouseRules,
+          };
       return {
         ...stored,
+        ...texte,
         landlordSignatureDataUrl: landlordSignatureDataUrl || null,
         startDate: new Date(stored.startDate),
         endDate: stored.endDate ? new Date(stored.endDate) : null,
