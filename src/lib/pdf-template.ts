@@ -360,10 +360,52 @@ export async function fillTemplate(
 
   for (const zeichnen of bilder) await zeichnen();
 
-  return Buffer.from(await doc.save());
+  return aufA4(Buffer.from(await doc.save()));
 }
 
-type SignaturZiel = { seite: ReturnType<PDFDocument["getPages"]>[number]; rect: { x: number; y: number; width: number; height: number } };
+const A4 = { breite: 595.28, hoehe: 841.89 } as const;
+
+/**
+ * Bringt jede Seite auf DIN A4. Eingescannte Vordrucke kommen in krummen
+ * Groessen daher (der Strullendorfer misst 654 x 901 Punkt); der Drucker
+ * skaliert oder schneidet dann nach Gutduenken. Hier wird jede Seite, die
+ * nicht A4 ist, verhaeltnistreu auf ein A4-Blatt gesetzt und zentriert -
+ * Querformat bleibt Querformat. A4-Seiten bleiben unangetastet.
+ */
+export async function aufA4(pdf: Buffer): Promise<Buffer> {
+  const quelle = await PDFDocument.load(pdf, { ignoreEncryption: true });
+  const passt = (b: number, h: number) => Math.abs(b - A4.breite) < 2 && Math.abs(h - A4.hoehe) < 2;
+  const seiten = quelle.getPages();
+  if (seiten.every((s) => passt(s.getWidth(), s.getHeight()) || passt(s.getHeight(), s.getWidth()))) {
+    return pdf;
+  }
+
+  const ziel = await PDFDocument.create();
+  ziel.setTitle(quelle.getTitle() ?? "");
+  ziel.setAuthor(quelle.getAuthor() ?? "");
+  ziel.setProducer("Wohnwerk");
+  ziel.setCreator("Wohnwerk");
+
+  for (const [index, seite] of seiten.entries()) {
+    const quer = seite.getWidth() > seite.getHeight();
+    const blattBreite = quer ? A4.hoehe : A4.breite;
+    const blattHoehe = quer ? A4.breite : A4.hoehe;
+    const [eingebettet] = await ziel.embedPdf(quelle, [index]);
+    const faktor = Math.min(blattBreite / eingebettet.width, blattHoehe / eingebettet.height);
+    const breite = eingebettet.width * faktor;
+    const hoehe = eingebettet.height * faktor;
+    const blatt = ziel.addPage([blattBreite, blattHoehe]);
+    blatt.drawPage(eingebettet, {
+      x: (blattBreite - breite) / 2,
+      y: (blattHoehe - hoehe) / 2,
+      width: breite,
+      height: hoehe,
+    });
+  }
+  return Buffer.from(await ziel.save());
+}
+
+type SignaturZiel ={ seite: ReturnType<PDFDocument["getPages"]>[number]; rect: { x: number; y: number; width: number; height: number } };
 
 /** Seite und Rechteck jedes Widgets eines Feldes - vor dem Flatten gemerkt. */
 function signaturZiele(
