@@ -126,6 +126,11 @@ export default async function SettingsPage({
         <Card title={t("Bankverbindung")} description={t("Steht im Vertrag als Zahlungsziel für die Miete.")}>
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
+              <label htmlFor="bankAccountHolder">{t("Kontoinhaber in der Zahlungserinnerung")}</label>
+              <input id="bankAccountHolder" name="bankAccountHolder" defaultValue={settings.bankAccountHolder} />
+              <p className="field-hint">{t("Kurzform für die Überweisung, z. B. „Wohnwerk GbR“.")}</p>
+            </div>
+            <div>
               <label htmlFor="bankName">{t("Bank")}</label>
               <input id="bankName" name="bankName" defaultValue={settings.bankName} />
             </div>

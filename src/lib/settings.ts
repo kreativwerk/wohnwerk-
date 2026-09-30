@@ -15,6 +15,8 @@ export type AppSettings = {
   bankName: string;
   bankIban: string;
   bankBic: string;
+  /** Kontoinhaber, wie er in der Zahlungserinnerung steht - kurz, damit er beim Ueberweisen passt. */
+  bankAccountHolder: string;
 
   contractIntro: string;
   contractClauses: string;
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   bankName: "",
   bankIban: "",
   bankBic: "",
+  bankAccountHolder: "Wohnwerk GbR",
 
   contractIntro:
     "Zwischen dem Vermieter und dem Mieter wird folgender Mietvertrag für Wohnraum über " +

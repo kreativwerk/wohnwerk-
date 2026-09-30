@@ -469,6 +469,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "Kontoinhaber in der Zahlungserinnerung": "Account holder in the payment reminder",
+  "Kurzform für die Überweisung, z. B. „Wohnwerk GbR“.": "Short form for the bank transfer, e.g. \"Wohnwerk GbR\".",
   "Rückstände": "Arrears",
   "Alle offenen Beträge je Person – Mieten aller Monate und die Kaution zusammen.": "Everything outstanding per person: rent for all months and the deposit together.",
   "Offen gesamt": "Total outstanding",

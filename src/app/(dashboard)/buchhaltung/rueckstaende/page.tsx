@@ -146,7 +146,7 @@ export default async function RueckstaendePage({
                 const text = rueckstandText(code, {
                   vorname: tenant.firstName,
                   posten: nachrichtPosten,
-                  kontoinhaber: einstellungen.companyName,
+                  kontoinhaber: einstellungen.bankAccountHolder,
                   iban: einstellungen.bankIban,
                   bank: einstellungen.bankName,
                 });

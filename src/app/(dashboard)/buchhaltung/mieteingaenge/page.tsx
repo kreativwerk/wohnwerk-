@@ -429,7 +429,7 @@ export default async function RentIncomePage({
                                   const text = rueckstandText(code, {
                                     vorname: charge.tenancy.tenant.firstName,
                                     posten,
-                                    kontoinhaber: einstellungen.companyName,
+                                    kontoinhaber: einstellungen.bankAccountHolder,
                                     iban: einstellungen.bankIban,
                                     bank: einstellungen.bankName,
                                   });
