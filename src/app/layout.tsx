@@ -24,7 +24,14 @@ export async function generateMetadata(): Promise<Metadata> {
       "Verwaltung von Monteurunterkünften: Objekte, Zimmer und Betten, digitale Mietverträge und Buchhaltung.",
     ),
     robots: { index: false, follow: false },
-    icons: { icon: "/logo-mark.svg" },
+    // Reiter-Symbol als SVG; fuers Home-Bildschirm-Symbol braucht iOS ein
+    // PNG mit Hintergrund, sonst zeigt es den Anfangsbuchstaben des Titels.
+    icons: {
+      icon: [{ url: "/logo-mark.svg", type: "image/svg+xml" }, { url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "Wohnwerk", statusBarStyle: "black-translucent" },
   };
 }
 
