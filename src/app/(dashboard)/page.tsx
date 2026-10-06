@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   const from = startOfMonth(now);
   const to = endOfMonth(now);
 
-  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets, offeneMeldungen] =
+  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets, offeneMeldungen, aktiveMieter] =
     await Promise.all([
       occupancySummary(),
       periodSummary(from, to),
@@ -66,7 +66,13 @@ export default async function DashboardPage() {
       // Neue Anliegen sollen hier auffallen, nicht in einer Unterseite versanden.
       prisma.ticket.count({ where: { status: { not: "ERLEDIGT" }, art: "OBJEKT" } }),
       prisma.ticket.count({ where: { status: { not: "ERLEDIGT" }, art: "SUPPORT" } }),
+      // Alle aktiven Bewohner - auch die, die gerade kein Bett haben.
+      prisma.tenant.count({ where: { status: "AKTIV" } }),
     ]);
+
+  // Zimmer und Betten ueber alle aktiven Objekte - fuer die Zaehler oben.
+  const zimmerGesamt = properties.reduce((sum, p) => sum + p.rooms.filter((r) => r.active).length, 0);
+  const bettenGesamt = properties.reduce((sum, p) => sum + p.rooms.filter((r) => r.active).reduce((s, r) => s + r.beds.length, 0), 0);
 
   // Auslastung je Objekt für die Balken in der Übersicht
   const perProperty = await Promise.all(
@@ -98,7 +104,19 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <StatCard
+          label={t("Mieter")}
+          value={String(aktiveMieter)}
+          hint={t("{mitBett} mit Bett", { mitBett: occupancy.occupied })}
+          href="/mieter"
+        />
+        <StatCard
+          label={t("Zimmer")}
+          value={String(zimmerGesamt)}
+          hint={t("{betten} Betten in {objekte} Objekten", { betten: bettenGesamt, objekte: properties.length })}
+          href="/objekte"
+        />
         <StatCard
           label={t("Auslastung")}
           value={`${Math.round(occupancy.rate * 100)} %`}

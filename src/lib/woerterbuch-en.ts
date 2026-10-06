@@ -469,6 +469,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietverhältnis löschen": "Delete tenancy",
   // --- Zimmerplan -----------------------------------------------------------
   "Zimmerplan": "Room plan",
+  "{mitBett} mit Bett": "{mitBett} with a bed",
+  "{betten} Betten in {objekte} Objekten": "{betten} beds in {objekte} properties",
   "Kontoinhaber in der Zahlungserinnerung": "Account holder in the payment reminder",
   "Kurzform für die Überweisung, z. B. „Wohnwerk GbR“.": "Short form for the bank transfer, e.g. \"Wohnwerk GbR\".",
   "Rückstände": "Arrears",
