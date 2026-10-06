@@ -39,6 +39,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#142726",
+  // Bis unter die Statusleiste zeichnen, damit die dunkle Kopfzeile sie
+  // am Handy mit abdeckt - die Abstaende holen sich die Leisten per env().
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

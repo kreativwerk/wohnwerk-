@@ -179,7 +179,10 @@ export function Sidebar({
   return (
     <>
       {/* Mobil: Kopfzeile, die beim Scrollen stehen bleibt. */}
-      <div className="glass-dark sticky top-0 z-30 flex items-center justify-between px-4 py-3 lg:hidden">
+      {/* Satt dunkelgruen wie die Seitenleiste, nicht milchig: Ueber hellem
+          Inhalt wirkte die halbtransparente Leiste grau. Oben Platz fuer die
+          Statusleiste, wenn die App vom Home-Bildschirm laeuft. */}
+      <div className="sticky top-0 z-30 flex items-center justify-between bg-brand-950 px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
         <Link href="/" className="flex items-center gap-2.5" aria-label={t("Zum Dashboard")}>
           <LogoMark className="h-6 w-auto" />
           <span className="text-sm font-semibold tracking-tight text-white">Wohnwerk</span>
