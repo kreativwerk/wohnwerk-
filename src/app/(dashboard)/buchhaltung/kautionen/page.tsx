@@ -233,7 +233,7 @@ export default async function DepositsPage({
                             ? "bg-emerald-50/50"
                             : lage === "ohneKaution"
                               ? "bg-amber-50/40 hover:bg-amber-50/70"
-                              : "hover:bg-ink-50"
+                              : "hover:bg-brand-100"
                         }`}
                       >
                         <Td>

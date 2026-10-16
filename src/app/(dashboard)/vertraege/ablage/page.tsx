@@ -127,7 +127,7 @@ export default async function ContractInboxPage({
                   const inhalt = /\((.+)\)\s*$/.exec(dokument.title)?.[1];
 
                   return (
-                    <tr key={dokument.id} className="align-top hover:bg-ink-50">
+                    <tr key={dokument.id} className="align-top hover:bg-brand-100">
                       <Td>
                         <span className="font-medium text-ink-900">{name}</span>
                         {inhalt && inhalt !== "ohne Zuordnung" && inhalt !== "Bestand" && (

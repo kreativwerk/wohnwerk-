@@ -207,7 +207,7 @@ export default async function ContractsPage({
                 {ohneVertrag.map((tenancy) => {
                   const aktiv = istAktiv(tenancy);
                   return (
-                    <tr key={tenancy.id} className="hover:bg-ink-50">
+                    <tr key={tenancy.id} className="hover:bg-brand-100">
                       <Td>
                         <Link
                           href={`/mieter/${tenancy.tenantId}`}
@@ -312,7 +312,7 @@ export default async function ContractsPage({
               </thead>
               <tbody>
                 {contracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-ink-50">
+                  <tr key={contract.id} className="hover:bg-brand-100">
                     <Td>
                       <Link
                         href={`/vertraege/${contract.id}`}
@@ -408,7 +408,7 @@ export default async function ContractsPage({
                   const objekt = mieter.tenancies[0]?.bed.room.property.name ?? null;
                   const zeitraum = mieter.tenancies[0];
                   return (
-                    <tr key={mieter.id} className="hover:bg-ink-50">
+                    <tr key={mieter.id} className="hover:bg-brand-100">
                       <Td>
                         <Link
                           href={`/mieter/${mieter.id}`}

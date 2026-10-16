@@ -356,7 +356,7 @@ export default async function RentIncomePage({
                         <tr
                           key={charge.id}
                           id={`forderung-${charge.id}`}
-                          className={`scroll-mt-24 ${istBezahlt ? "bg-emerald-50/50" : "hover:bg-ink-50"}`}
+                          className={`scroll-mt-24 ${istBezahlt ? "bg-emerald-50/50" : "hover:bg-brand-100"}`}
                         >
                           <Td>
                             <span

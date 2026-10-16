@@ -191,7 +191,7 @@ export default async function RueckstaendePage({
                     </thead>
                     <tbody>
                       {liste.map((p) => (
-                        <tr key={p.id} id={`forderung-${p.id}`} className="scroll-mt-24 hover:bg-ink-50">
+                        <tr key={p.id} id={`forderung-${p.id}`} className="scroll-mt-24 hover:bg-brand-100">
                           <Td>
                             {p.kind === "DEPOSIT" ? (
                               <span className="flex items-center gap-2">

@@ -144,7 +144,7 @@ export default async function TenantsPage({
                   tenant.tenancies[0];
 
                 return (
-                  <tr key={tenant.id} className="hover:bg-ink-50">
+                  <tr key={tenant.id} className="hover:bg-brand-100">
                     <Td>
                       <Link
                         href={`/mieter/${tenant.id}`}

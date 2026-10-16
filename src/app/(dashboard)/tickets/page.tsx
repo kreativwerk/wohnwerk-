@@ -241,7 +241,7 @@ export default async function TicketsPage({
                       const weiter = naechsterStatus(ticket.status);
                       const tage = liegtSeitTagen(ticket.createdAt);
                       return (
-                        <tr key={ticket.id} className="align-top hover:bg-ink-50">
+                        <tr key={ticket.id} className="align-top hover:bg-brand-100">
                           <Td>
                             <Link
                               href={`/tickets/${ticket.id}`}

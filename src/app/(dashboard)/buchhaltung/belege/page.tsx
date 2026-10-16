@@ -168,7 +168,7 @@ export default async function DocumentsPage({
                 </thead>
                 <tbody>
                   {documents.map((document) => (
-                    <tr key={document.id} className="align-top hover:bg-ink-50">
+                    <tr key={document.id} className="align-top hover:bg-brand-100">
                       <Td className="whitespace-nowrap text-ink-600">
                         {datum(document.documentDate ?? document.uploadedAt)}
                         <p className="text-xs text-ink-500">

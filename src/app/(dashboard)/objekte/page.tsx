@@ -92,7 +92,7 @@ export default async function PropertiesPage({
                 return (
                   <tr
                     key={property.id}
-                    className={property.active ? "hover:bg-ink-50" : "opacity-60 hover:bg-ink-50 hover:opacity-100"}
+                    className={property.active ? "hover:bg-brand-100" : "opacity-60 hover:bg-brand-100 hover:opacity-100"}
                   >
                     <Td>
                       <Link

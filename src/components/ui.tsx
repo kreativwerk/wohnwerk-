@@ -228,7 +228,7 @@ export function Td({
   className?: string;
 }) {
   return (
-    <td className={`border-b border-ink-100 px-4 py-3 align-middle ${ALIGN[align]} ${className}`}>
+    <td className={`border-b border-ink-200 px-4 py-3 align-middle ${ALIGN[align]} ${className}`}>
       {children}
     </td>
   );
@@ -316,5 +316,58 @@ export function Flash({ ok, fehler }: { ok?: string; fehler?: string }) {
       {ok && <Alert tone="success">{ok}</Alert>}
       {fehler && <Alert tone="danger">{fehler}</Alert>}
     </div>
+  );
+}
+
+/**
+ * Seitenwechsel unter langen Listen: "Seite 2 von 7 · 412 Buchungen" mit
+ * Zurueck und Weiter. Die uebrigen Filter bleiben in der Adresse erhalten,
+ * nur die Seitenzahl wechselt. Die Texte reicht die Seite uebersetzt herein,
+ * weil dieser Baustein selbst keine Sprache kennt.
+ */
+export function Seitenwechsel({
+  seite,
+  seiten,
+  href,
+  beschriftung,
+  zurueck,
+  weiter,
+}: {
+  seite: number;
+  seiten: number;
+  /** Adresse fuer eine bestimmte Seite. */
+  href: (seite: number) => string;
+  beschriftung: string;
+  zurueck: string;
+  weiter: string;
+}) {
+  if (seiten <= 1) return null;
+  return (
+    <nav
+      aria-label={beschriftung}
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-4 py-3"
+    >
+      <p className="text-xs text-ink-500">{beschriftung}</p>
+      <div className="flex items-center gap-2">
+        {seite > 1 ? (
+          <Link href={href(seite - 1)} className="btn btn-secondary">
+            ← {zurueck}
+          </Link>
+        ) : (
+          <span className="btn btn-secondary pointer-events-none opacity-40" aria-disabled="true">
+            ← {zurueck}
+          </span>
+        )}
+        {seite < seiten ? (
+          <Link href={href(seite + 1)} className="btn btn-secondary">
+            {weiter} →
+          </Link>
+        ) : (
+          <span className="btn btn-secondary pointer-events-none opacity-40" aria-disabled="true">
+            {weiter} →
+          </span>
+        )}
+      </div>
+    </nav>
   );
 }

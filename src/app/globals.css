@@ -191,6 +191,14 @@
     border-collapse: collapse;
   }
 
+  /* Listen: hellgrau und weiss im Wechsel, damit sich die Zeilen klar
+     voneinander trennen. Vom Listenfilter ausgeblendete Zeilen zaehlen
+     nicht mit, sonst staenden nach dem Tippen zwei graue untereinander. */
+  tbody > tr:nth-child(even of :not([style*="display: none"])),
+  ul.divide-y > li:nth-child(even of :not([style*="display: none"])) {
+    background-color: color-mix(in srgb, var(--color-ink-100) 65%, var(--color-ink-200));
+  }
+
   /* Tastaturbedienung bleibt ueberall sichtbar. */
   :focus-visible {
     outline: 2px solid var(--color-brand-500);

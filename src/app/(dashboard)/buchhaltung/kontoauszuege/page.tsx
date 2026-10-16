@@ -199,7 +199,7 @@ export default async function StatementsPage({
               </thead>
               <tbody>
                 {statements.map((statement) => (
-                  <tr key={statement.id} className="hover:bg-ink-50">
+                  <tr key={statement.id} className="hover:bg-brand-100">
                     <Td className="text-ink-600">
                       {datumZeit(statement.importedAt)}
                       <p className="max-w-56 truncate text-xs text-ink-500">{statement.fileName}</p>

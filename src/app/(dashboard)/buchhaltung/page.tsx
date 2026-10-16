@@ -3,7 +3,7 @@ import Link from "next/link";
 import { updateTransaction, uploadDocument } from "@/app/actions/accounting";
 import { Disclosure } from "@/components/interactive";
 import { ReviewBadge } from "@/components/status";
-import { Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
+import { Card, EmptyState, Flash, PageHeader, Seitenwechsel, StatCard, Table, Td, Th } from "@/components/ui";
 import { SuchFeld } from "@/components/suchfeld";
 import { prisma } from "@/lib/db";
 import { periodSummary } from "@/lib/accounting";
@@ -35,10 +35,12 @@ export default async function AccountingPage({
     fehlend?: string;
     von?: string;
     bis?: string;
+    seite?: string;
   }>;
 }) {
   const { t, datum, geld } = await oberflaeche();
   const params = await searchParams;
+  const seite = Math.max(1, Number.parseInt(params.seite ?? "1", 10) || 1);
 
   const now = new Date();
   const from = params.von ? new Date(params.von) : null;
@@ -80,6 +82,7 @@ export default async function AccountingPage({
         },
       },
       orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
+      skip: (seite - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     prisma.bankTransaction.count({ where }),
@@ -87,6 +90,18 @@ export default async function AccountingPage({
     propertyOptions(),
     prisma.bankAccount.count(),
   ]);
+
+  const seiten = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // Filter bleiben beim Blaettern erhalten, nur die Seitenzahl wechselt.
+  const seitenAdresse = (ziel: number) => {
+    const suche = new URLSearchParams();
+    for (const [schluessel, wert] of Object.entries(params)) {
+      if (wert && !["seite", "ok", "fehler"].includes(schluessel)) suche.set(schluessel, wert);
+    }
+    if (ziel > 1) suche.set("seite", String(ziel));
+    const text = suche.toString();
+    return text ? `/buchhaltung?${text}` : "/buchhaltung";
+  };
 
   return (
     <>
@@ -197,7 +212,7 @@ export default async function AccountingPage({
                 </thead>
                 <tbody>
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="align-top hover:bg-ink-50">
+                    <tr key={tx.id} className="align-top hover:bg-brand-100">
                       <Td className="whitespace-nowrap text-ink-600">
                         {datum(tx.bookingDate)}
                         <p className="text-xs text-ink-500">{tx.bankAccount.name}</p>
@@ -222,7 +237,7 @@ export default async function AccountingPage({
                             <AdminOnly>
                               <form action={updateTransaction} className="grid gap-3 sm:grid-cols-3">
                                 <input type="hidden" name="id" value={tx.id} />
-                                <input type="hidden" name="back" value="/buchhaltung" />
+                                <input type="hidden" name="back" value={seitenAdresse(seite)} />
                                 <div>
                                   <label htmlFor={`cat-${tx.id}`}>{t("Kategorie")}</label>
                                   <select id={`cat-${tx.id}`} name="category" defaultValue={tx.category ?? ""}>
@@ -279,7 +294,7 @@ export default async function AccountingPage({
                             <AdminOnly>
                               <form action={uploadDocument} className="grid gap-3 sm:grid-cols-3">
                                 <input type="hidden" name="bankTransactionId" value={tx.id} />
-                                <input type="hidden" name="back" value="/buchhaltung" />
+                                <input type="hidden" name="back" value={seitenAdresse(seite)} />
                                 <input type="hidden" name="kind" value="RECEIPT" />
                                 <div className="sm:col-span-3">
                                   <label htmlFor={`file-${tx.id}`}>{t("Datei *")}</label>
@@ -394,11 +409,14 @@ export default async function AccountingPage({
                 </tbody>
               </Table>
 
-              {total > transactions.length && (
-                <p className="border-t border-ink-200 px-4 py-3 text-xs text-ink-500">
-                  {t("{gezeigt} von {gesamt} Buchungen angezeigt. Bitte die Filter verwenden, um die Auswahl einzugrenzen.", { gezeigt: transactions.length, gesamt: total })}
-                </p>
-              )}
+              <Seitenwechsel
+                seite={seite}
+                seiten={seiten}
+                href={seitenAdresse}
+                beschriftung={t("Seite {seite} von {seiten} · {gesamt} Buchungen", { seite, seiten, gesamt: total })}
+                zurueck={t("Zurück")}
+                weiter={t("Weiter")}
+              />
             </>
           )}
         </Card>
