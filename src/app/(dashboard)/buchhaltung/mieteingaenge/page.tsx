@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
+import { generateCharges, markChargePaid, reopenCharge, runAutoMatch, zuordnungenNeuBerechnenAktion } from "@/app/actions/accounting";
+import { ConfirmButton } from "@/components/interactive";
 import { qontoJetztAbgleichen } from "@/app/actions/qonto";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
@@ -257,6 +258,17 @@ export default async function RentIncomePage({
             t("Qonto ist verbunden, aber noch nicht abgeglichen.")
           )}
         </p>
+      )}
+      {verwaltung && (
+        <form action={zuordnungenNeuBerechnenAktion} className="-mt-2 mb-4">
+          <input type="hidden" name="back" value={back} />
+          <ConfirmButton
+            className="text-xs font-semibold text-brand-700 hover:underline"
+            message={t("Alle automatischen Zuordnungen lösen und mit den aktuellen Regeln neu treffen? Von Hand abgehakte Monate bleiben bezahlt.")}
+          >
+            {t("Zuordnungen neu berechnen")}
+          </ConfirmButton>
+        </form>
       )}
 
       {/* --- Monatswahl -----------------------------------------------------

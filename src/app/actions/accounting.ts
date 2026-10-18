@@ -12,7 +12,7 @@ import { cents, date, flash, int, optionalCents, optionalStr, str } from "@/lib/
 import { dedupeHash, parseStatement } from "@/lib/bank";
 import { gleicheZahlung } from "@/lib/qonto-umsatz";
 import { FOLDER, backendLabel, deleteFile, folderLink, shareFolderWith, uploadFile } from "@/lib/storage";
-import { allocate, autoMatch, deallocate, ensureRentCharges } from "@/lib/accounting";
+import { allocate, autoMatch, deallocate, ensureRentCharges, zuordnungenNeuBerechnen } from "@/lib/accounting";
 import { exportToDrive } from "@/lib/export";
 import { formatDate } from "@/lib/dates";
 import { uebersetzer } from "@/lib/i18n";
@@ -355,6 +355,31 @@ export async function runAutoMatch(formData: FormData) {
       "ok",
       `${result.reviewed} offene Zahlungseingänge geprüft, ${result.matched} zugeordnet` +
         (created > 0 ? `, ${created} neue Mietforderung(en) angelegt.` : "."),
+    ),
+  );
+}
+
+/**
+ * Alle automatischen Zuordnungen mit den aktuellen Regeln neu treffen -
+ * fuer den Fall, dass der Abgleich frueher Zahlungen dem falschen Monat
+ * gegeben hat. Von Hand Zugeordnetes und Abgehaktes bleibt.
+ */
+export async function zuordnungenNeuBerechnenAktion(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const back = str(formData, "back") || "/buchhaltung/mieteingaenge";
+
+  const ergebnis = await zuordnungenNeuBerechnen();
+  await audit(user.email, "rematch", "Allocation", null, `${ergebnis.geloest} gelöst, ${ergebnis.zugeordnet} neu zugeordnet`);
+  refresh();
+  redirect(
+    flash(
+      back,
+      "ok",
+      t("Zuordnungen neu berechnet: {geloest} automatische Zuordnung(en) gelöst, {zugeordnet} Zahlung(en) neu zugeordnet.", {
+        geloest: ergebnis.geloest,
+        zugeordnet: ergebnis.zugeordnet,
+      }),
     ),
   );
 }

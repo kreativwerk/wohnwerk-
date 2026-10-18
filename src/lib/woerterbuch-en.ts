@@ -1269,4 +1269,7 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Qonto lehnt den Zugang ab. Bitte Login und geheimen Schlüssel in den Einstellungen prüfen.": "Qonto rejects the access. Please check the login and secret key in the settings.",
   "Qonto meldet zu viele Anfragen. Bitte in ein paar Minuten erneut versuchen.": "Qonto reports too many requests. Please try again in a few minutes.",
   "Der Qonto-Abgleich ist fehlgeschlagen.": "The Qonto sync failed.",
+  "Zuordnungen neu berechnet: {geloest} automatische Zuordnung(en) gelöst, {zugeordnet} Zahlung(en) neu zugeordnet.": "Matches recalculated: {geloest} automatic match(es) released, {zugeordnet} payment(s) matched again.",
+  "Alle automatischen Zuordnungen lösen und mit den aktuellen Regeln neu treffen? Von Hand abgehakte Monate bleiben bezahlt.": "Release all automatic matches and redo them with the current rules? Months ticked off by hand stay paid.",
+  "Zuordnungen neu berechnen": "Recalculate matches",
 };

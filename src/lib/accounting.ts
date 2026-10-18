@@ -280,8 +280,9 @@ export async function allocate(params: {
       rentChargeId: params.rentChargeId,
       bankTransactionId: params.bankTransactionId,
       amountCents: amount,
+      quelle: "HAND",
     },
-    update: { amountCents: { increment: amount } },
+    update: { amountCents: { increment: amount }, quelle: "HAND" },
   });
 
   await recomputeChargeStatus(params.rentChargeId);
@@ -462,6 +463,42 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
   }
 
   return { matched, reviewed: transactions.length };
+}
+
+export type NeuberechnungsErgebnis = { geloest: number; zugeordnet: number; geprueft: number };
+
+/**
+ * Loest alle automatischen Zuordnungen und laesst den Abgleich sie mit den
+ * aktuellen Regeln neu treffen. Von Hand zugeordnete Zahlungen und von Hand
+ * abgehakte Monate bleiben unberuehrt.
+ */
+export async function zuordnungenNeuBerechnen(): Promise<NeuberechnungsErgebnis> {
+  const auto = await prisma.allocation.findMany({
+    where: { quelle: "AUTO" },
+    select: { rentChargeId: true, bankTransactionId: true },
+  });
+  const forderungen = [...new Set(auto.map((a) => a.rentChargeId))];
+  const buchungen = [...new Set(auto.map((a) => a.bankTransactionId))];
+
+  const geloest = await prisma.allocation.deleteMany({ where: { quelle: "AUTO" } });
+
+  for (const id of forderungen) await recomputeChargeStatus(id);
+  // Buchungen ohne verbleibende Zuordnung wieder als offen fuehren.
+  const nochZugeordnet = new Set(
+    (await prisma.allocation.findMany({ where: { bankTransactionId: { in: buchungen } }, select: { bankTransactionId: true } })).map(
+      (a) => a.bankTransactionId,
+    ),
+  );
+  const wiederOffen = buchungen.filter((id) => !nochZugeordnet.has(id));
+  if (wiederOffen.length > 0) {
+    await prisma.bankTransaction.updateMany({
+      where: { id: { in: wiederOffen }, reviewStatus: "MATCHED" },
+      data: { reviewStatus: "OPEN" },
+    });
+  }
+
+  const ergebnis = await autoMatch();
+  return { geloest: geloest.count, zugeordnet: ergebnis.matched, geprueft: ergebnis.reviewed };
 }
 
 function chargeOpenCents(charge: {

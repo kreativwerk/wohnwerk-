@@ -421,6 +421,8 @@ model Allocation {
   bankTransactionId String
 
   amountCents Int
+  /// AUTO = automatischer Abgleich (darf neu berechnet werden), HAND = von der Hausverwaltung zugeordnet
+  quelle      String   @default("AUTO")
   createdAt   DateTime @default(now())
 
   rentCharge      RentCharge      @relation(fields: [rentChargeId], references: [id], onDelete: Cascade)
