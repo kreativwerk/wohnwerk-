@@ -17,7 +17,7 @@ import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, i
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
-import { monateAusText, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
+import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -897,6 +897,25 @@ async function main() {
       zuordnungPlanen({ bookingDate: new Date("2026-09-28T00:00:00Z"), freiCents: 47000, text: "Miete" }, [f("sep", "RENT", 9, "PAID"), f("okt", "RENT", 10)]),
       [{ forderungId: "okt", cents: 47000 }],
     );
+  });
+
+  await test("Zuordnung: Namen mit kleinen Schreibabweichungen werden erkannt, andere nicht", () => {
+    assert.equal(namensAbstand("allija", "alliaj"), 1);
+    const passt = (text: string, firstName: string, lastName: string) => mieterPasst(text, { firstName, lastName });
+    assert.ok(passt("Jurgin Hajdinaj Miete October (Jurgin Hajdinaj ) SANKT MICHAEL 27", "Jurgin", "Haradinaj"));
+    assert.ok(passt("Doris Alliaj Semptember 2026+ kaution", "Doris", "Allija"));
+    assert.ok(passt("Gezim Nikqi Qiraja", "Gzim", "Nikqi"));
+    assert.ok(!passt("Gezim Nikqi Qiraja", "Liridon", "Nikqi"));
+    assert.ok(passt("Argjent Xhejkaj", "Argjent", "Xhekaj"));
+    assert.ok(passt("Xhoni Bilushi Rent", "Xhoni", "Belushi"));
+    assert.ok(passt("Ensar Bedjeti Miete", "Ensar", "Bexheti"));
+    assert.ok(passt("Miete, Florian Gjata , sankt michael 27", "Florijan", "Gjata"));
+    // Verwandte mit gleichem Nachnamen bleiben getrennt.
+    assert.ok(!passt("Elvir Memedi Miete 10/26", "Ardijan", "Memedi"));
+    assert.ok(!passt("Alban Bajraktari Miete", "Granit", "Bajraktari"));
+    // Ganz andere Namen nicht.
+    assert.ok(!passt("Juljan Hoxhaj Miete", "Romeo", "Hoxha"));
+    assert.ok(!passt("Valon Dobratiqi Miete", "Valon", "Sejdiu"));
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

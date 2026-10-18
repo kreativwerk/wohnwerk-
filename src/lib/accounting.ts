@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "./db";
 import { monthsBetween } from "./dates";
 import { anteilNotiz, monatsanteil } from "./mietanteil";
-import { zuordnungPlanen, type ZuordnungsForderung } from "./zuordnung";
+import { mieterPasst, zuordnungPlanen, type ZuordnungsForderung } from "./zuordnung";
 
 /** Notiz, die "Als bezahlt markieren" an die Forderung haengt. */
 export function istManuellBestaetigt(notes: string | null | undefined): boolean {
@@ -398,18 +398,7 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
     // 2. Sonst der Name des Mieters bzw. seiner Firma.
     if (mieterIds.size === 0) {
       mieterIds = new Set(
-        tenancies
-          .filter((ty) => {
-            const last = normalize(ty.tenant.lastName);
-            const first = normalize(ty.tenant.firstName);
-            const company = normalize(ty.tenant.company);
-            // Vorname: die ersten vier Buchstaben genuegen ("Florjan" / "Florijan").
-            const firstHit = !first || haystack.includes(first) || (first.length >= 4 && haystack.includes(first.slice(0, 4)));
-            const nameHit = last.length >= 3 && haystack.includes(last) && firstHit;
-            const companyHit = company.length >= 4 && haystack.includes(company);
-            return nameHit || companyHit;
-          })
-          .map((ty) => ty.tenantId),
+        tenancies.filter((ty) => mieterPasst(text, ty.tenant)).map((ty) => ty.tenantId),
       );
     }
     if (mieterIds.size === 0) continue;

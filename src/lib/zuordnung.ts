@@ -186,3 +186,67 @@ export function zuordnungPlanen(
   }
   return posten;
 }
+
+// ---------------------------------------------------------------------------
+// Wer hat gezahlt? Namensabgleich mit Tippfehler-Toleranz
+// ---------------------------------------------------------------------------
+
+/** Kleinbuchstaben ohne Akzente, nur a-z und Ziffern. */
+export function nameNormal(wert: string | null | undefined): string {
+  return ohneAkzente(wert ?? "").replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Editierabstand mit Vertauschung zweier Nachbarbuchstaben als einem
+ * Schritt ("Allija" / "Alliaj" = 1).
+ */
+export function namensAbstand(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const kosten = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + kosten);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/** Wie viele Abweichungen ein Name dieser Laenge vertraegt. */
+function toleranz(laenge: number): number {
+  if (laenge >= 7) return 2;
+  if (laenge >= 4) return 1;
+  return 0;
+}
+
+function wortPasst(woerter: string[], gesucht: string, zusammen: string): boolean {
+  if (!gesucht) return true;
+  if (zusammen.includes(gesucht)) return true;
+  const grenze = toleranz(gesucht.length);
+  return grenze > 0 && woerter.some((w) => Math.abs(w.length - gesucht.length) <= grenze && namensAbstand(w, gesucht) <= grenze);
+}
+
+/**
+ * Passt der Zahlungstext zum Mieter? Nachname und Vorname muessen beide
+ * vorkommen - genau oder mit kleinen Schreibabweichungen ("Hajdinaj" /
+ * "Haradinaj", "Gezim" / "Gzim"). Alternativ der Firmenname.
+ */
+export function mieterPasst(
+  text: string,
+  mieter: { firstName: string; lastName: string; company?: string | null },
+): boolean {
+  const zusammen = nameNormal(text);
+  if (!zusammen) return false;
+  const woerter = ohneAkzente(text).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+
+  const nachname = nameNormal(mieter.lastName);
+  const vorname = nameNormal(mieter.firstName);
+  const firma = nameNormal(mieter.company);
+
+  if (firma.length >= 4 && zusammen.includes(firma)) return true;
+  if (nachname.length < 3) return false;
+  if (!wortPasst(woerter, nachname, zusammen)) return false;
+  // Vorname: genau, die ersten vier Buchstaben ("Florjan" / "Florijan") oder mit Abweichung.
+  return !vorname || (vorname.length >= 4 && zusammen.includes(vorname.slice(0, 4))) || wortPasst(woerter, vorname, zusammen);
+}
