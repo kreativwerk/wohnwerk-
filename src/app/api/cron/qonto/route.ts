@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { autoMatch } from "@/lib/accounting";
 import { qontoAbgleich, qontoZugang } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +22,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
+  // Ohne Qonto trotzdem zuordnen: Eingaenge aus hochgeladenen Auszuegen.
   if (!(await qontoZugang())) {
-    return NextResponse.json({ ok: true, uebersprungen: "Qonto ist nicht eingerichtet." });
+    const zuordnung = await autoMatch();
+    return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched });
   }
 
   const ergebnis = await qontoAbgleich("cron");

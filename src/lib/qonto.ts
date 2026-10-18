@@ -399,11 +399,13 @@ export async function qontoAbgleich(ausgeloestVon: string): Promise<QontoErgebni
         }
       }
 
-      const zuordnung = await autoMatch({ bankAccountId: konto.id });
-      ergebnis.zugeordnet += zuordnung.matched;
-
       await belegeHolen(zugang, qk, konto.id, ab, ergebnis);
     }
+
+    // Ueber alle Konten: auch offene Eingaenge aus hochgeladenen Auszuegen
+    // bekommen so taeglich eine Chance.
+    const zuordnung = await autoMatch();
+    ergebnis.zugeordnet += zuordnung.matched;
 
     ergebnis.ok = true;
     await settingSetzen(KEY_ZULETZT, zeitpunkt);

@@ -3,6 +3,12 @@ import "server-only";
 import { prisma } from "./db";
 import { monthsBetween } from "./dates";
 import { anteilNotiz, monatsanteil } from "./mietanteil";
+import { zuordnungPlanen, type ZuordnungsForderung } from "./zuordnung";
+
+/** Notiz, die "Als bezahlt markieren" an die Forderung haengt. */
+export function istManuellBestaetigt(notes: string | null | undefined): boolean {
+  return Boolean(notes?.includes("Manuell bestätigt"));
+}
 
 /**
  * Offene Posten und Zahlungszuordnung.
@@ -200,6 +206,10 @@ export async function recomputeChargeStatus(rentChargeId: string): Promise<void>
     include: { allocations: true },
   });
   if (!charge || charge.status === "WAIVED") return;
+  // Von Hand als bezahlt abgehakt: bleibt bezahlt, auch wenn die
+  // verknuepfte Zahlung kleiner ist oder wieder geloest wird. Zuruecknehmen
+  // geht nur ueber "Wieder öffnen".
+  if (charge.status === "PAID" && istManuellBestaetigt(charge.notes)) return;
 
   const paid = charge.allocations.reduce((sum, a) => sum + a.amountCents, 0);
   const status = paid <= 0 ? "OPEN" : paid + 100 >= charge.amountCents ? "PAID" : "PARTIAL";
@@ -315,9 +325,14 @@ export type MatchResult = {
 /**
  * Ordnet offene Zahlungseingaenge automatisch zu.
  *
- * Sicherheitsnetz: zugeordnet wird nur bei einem eindeutigen Treffer. Findet
- * der Abgleich mehrere plausible Forderungen, bleibt die Buchung offen und
- * wird in der Oberflaeche manuell entschieden.
+ * Erst den Mieter finden (Vertragsreferenz im Verwendungszweck, sonst der
+ * Name), dann mit `zuordnungPlanen` entscheiden, welche seiner Forderungen
+ * die Zahlung tilgt: genannte Monate und Kaution zuerst, sonst Faelliges,
+ * von Hand abgehakte Monate um den Zahlungstag, und nur knapp im Voraus.
+ *
+ * Sicherheitsnetz: Passen mehrere Mieter, wird nur bei eindeutigem Betrag
+ * zugeordnet. Sonst bleibt die Buchung offen und wird in der Oberflaeche
+ * von Hand entschieden.
  */
 export async function autoMatch(options: { bankAccountId?: string } = {}): Promise<MatchResult> {
   await ensureRentCharges();
@@ -334,19 +349,36 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
 
   if (transactions.length === 0) return { matched: 0, reviewed: 0 };
 
-  const openCharges = await prisma.rentCharge.findMany({
-    where: { status: { in: ["OPEN", "PARTIAL"] } },
+  const tenancies = await prisma.tenancy.findMany({
+    where: { charges: { some: {} } },
     include: {
-      allocations: true,
-      tenancy: {
-        include: {
-          tenant: { select: { firstName: true, lastName: true, company: true } },
-          bed: { include: { room: { include: { property: true } } } },
-        },
-      },
+      tenant: { select: { id: true, firstName: true, lastName: true, company: true } },
+      bed: { include: { room: { select: { propertyId: true } } } },
+      charges: { include: { allocations: { select: { amountCents: true } } } },
     },
-    orderBy: [{ dueDate: "asc" }],
   });
+
+  // Forderungen je Mieter, mit laufend mitgefuehrtem Zuordnungsstand.
+  const forderungenJeMieter = new Map<string, ZuordnungsForderung[]>();
+  const objektJeForderung = new Map<string, string>();
+  for (const ty of tenancies) {
+    const liste = forderungenJeMieter.get(ty.tenantId) ?? [];
+    for (const c of ty.charges) {
+      liste.push({
+        id: c.id,
+        kind: c.kind,
+        jahr: c.periodYear,
+        monat: c.periodMonth,
+        dueDate: c.dueDate,
+        amountCents: c.amountCents,
+        zugeordnetCents: c.allocations.reduce((s, a) => s + a.amountCents, 0),
+        status: c.status,
+        manuell: istManuellBestaetigt(c.notes),
+      });
+      objektJeForderung.set(c.id, ty.bed.room.propertyId);
+    }
+    forderungenJeMieter.set(ty.tenantId, liste);
+  }
 
   let matched = 0;
 
@@ -354,81 +386,79 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
     const free = Math.abs(tx.amountCents) - tx.allocations.reduce((s, a) => s + a.amountCents, 0);
     if (free <= 0) continue;
 
-    const haystack = normalize(`${tx.purpose ?? ""} ${tx.counterpartyName ?? ""} ${tx.endToEndId ?? ""}`);
+    const text = `${tx.purpose ?? ""} ${tx.counterpartyName ?? ""} ${tx.endToEndId ?? ""}`;
+    const haystack = normalize(text);
     if (!haystack) continue;
 
-    // 1. Treffer ueber die Vertragsreferenz im Verwendungszweck – eindeutig.
-    let candidates = openCharges.filter(
-      (charge) =>
-        chargeOpenCents(charge) > 0 && haystack.includes(normalize(charge.tenancy.reference)),
+    // 1. Vertragsreferenz im Verwendungszweck - eindeutig.
+    let mieterIds = new Set(
+      tenancies.filter((ty) => haystack.includes(normalize(ty.reference))).map((ty) => ty.tenantId),
     );
+    // 2. Sonst der Name des Mieters bzw. seiner Firma.
+    if (mieterIds.size === 0) {
+      mieterIds = new Set(
+        tenancies
+          .filter((ty) => {
+            const last = normalize(ty.tenant.lastName);
+            const first = normalize(ty.tenant.firstName);
+            const company = normalize(ty.tenant.company);
+            // Vorname: die ersten vier Buchstaben genuegen ("Florjan" / "Florijan").
+            const firstHit = !first || haystack.includes(first) || (first.length >= 4 && haystack.includes(first.slice(0, 4)));
+            const nameHit = last.length >= 3 && haystack.includes(last) && firstHit;
+            const companyHit = company.length >= 4 && haystack.includes(company);
+            return nameHit || companyHit;
+          })
+          .map((ty) => ty.tenantId),
+      );
+    }
+    if (mieterIds.size === 0) continue;
 
-    // 2. Sonst ueber den Namen des Mieters bzw. seiner Firma.
-    if (candidates.length === 0) {
-      candidates = openCharges.filter((charge) => {
-        if (chargeOpenCents(charge) <= 0) return false;
-        const tenant = charge.tenancy.tenant;
-        const last = normalize(tenant.lastName);
-        const first = normalize(tenant.firstName);
-        const company = normalize(tenant.company);
-        const nameHit = last.length >= 3 && haystack.includes(last) && (!first || haystack.includes(first));
-        const companyHit = company.length >= 4 && haystack.includes(company);
-        return nameHit || companyHit;
-      });
+    const zahlung = { bookingDate: tx.bookingDate, freiCents: free, text };
+    let mieterId: string | null = null;
+    if (mieterIds.size === 1) {
+      mieterId = [...mieterIds][0];
+    } else {
+      // Mehrere Mieter passen: nur bei genau einer offenen Forderung mit
+      // exakt diesem Betrag.
+      const exakt = [...mieterIds].filter((id) =>
+        (forderungenJeMieter.get(id) ?? []).some(
+          (f) => (f.status === "OPEN" || f.status === "PARTIAL") && f.amountCents - f.zugeordnetCents === free,
+        ),
+      );
+      if (exakt.length !== 1) continue;
+      mieterId = exakt[0];
     }
 
-    if (candidates.length === 0) continue;
+    const forderungen = forderungenJeMieter.get(mieterId) ?? [];
+    const plan = zuordnungPlanen(zahlung, forderungen);
+    if (plan.length === 0) continue;
 
-    // Bei mehreren offenen Monaten desselben Mietverhaeltnisses ist die
-    // Zuordnung eindeutig genug: der aelteste offene Monat wird zuerst getilgt.
-    const tenancyIds = new Set(candidates.map((c) => c.tenancyId));
-    if (tenancyIds.size > 1) {
-      // Mehrdeutig -> nur bei exakter Betragsuebereinstimmung entscheiden
-      const exact = candidates.filter((c) => chargeOpenCents(c) === free);
-      if (exact.length !== 1) continue;
-      candidates = exact;
-    }
-
-    let remaining = free;
-    for (const charge of candidates.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())) {
-      if (remaining <= 0) break;
-      const open = chargeOpenCents(charge);
-      if (open <= 0) continue;
-
-      const amount = Math.min(open, remaining);
+    for (const posten of plan) {
       await prisma.allocation.upsert({
         where: {
-          rentChargeId_bankTransactionId: {
-            rentChargeId: charge.id,
-            bankTransactionId: tx.id,
-          },
+          rentChargeId_bankTransactionId: { rentChargeId: posten.forderungId, bankTransactionId: tx.id },
         },
-        create: { rentChargeId: charge.id, bankTransactionId: tx.id, amountCents: amount },
-        update: { amountCents: { increment: amount } },
+        create: { rentChargeId: posten.forderungId, bankTransactionId: tx.id, amountCents: posten.cents },
+        update: { amountCents: { increment: posten.cents } },
       });
-      charge.allocations.push({
-        id: "pending",
-        rentChargeId: charge.id,
-        bankTransactionId: tx.id,
-        amountCents: amount,
-        createdAt: new Date(),
-      });
-      remaining -= amount;
-      await recomputeChargeStatus(charge.id);
+      const f = forderungen.find((x) => x.id === posten.forderungId);
+      if (f) f.zugeordnetCents += posten.cents;
+      await recomputeChargeStatus(posten.forderungId);
+      if (f) {
+        const aktuell = await prisma.rentCharge.findUnique({ where: { id: f.id }, select: { status: true } });
+        if (aktuell) f.status = aktuell.status;
+      }
     }
 
-    if (remaining < free) {
-      await prisma.bankTransaction.update({
-        where: { id: tx.id },
-        data: {
-          reviewStatus: "MATCHED",
-          category: tx.category ?? "Miete Einnahme",
-          propertyId:
-            tx.propertyId ?? candidates[0]?.tenancy.bed.room.property.id ?? null,
-        },
-      });
-      matched += 1;
-    }
+    await prisma.bankTransaction.update({
+      where: { id: tx.id },
+      data: {
+        reviewStatus: "MATCHED",
+        category: tx.category ?? "Miete Einnahme",
+        propertyId: tx.propertyId ?? objektJeForderung.get(plan[0].forderungId) ?? null,
+      },
+    });
+    matched += 1;
   }
 
   return { matched, reviewed: transactions.length };

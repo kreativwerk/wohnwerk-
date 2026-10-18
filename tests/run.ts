@@ -17,6 +17,7 @@ import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, i
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
+import { monateAusText, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -837,6 +838,65 @@ async function main() {
     assert.equal(belegDateiname(tag, "ESTW Erlanger Stadtwerke", "Rechnung Oktober.PDF"), "2026-10-04 ESTW Erlanger Stadtwerke.pdf");
     assert.equal(belegDateiname(tag, null, "scan.jpg"), "2026-10-04 scan.jpg");
     assert.equal(belegDateiname(tag, "A/B: GmbH", null), "2026-10-04 A B GmbH.pdf");
+  });
+
+  await test("Zuordnung: Monate aus dem Verwendungszweck, Bankstempel zählen nicht", () => {
+    const bezug = new Date("2026-10-15T00:00:00Z");
+    const m = (t: string) => monateAusText(t, bezug).map((x) => `${x.jahr}-${x.monat}`).join(",");
+    assert.equal(m("Valon Sejdiu Miete September"), "2026-9");
+    assert.equal(m("Miete September 2026, Oktober 2026+Kaution"), "2026-9,2026-10");
+    assert.equal(m("Semptember 2026+ kaution"), "2026-9");
+    assert.equal(m("Miete 10/26"), "2026-10");
+    assert.equal(m("miete 09/2026"), "2026-9");
+    assert.equal(m("Qiraja per muajin Tetor, Sankt michael 27"), "2026-10");
+    assert.equal(m("Miete Octomber - Granit Bajraktari"), "2026-10");
+    assert.equal(m("Miete , Gerian Bardhi, Sankt Michael 27, ErlangenDATUM 14.08.2026, 14."), "");
+    assert.equal(m("Miete 15/10"), "");
+    assert.equal(m("Xhoni Bilushi 30/06/26 Rent Hous"), "");
+    assert.equal(m("Miete Maier"), "");
+    // Januar-Zahlung fuer Dezember: Vorjahr
+    assert.equal(monateAusText("Miete Dezember", new Date("2027-01-05T00:00:00Z")).map((x) => x.jahr).join(), "2026");
+    assert.ok(nenntKaution("Lavdim Kerolli Kaucion"));
+    assert.ok(!nenntKaution("Miete Oktober"));
+  });
+
+  await test("Zuordnung: abgehakter September bekommt die September-Zahlung, nicht der Oktober", () => {
+    const f = (id: string, monat: number, status: string, manuell = false): ZuordnungsForderung => ({
+      id, kind: "RENT", jahr: 2026, monat, dueDate: new Date(Date.UTC(2026, monat - 1, 1)), amountCents: 47000, zugeordnetCents: 0, status, manuell,
+    });
+    const forderungen = [f("sep", 9, "PAID", true), f("okt", 10, "OPEN")];
+    // Mit Monatsangabe
+    assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-09-23T00:00:00Z"), freiCents: 47000, text: "Miete September" }, forderungen), [{ forderungId: "sep", cents: 47000 }]);
+    // Ohne Monatsangabe, Zahlung im September: auch September
+    assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-09-23T00:00:00Z"), freiCents: 47000, text: "Miete" }, forderungen), [{ forderungId: "sep", cents: 47000 }]);
+    // Zahlung im Oktober: Oktober
+    assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-10-15T00:00:00Z"), freiCents: 47000, text: "Miete" }, forderungen), [{ forderungId: "okt", cents: 47000 }]);
+  });
+
+  await test("Zuordnung: nie weit in die Zukunft, Kaution vor Miete, Rückstand zuerst", () => {
+    const f = (id: string, kind: string, monat: number, status = "OPEN", betrag = 47000): ZuordnungsForderung => ({
+      id, kind, jahr: 2026, monat, dueDate: new Date(Date.UTC(2026, monat - 1, kind === "DEPOSIT" ? 20 : 1)), amountCents: betrag, zugeordnetCents: 0, status, manuell: false,
+    });
+    // August-Zahlung, August und September schon bezahlt (nicht von Hand): Oktober ist zu weit weg.
+    assert.deepEqual(
+      zuordnungPlanen({ bookingDate: new Date("2026-08-07T00:00:00Z"), freiCents: 47000, text: "Miete" }, [f("aug", "RENT", 8, "PAID"), f("okt", "RENT", 10)]),
+      [],
+    );
+    // Kaution genannt: zuerst die Kaution, Rest an die faellige Miete.
+    assert.deepEqual(
+      zuordnungPlanen({ bookingDate: new Date("2026-09-25T00:00:00Z"), freiCents: 67000, text: "Miete + Kaution" }, [f("kau", "DEPOSIT", 9, "OPEN", 20000), f("sep", "RENT", 9)]),
+      [{ forderungId: "kau", cents: 20000 }, { forderungId: "sep", cents: 47000 }],
+    );
+    // Rueckstand: aelteste offene Miete zuerst.
+    assert.deepEqual(
+      zuordnungPlanen({ bookingDate: new Date("2026-10-15T00:00:00Z"), freiCents: 47000, text: "Miete" }, [f("okt", "RENT", 10), f("sep", "RENT", 9)]),
+      [{ forderungId: "sep", cents: 47000 }],
+    );
+    // Vorauszahlung wenige Tage vor Faelligkeit ist erlaubt.
+    assert.deepEqual(
+      zuordnungPlanen({ bookingDate: new Date("2026-09-28T00:00:00Z"), freiCents: 47000, text: "Miete" }, [f("sep", "RENT", 9, "PAID"), f("okt", "RENT", 10)]),
+      [{ forderungId: "okt", cents: 47000 }],
+    );
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);
