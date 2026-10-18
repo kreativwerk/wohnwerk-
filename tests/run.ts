@@ -16,6 +16,7 @@ import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from ".
 import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
+import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -787,6 +788,55 @@ async function main() {
     assert.ok(text.includes("Amount you still have to pay: €60.00"), text);
     assert.ok(text.includes("IBAN: DE62 1001 0123 4597 5635 24"), text);
     assert.ok(text.includes("Account holder: Wohnwerk GbR"), text);
+  });
+
+  await test("Qonto: Gutschrift wird zur Buchung mit Berliner Datum und Kennung", () => {
+    const b = qontoZuBuchung({
+      id: "7f1c-uuid",
+      amount_cents: 47000,
+      side: "credit",
+      status: "completed",
+      currency: "EUR",
+      label: "VALON SEJDIU",
+      clean_counterparty_name: "Valon Sejdiu",
+      reference: "Miete Oktober WW-2026-0009",
+      operation_type: "income",
+      settled_at: "2026-09-30T22:30:00.000Z", // 1. Oktober, 00:30 Uhr in Berlin
+      emitted_at: "2026-09-30T22:29:00.000Z",
+      income: { counterparty_account_number: "DE89 3704 0044 0532 0130 00" },
+    });
+    assert.ok(b);
+    assert.equal(b.bookingDate.toISOString(), "2026-10-01T00:00:00.000Z");
+    assert.equal(b.amountCents, 47000);
+    assert.equal(b.counterpartyName, "Valon Sejdiu");
+    assert.equal(b.counterpartyIban, "DE89370400440532013000");
+    assert.equal(b.purpose, "Miete Oktober WW-2026-0009");
+    assert.equal(b.endToEndId, "qonto:7f1c-uuid");
+  });
+
+  await test("Qonto: Lastschrift negativ, ausstehende und 0-€-Umsätze werden übersprungen", () => {
+    const ab = qontoZuBuchung({ id: "a", amount: "75.00", side: "debit", status: "completed", label: "ESTW", settled_at: "2026-10-02T08:00:00Z" });
+    assert.equal(ab?.amountCents, -7500);
+    assert.equal(qontoZuBuchung({ id: "b", amount_cents: 100, side: "credit", status: "pending", settled_at: "2026-10-02T08:00:00Z" }), null);
+    assert.equal(qontoZuBuchung({ id: "c", amount_cents: 0, side: "credit", status: "completed", settled_at: "2026-10-02T08:00:00Z" }), null);
+    assert.equal(berlinTag("2026-01-15T23:30:00Z").toISOString(), "2026-01-16T00:00:00.000Z");
+  });
+
+  await test("Qonto: gleiche Zahlung aus Auszug und API wird erkannt, andere nicht", () => {
+    const tag = (d: string) => new Date(`${d}T00:00:00Z`);
+    const auszug = { bookingDate: tag("2026-09-29"), amountCents: 57608, counterpartyName: "Romeo Hoxha" };
+    assert.ok(gleicheZahlung(auszug, { bookingDate: tag("2026-09-30"), amountCents: 57608, counterpartyName: "ROMEO HOXHA" }));
+    assert.ok(gleicheZahlung(auszug, { bookingDate: tag("2026-09-29"), amountCents: 57608, counterpartyName: "Romeo Hoxha Überweisung" }));
+    assert.ok(!gleicheZahlung(auszug, { bookingDate: tag("2026-09-29"), amountCents: 57600, counterpartyName: "Romeo Hoxha" }));
+    assert.ok(!gleicheZahlung(auszug, { bookingDate: tag("2026-10-05"), amountCents: 57608, counterpartyName: "Romeo Hoxha" }));
+    assert.ok(!gleicheZahlung(auszug, { bookingDate: tag("2026-09-29"), amountCents: 57608, counterpartyName: "Ensar Bedjeti" }));
+  });
+
+  await test("Qonto-Beleg: Dateiname mit Datum, Gegenpartei und Endung", () => {
+    const tag = new Date("2026-10-04T00:00:00Z");
+    assert.equal(belegDateiname(tag, "ESTW Erlanger Stadtwerke", "Rechnung Oktober.PDF"), "2026-10-04 ESTW Erlanger Stadtwerke.pdf");
+    assert.equal(belegDateiname(tag, null, "scan.jpg"), "2026-10-04 scan.jpg");
+    assert.equal(belegDateiname(tag, "A/B: GmbH", null), "2026-10-04 A B GmbH.pdf");
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

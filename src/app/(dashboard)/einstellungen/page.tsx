@@ -1,9 +1,11 @@
+import { qontoJetztAbgleichen, qontoZugangLoeschen, qontoZugangSichern } from "@/app/actions/qonto";
 import { changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { requireUser, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { qontoStatus } from "@/lib/qonto";
 import { checkDriveStatus } from "@/lib/storage";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
@@ -14,6 +16,8 @@ export async function generateMetadata() {
   return { title: t("Einstellungen") };
 }
 export const dynamic = "force-dynamic";
+// Der Qonto-Abgleich (Abruf, Zuordnung, Belege) braucht mehr als die Standardzeit.
+export const maxDuration = 60;
 
 export default async function SettingsPage({
   searchParams,
@@ -23,11 +27,12 @@ export default async function SettingsPage({
   const { t, datumZeit } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
-  const [me, settings, drive, users] = await Promise.all([
+  const [me, settings, drive, users, qonto] = await Promise.all([
     requireUser(),
     getSettings(),
     checkDriveStatus(),
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
+    qontoStatus(),
   ]);
 
   const mailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
@@ -244,6 +249,107 @@ export default async function SettingsPage({
           </div>
         </Card>
 
+      </div>
+
+      {/* --- Qonto -----------------------------------------------------------
+          Eigenes Formular, ausserhalb des grossen: der geheime Schluessel
+          wird nie angezeigt, nur neu gesetzt. */}
+      <div className="mt-6">
+        <Card
+          id="qonto"
+          className="scroll-mt-4"
+          title={t("Qonto-Anbindung")}
+          description={t("Holt die Umsätze des Wohnwerk-Kontos direkt von Qonto, hakt Mieten und Kautionen automatisch ab und legt Belege, die in Qonto am Umsatz hängen, in der Belegablage ab – jeden Morgen, beim Öffnen der Mieteingänge und auf Knopfdruck. Der Schlüssel kann nur lesen, kein Geld bewegen.")}
+          actions={
+            qonto.eingerichtet ? (
+              <form action={qontoJetztAbgleichen}>
+                <input type="hidden" name="back" value="/einstellungen#qonto" />
+                <button type="submit" className="btn btn-secondary">
+                  {t("Jetzt abgleichen")}
+                </button>
+              </form>
+            ) : null
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {qonto.eingerichtet ? (
+                <Badge tone="success">{t("Verbunden")}</Badge>
+              ) : (
+                <Badge tone="neutral">{t("Nicht verbunden")}</Badge>
+              )}
+              {qonto.login && (
+                <span className="text-ink-600">
+                  {t("Login")}: <span className="font-mono">{qonto.login}</span>
+                  {qonto.quelle === "umgebung" && ` · ${t("aus den Vercel-Umgebungsvariablen")}`}
+                </span>
+              )}
+            </div>
+
+            {qonto.zuletzt && (
+              <p className={`text-sm ${qonto.zuletzt.ok ? "text-ink-600" : "text-rose-700"}`}>
+                {qonto.zuletzt.ok
+                  ? t("Zuletzt abgeglichen: {zeitpunkt} · {neu} neue Buchung(en), {zugeordnet} zugeordnet, {belege} Beleg(e) abgelegt", {
+                      zeitpunkt: datumZeit(new Date(qonto.zuletzt.zeitpunkt)),
+                      neu: qonto.zuletzt.neu,
+                      zugeordnet: qonto.zuletzt.zugeordnet,
+                belege: qonto.zuletzt.belege ?? 0,
+                    })
+                  : `${t("Letzter Versuch fehlgeschlagen ({zeitpunkt}):", { zeitpunkt: datumZeit(new Date(qonto.zuletzt.zeitpunkt)) })} ${t(qonto.zuletzt.fehler ?? "")}`}
+              </p>
+            )}
+            {qonto.zuletzt?.belegHinweis && <p className="text-sm text-amber-700">{qonto.zuletzt.belegHinweis}</p>}
+
+            {qonto.quelle !== "umgebung" && (
+              <form action={qontoZugangSichern} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" autoComplete="off">
+                <div>
+                  <label htmlFor="qontoLogin">{t("Login (Organisations-Kennung)")}</label>
+                  <input
+                    id="qontoLogin"
+                    name="qontoLogin"
+                    defaultValue={qonto.login ?? ""}
+                    placeholder="wohnwerk-immobilen-1234"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="qontoSecretKey">{t("Geheimer Schlüssel")}</label>
+                  <input
+                    id="qontoSecretKey"
+                    name="qontoSecretKey"
+                    type="password"
+                    placeholder={qonto.eingerichtet ? t("hinterlegt – zum Ändern neu eingeben") : ""}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary">
+                  {qonto.eingerichtet ? t("Ändern und abgleichen") : t("Verbinden und abgleichen")}
+                </button>
+              </form>
+            )}
+
+            <Disclosure summary={t("Wo finde ich Login und Schlüssel?")}>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-700">
+                <li>{t("In Qonto oben links die Organisation „Wohnwerk Immobilen A² eGbR“ wählen.")}</li>
+                <li>{t("Einstellungen → Integrationen & Partner → API-Schlüssel öffnen.")}</li>
+                <li>{t("Dort stehen der Login und der geheime Schlüssel. Beide hier eintragen.")}</li>
+              </ol>
+              <p className="mt-2 text-xs text-ink-500">
+                {t("Nur Inhaber und Admins sehen den API-Schlüssel in Qonto. Abgeglichen wird jedes Qonto-Konto, dessen IBAN hier als Bankkonto angelegt ist.")}
+              </p>
+            </Disclosure>
+
+            {qonto.quelle === "einstellungen" && (
+              <form action={qontoZugangLoeschen}>
+                <ConfirmButton message={t("Qonto-Zugang wirklich entfernen? Der automatische Abgleich hört dann auf.")} className="btn btn-ghost text-rose-700">
+                  {t("Zugang entfernen")}
+                </ConfirmButton>
+              </form>
+            )}
+          </div>
+        </Card>
       </div>
 
       {/* --- Zugaenge -------------------------------------------------------- */}

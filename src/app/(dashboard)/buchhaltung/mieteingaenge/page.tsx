@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { generateCharges, markChargePaid, reopenCharge, runAutoMatch } from "@/app/actions/accounting";
+import { qontoJetztAbgleichen } from "@/app/actions/qonto";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { NachrichtDialog } from "@/components/nachricht-dialog";
@@ -10,6 +11,7 @@ import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
+import { qontoAbgleich, qontoStatus, qontoVeraltet } from "@/lib/qonto";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
@@ -19,6 +21,8 @@ export async function generateMetadata() {
   return { title: t("Mieteingänge") };
 }
 export const dynamic = "force-dynamic";
+// Der Qonto-Abgleich (Abruf, Zuordnung, Belege) braucht mehr als die Standardzeit.
+export const maxDuration = 60;
 
 /** "2026-08" → { year, month }; alles Unlesbare fällt auf den aktuellen Monat zurück. */
 function parseMonat(raw: string | undefined): { year: number; month: number } {
@@ -65,8 +69,19 @@ export default async function RentIncomePage({
   // "Forderungen erzeugen" denken muss. Idempotent: was da ist, bleibt.
   // Nur bis zum laufenden Monat, und nur fuer die Hausverwaltung.
   const liegtNichtInZukunft = year * 12 + month <= heute.getFullYear() * 12 + heute.getMonth() + 1;
-  if (liegtNichtInZukunft && isAdmin(await getSessionUser())) {
+  const sitzung = await getSessionUser();
+  const verwaltung = isAdmin(sitzung);
+  if (liegtNichtInZukunft && verwaltung) {
     await ensureRentCharges({ until: new Date(Date.UTC(year, month - 1, 1)) });
+  }
+
+  // Qonto: Ist der letzte Abgleich aelter als zwei Stunden, beim Oeffnen
+  // gleich nachholen - dann stehen hier die Eingaenge von heute, ohne dass
+  // jemand einen Knopf drueckt. Fehler halten die Seite nicht auf.
+  let qonto = await qontoStatus();
+  if (verwaltung && sitzung && qonto.eingerichtet && (await qontoVeraltet(120))) {
+    await qontoAbgleich(sitzung.email);
+    qonto = await qontoStatus();
   }
 
   // Wer in diesem Monat wohnt, aber keine Mietforderung hat - in der Regel
@@ -190,18 +205,59 @@ export default async function RentIncomePage({
               {t("Kautionen")}
             </Link>
             <AdminOnly>
-              <form action={runAutoMatch}>
-                <input type="hidden" name="back" value={back} />
-                <button type="submit" className="btn btn-secondary">
-                  {t("Zahlungen automatisch zuordnen")}
-                </button>
-              </form>
+              {qonto.eingerichtet ? (
+                <form action={qontoJetztAbgleichen}>
+                  <input type="hidden" name="back" value={back} />
+                  <button type="submit" className="btn btn-primary">
+                    {t("Mit Qonto abgleichen")}
+                  </button>
+                </form>
+              ) : (
+                <form action={runAutoMatch}>
+                  <input type="hidden" name="back" value={back} />
+                  <button type="submit" className="btn btn-secondary">
+                    {t("Zahlungen automatisch zuordnen")}
+                  </button>
+                </form>
+              )}
             </AdminOnly>
           </>
         }
       />
 
       <Flash ok={params.ok} fehler={params.fehler} />
+
+      {verwaltung && (
+        <p className={`-mt-2 mb-4 text-xs ${qonto.zuletzt && !qonto.zuletzt.ok ? "text-rose-700" : "text-ink-500"}`}>
+          {!qonto.eingerichtet ? (
+            <>
+              {t("Qonto ist nicht verbunden – Zahlungen kommen nur über hochgeladene Kontoauszüge.")}{" "}
+              <Link href="/einstellungen#qonto" className="font-semibold text-brand-700 hover:underline">
+                {t("Qonto verbinden")}
+              </Link>
+            </>
+          ) : qonto.zuletzt ? (
+            qonto.zuletzt.ok ? (
+              t("Qonto zuletzt abgeglichen: {zeitpunkt} · {neu} neu, {zugeordnet} zugeordnet, {belege} Belege", {
+                zeitpunkt: datumZeit(new Date(qonto.zuletzt.zeitpunkt)),
+                neu: qonto.zuletzt.neu,
+                zugeordnet: qonto.zuletzt.zugeordnet,
+                belege: qonto.zuletzt.belege ?? 0,
+              })
+            ) : (
+              <>
+                {t("Qonto-Abgleich fehlgeschlagen ({zeitpunkt}):", { zeitpunkt: datumZeit(new Date(qonto.zuletzt.zeitpunkt)) })}{" "}
+                {t(qonto.zuletzt.fehler ?? "")}{" "}
+                <Link href="/einstellungen#qonto" className="font-semibold underline">
+                  {t("Einstellungen")}
+                </Link>
+              </>
+            )
+          ) : (
+            t("Qonto ist verbunden, aber noch nicht abgeglichen.")
+          )}
+        </p>
+      )}
 
       {/* --- Monatswahl -----------------------------------------------------
           Am Handy eine Zeile: Pfeil, Monat, Pfeil. Ausgeschriebene

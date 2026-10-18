@@ -463,6 +463,9 @@ model Document {
   contractId        String?
   ticketId          String?
 
+  /// Beleg aus Qonto (Anhang am Umsatz) - verhindert doppeltes Ablegen beim naechsten Abgleich.
+  qontoAttachmentId String? @unique
+
   uploadedAt DateTime @default(now())
 
   bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id], onDelete: SetNull)

@@ -10,6 +10,7 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { cents, date, flash, int, optionalCents, optionalStr, str } from "@/lib/form";
 import { dedupeHash, parseStatement } from "@/lib/bank";
+import { gleicheZahlung } from "@/lib/qonto-umsatz";
 import { FOLDER, backendLabel, deleteFile, folderLink, shareFolderWith, uploadFile } from "@/lib/storage";
 import { allocate, autoMatch, deallocate, ensureRentCharges } from "@/lib/accounting";
 import { exportToDrive } from "@/lib/export";
@@ -183,10 +184,26 @@ export async function importStatement(formData: FormData) {
   let imported = 0;
   let duplicates = 0;
 
+  // Schon per Qonto-Abgleich geholte Umsaetze dieses Kontos: Der Auszug
+  // beschreibt sie anders (Text, Datum), deshalb Abgleich ueber Betrag,
+  // Datum und Namen statt ueber den Hash. Jede Qonto-Buchung zaehlt nur
+  // einmal als Doppel.
+  const qontoBuchungen = await prisma.bankTransaction.findMany({
+    where: { bankAccountId, endToEndId: { startsWith: "qonto:" } },
+    select: { id: true, bookingDate: true, amountCents: true, counterpartyName: true },
+  });
+  const qontoVerbraucht = new Set<string>();
+
   for (const tx of parsed.transactions) {
     const hash = dedupeHash(account.iban, tx);
     const existing = await prisma.bankTransaction.findUnique({ where: { dedupeHash: hash } });
     if (existing) {
+      duplicates += 1;
+      continue;
+    }
+    const ausQonto = qontoBuchungen.find((q) => !qontoVerbraucht.has(q.id) && gleicheZahlung(q, tx));
+    if (ausQonto) {
+      qontoVerbraucht.add(ausQonto.id);
       duplicates += 1;
       continue;
     }
