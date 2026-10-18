@@ -33,6 +33,9 @@ export function NachrichtDialog({
   varianten,
   telefonFehlt,
   zuletzt,
+  art = "RUECKSTAND",
+  knopf,
+  untertitel,
 }: {
   tenantId: string;
   name: string;
@@ -43,6 +46,12 @@ export function NachrichtDialog({
   telefonFehlt?: string | null;
   /** Letzter Versand, fertig formatiert - oder null, wenn noch nie. */
   zuletzt?: string | null;
+  /** Zahlungserinnerung (Vorgabe) oder Kautionsabrechnung beim Auszug. */
+  art?: "RUECKSTAND" | "KAUTION";
+  /** Beschriftung des Knopfs, schon uebersetzt. Vorgabe: "Nachricht". */
+  knopf?: string;
+  /** Zeile unter der Ueberschrift, schon uebersetzt. */
+  untertitel?: string;
 }) {
   const { t, datumZeit } = useOberflaeche();
   const router = useRouter();
@@ -77,7 +86,7 @@ export function NachrichtDialog({
   /** Versand festhalten - die Zeile zeigt danach "Nachricht gesendet am ...". */
   async function vermerken(v: NachrichtVariante, kanal: "WHATSAPP" | "COPY") {
     try {
-      const { sentAt } = await vermerkeNachricht({ tenantId, kanal, sprache: v.code, betragCents: gesamtCents });
+      const { sentAt } = await vermerkeNachricht({ tenantId, kanal, sprache: v.code, betragCents: gesamtCents, art });
       setGesendet(`${datumZeit(new Date(sentAt))} (${t(v.sprache)}, ${kanal === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`);
       router.refresh();
     } catch {
@@ -106,10 +115,10 @@ export function NachrichtDialog({
           type="button"
           className="btn btn-secondary btn-sm whitespace-nowrap"
           onClick={() => setOffen(true)}
-          title={t("Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp")}
+          title={art === "KAUTION" ? t("Kautionsabrechnung mit allen Abzügen – zum Kopieren oder für WhatsApp") : t("Zahlungserinnerung mit allen offenen Posten – zum Kopieren oder für WhatsApp")}
         >
           <ChatCircleText size={15} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
-          {t("Nachricht")}
+          {knopf ?? t("Nachricht")}
         </button>
         {gesendet && (
           <span className="text-right text-[0.7rem] leading-tight text-emerald-700">
@@ -135,7 +144,7 @@ export function NachrichtDialog({
               <div className="min-w-0">
                 <p className="text-[0.98rem] font-semibold text-ink-900">{t("Nachricht an {name}", { name })}</p>
                 <p className="mt-0.5 text-[0.8rem] leading-relaxed text-ink-500">
-                  {t("Gesamt offen: {betrag}", { betrag: gesamt })} · {t("alle offenen Monate und die Kaution in einer Nachricht")}
+                  {untertitel ?? `${t("Gesamt offen: {betrag}", { betrag: gesamt })} · ${t("alle offenen Monate und die Kaution in einer Nachricht")}`}
                 </p>
                 {gesendet && (
                   <p className="mt-1 text-[0.8rem] font-medium text-emerald-700">

@@ -378,3 +378,254 @@ export function mahnungAlbanisch(a: MahnungAngaben): string {
 export function rueckstandAlbanisch(a: RueckstandAngaben): string {
   return rueckstandText("sq", a);
 }
+
+// ---------------------------------------------------------------------------
+// Kautionsabrechnung beim Auszug
+// ---------------------------------------------------------------------------
+
+/**
+ * Warum Geld von der Kaution einbehalten wird - als feste Gruende, damit
+ * die Nachricht sie in der Sprache des Mieters nennt. Die Notiz der
+ * Hausverwaltung (deutsch) steht in Klammern dahinter.
+ */
+export const KAUTION_GRUENDE = ["SCHADEN", "REINIGUNG", "SCHLUESSEL", "SONSTIGES"] as const;
+export type KautionGrund = (typeof KAUTION_GRUENDE)[number];
+
+export const KAUTION_GRUND_NAME: Record<KautionGrund, string> = {
+  SCHADEN: "Schaden",
+  REINIGUNG: "Reinigung",
+  SCHLUESSEL: "Schlüssel fehlt",
+  SONSTIGES: "Sonstiges",
+};
+
+export function istKautionGrund(wert: string | undefined | null): wert is KautionGrund {
+  return KAUTION_GRUENDE.includes(wert as KautionGrund);
+}
+
+/** Die Abrechnung gibt es zusaetzlich auf Deutsch - fuer Firmen und deutschsprachige Bewohner. */
+export const KAUTION_SPRACHEN = [...MAHN_SPRACHEN, "de"] as const;
+export type KautionSprache = (typeof KAUTION_SPRACHEN)[number];
+export const KAUTION_SPRACHE_NAME: Record<KautionSprache, string> = { ...MAHN_SPRACHE_NAME, de: "Deutsch" };
+
+export type KautionAbzug = { grund: KautionGrund; text: string; cents: number };
+
+export type KautionAngaben = {
+  vorname: string;
+  /** Tatsaechlich gezahlte Kaution. */
+  kautionCents: number;
+  abzuege: KautionAbzug[];
+  /** Offene Mieten werden ebenfalls verrechnet. */
+  offeneMieten: { jahr: number; monat: number; offenCents: number }[];
+  kontoinhaber: string;
+  iban: string;
+  bank?: string | null;
+};
+
+type KautionPaket = {
+  locale: string;
+  anrede: (vorname: string) => string;
+  einleitung: string;
+  kaution: (betrag: string) => string;
+  abzuegeTitel: string;
+  grund: Record<KautionGrund, string>;
+  miete: (monatJahr: string) => string;
+  summe: (betrag: string) => string;
+  rueckzahlung: (betrag: string) => string;
+  ibanBitte: string;
+  aufgebraucht: string;
+  nachzahlung: (betrag: string) => string;
+  bankUeberschrift: string;
+  kontoinhaber: string;
+  bank: string;
+  zweck: string;
+  dank: string;
+};
+
+const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
+  sq: {
+    locale: "sq",
+    anrede: (v) => `Përshëndetje ${v},`,
+    einleitung: "faleminderit që qëndruat te ne. Ja llogaritja e depozitës (kaucionit) tuaj:",
+    kaution: (b) => `Depozita e paguar: ${b}`,
+    abzuegeTitel: "Zbritjet:",
+    grund: { SCHADEN: "Dëm", REINIGUNG: "Pastrim", SCHLUESSEL: "Çelës i pakthyer", SONSTIGES: "Tjetër" },
+    miete: (mj) => `Qiraja e papaguar për ${mj}`,
+    summe: (b) => `Gjithsej zbritje: ${b}`,
+    rueckzahlung: (b) => `Pjesa e depozitës që ju kthehet: ${b}`,
+    ibanBitte: "Ju lutemi na dërgoni IBAN-in tuaj që t'jua transferojmë shumën.",
+    aufgebraucht: "Depozita mbulohet plotësisht nga këto zbritje.",
+    nachzahlung: (b) => `Shuma që duhet të paguani ende: ${b}`,
+    bankUeberschrift: PAKETE.sq.bankUeberschrift,
+    kontoinhaber: PAKETE.sq.kontoinhaber,
+    bank: PAKETE.sq.bank,
+    zweck: PAKETE.sq.zweck,
+    dank: "Faleminderit dhe gjithë të mirat!",
+  },
+  bg: {
+    locale: "bg",
+    anrede: (v) => `Здравейте, ${v},`,
+    einleitung: "благодарим ви, че бяхте при нас. Ето разчета на вашия депозит:",
+    kaution: (b) => `Платен депозит: ${b}`,
+    abzuegeTitel: "Удръжки:",
+    grund: { SCHADEN: "Щета", REINIGUNG: "Почистване", SCHLUESSEL: "Невърнат ключ", SONSTIGES: "Друго" },
+    miete: (mj) => `Неплатен наем за ${mj}`,
+    summe: (b) => `Общо удръжки: ${b}`,
+    rueckzahlung: (b) => `Остатък от депозита, който ви връщаме: ${b}`,
+    ibanBitte: "Моля, изпратете ни вашия IBAN, за да ви преведем сумата.",
+    aufgebraucht: "Депозитът се изчерпва изцяло с тези удръжки.",
+    nachzahlung: (b) => `Сума, която все още трябва да платите: ${b}`,
+    bankUeberschrift: PAKETE.bg.bankUeberschrift,
+    kontoinhaber: PAKETE.bg.kontoinhaber,
+    bank: PAKETE.bg.bank,
+    zweck: PAKETE.bg.zweck,
+    dank: "Благодарим и всичко хубаво!",
+  },
+  ro: {
+    locale: "ro",
+    anrede: (v) => `Bună ziua, ${v},`,
+    einleitung: "vă mulțumim că ați locuit la noi. Iată decontul garanției dumneavoastră:",
+    kaution: (b) => `Garanție plătită: ${b}`,
+    abzuegeTitel: "Rețineri:",
+    grund: { SCHADEN: "Daună", REINIGUNG: "Curățenie", SCHLUESSEL: "Cheie nereturnată", SONSTIGES: "Altele" },
+    miete: (mj) => `Chirie neplătită pentru ${mj}`,
+    summe: (b) => `Total rețineri: ${b}`,
+    rueckzahlung: (b) => `Restul garanției care vi se returnează: ${b}`,
+    ibanBitte: "Vă rugăm să ne trimiteți IBAN-ul dumneavoastră pentru a vă transfera suma.",
+    aufgebraucht: "Garanția este folosită integral pentru aceste rețineri.",
+    nachzahlung: (b) => `Suma pe care mai trebuie să o plătiți: ${b}`,
+    bankUeberschrift: PAKETE.ro.bankUeberschrift,
+    kontoinhaber: PAKETE.ro.kontoinhaber,
+    bank: PAKETE.ro.bank,
+    zweck: PAKETE.ro.zweck,
+    dank: "Mulțumim și toate cele bune!",
+  },
+  hu: {
+    locale: "hu",
+    anrede: (v) => `Kedves ${v}!`,
+    einleitung: "Köszönjük, hogy nálunk lakott. Íme a kaució elszámolása:",
+    kaution: (b) => `Befizetett kaució: ${b}`,
+    abzuegeTitel: "Levonások:",
+    grund: { SCHADEN: "Kár", REINIGUNG: "Takarítás", SCHLUESSEL: "Vissza nem adott kulcs", SONSTIGES: "Egyéb" },
+    miete: (mj) => `Kifizetetlen bérleti díj: ${mj}`,
+    summe: (b) => `Levonások összesen: ${b}`,
+    rueckzahlung: (b) => `Önnek visszajáró kaució: ${b}`,
+    ibanBitte: "Kérjük, küldje el nekünk az IBAN-számát, hogy átutalhassuk az összeget.",
+    aufgebraucht: "A kauciót ezek a levonások teljesen felhasználják.",
+    nachzahlung: (b) => `Még fizetendő összeg: ${b}`,
+    bankUeberschrift: PAKETE.hu.bankUeberschrift,
+    kontoinhaber: PAKETE.hu.kontoinhaber,
+    bank: PAKETE.hu.bank,
+    zweck: PAKETE.hu.zweck,
+    dank: "Köszönjük, minden jót!",
+  },
+  en: {
+    locale: "en-GB",
+    anrede: (v) => `Hello ${v},`,
+    einleitung: "thank you for staying with us. Here is the settlement of your deposit:",
+    kaution: (b) => `Deposit paid: ${b}`,
+    abzuegeTitel: "Deductions:",
+    grund: { SCHADEN: "Damage", REINIGUNG: "Cleaning", SCHLUESSEL: "Key not returned", SONSTIGES: "Other" },
+    miete: (mj) => `Unpaid rent for ${mj}`,
+    summe: (b) => `Total deductions: ${b}`,
+    rueckzahlung: (b) => `Remaining deposit to be refunded to you: ${b}`,
+    ibanBitte: "Please send us your IBAN so we can transfer the amount.",
+    aufgebraucht: "These deductions use up the full deposit.",
+    nachzahlung: (b) => `Amount you still have to pay: ${b}`,
+    bankUeberschrift: PAKETE.en.bankUeberschrift,
+    kontoinhaber: PAKETE.en.kontoinhaber,
+    bank: PAKETE.en.bank,
+    zweck: PAKETE.en.zweck,
+    dank: "Thank you and all the best!",
+  },
+  de: {
+    locale: "de-DE",
+    anrede: (v) => `Hallo ${v},`,
+    einleitung: "danke, dass du bei uns gewohnt hast. Hier die Abrechnung deiner Kaution:",
+    kaution: (b) => `Gezahlte Kaution: ${b}`,
+    abzuegeTitel: "Abzüge:",
+    grund: { SCHADEN: "Schaden", REINIGUNG: "Reinigung", SCHLUESSEL: "Schlüssel nicht zurückgegeben", SONSTIGES: "Sonstiges" },
+    miete: (mj) => `Offene Miete ${mj}`,
+    summe: (b) => `Abzüge gesamt: ${b}`,
+    rueckzahlung: (b) => `Du bekommst von der Kaution zurück: ${b}`,
+    ibanBitte: "Bitte schick uns deine IBAN, damit wir den Betrag überweisen können.",
+    aufgebraucht: "Die Kaution wird durch diese Abzüge vollständig aufgebraucht.",
+    nachzahlung: (b) => `Noch von dir zu zahlen: ${b}`,
+    bankUeberschrift: "Bankverbindung:",
+    kontoinhaber: "Kontoinhaber:",
+    bank: "Bank:",
+    zweck: "Verwendungszweck:",
+    dank: "Danke und alles Gute!",
+  },
+};
+
+function kautionBetrag(sprache: KautionSprache, cents: number): string {
+  return new Intl.NumberFormat(KAUTION_PAKETE[sprache].locale, {
+    style: "currency",
+    currency: "EUR",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+function kautionMonatJahr(sprache: KautionSprache, jahr: number, monat: number): string {
+  if (sprache === "de") return verwendungszweck(jahr, monat).replace(/^Miete /, "");
+  const p = PAKETE[sprache];
+  return p.monatJahr(monatsname(sprache, monat), jahr);
+}
+
+/** Summen der Abrechnung - auch fuer die Anzeige in der Oberflaeche. */
+export function kautionsSaldo(a: Pick<KautionAngaben, "kautionCents" | "abzuege" | "offeneMieten">): {
+  abzugCents: number;
+  /** Positiv: Rueckzahlung an den Mieter. Negativ: Nachzahlung. */
+  restCents: number;
+} {
+  const abzugCents =
+    a.abzuege.reduce((s, x) => s + Math.max(0, x.cents), 0) +
+    a.offeneMieten.reduce((s, x) => s + Math.max(0, x.offenCents), 0);
+  return { abzugCents, restCents: a.kautionCents - abzugCents };
+}
+
+/**
+ * Nachricht zur Kautionsabrechnung: gezahlte Kaution, jeder Abzug mit Grund
+ * und Betrag, offene Mieten, darunter was zurueckkommt - oder was noch zu
+ * zahlen ist, dann mit Bankverbindung.
+ */
+export function kautionText(sprache: KautionSprache, a: KautionAngaben): string {
+  const p = KAUTION_PAKETE[sprache];
+  const b = (cents: number) => kautionBetrag(sprache, cents);
+  const { abzugCents, restCents } = kautionsSaldo(a);
+
+  const zeilen = [p.anrede(a.vorname.trim()), "", p.einleitung, "", p.kaution(b(a.kautionCents))];
+
+  const posten: string[] = [];
+  for (const x of a.abzuege.filter((x) => x.cents > 0)) {
+    const notiz = x.text.trim();
+    posten.push(`- ${p.grund[x.grund]}${notiz ? ` (${notiz})` : ""}: −${b(x.cents)}`);
+  }
+  const mieten = [...a.offeneMieten].filter((x) => x.offenCents > 0).sort((x, y) => x.jahr * 12 + x.monat - (y.jahr * 12 + y.monat));
+  for (const x of mieten) {
+    posten.push(`- ${p.miete(kautionMonatJahr(sprache, x.jahr, x.monat))}: −${b(x.offenCents)}`);
+  }
+  if (posten.length > 0) {
+    zeilen.push("", p.abzuegeTitel, ...posten, "", p.summe(b(abzugCents)));
+  }
+
+  zeilen.push("");
+  if (restCents > 0) {
+    zeilen.push(p.rueckzahlung(b(restCents)), p.ibanBitte);
+  } else if (restCents === 0) {
+    zeilen.push(p.aufgebraucht);
+  } else {
+    zeilen.push(p.nachzahlung(b(-restCents)));
+    const iban = a.iban.trim();
+    if (iban) {
+      zeilen.push("", p.bankUeberschrift, `${p.kontoinhaber} ${a.kontoinhaber.trim()}`, `IBAN: ${ibanLesbar(iban)}`);
+      if (a.bank?.trim()) zeilen.push(`${p.bank} ${a.bank.trim()}`);
+      zeilen.push("", `${p.zweck} Kautionsabrechnung ${a.vorname.trim()}`);
+    }
+  }
+
+  zeilen.push("", p.dank, "Wohnwerk");
+  return zeilen.join("\n");
+}

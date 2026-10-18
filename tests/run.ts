@@ -13,7 +13,7 @@ import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedup
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
-import { MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
+import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { readFileSync } from "node:fs";
@@ -744,6 +744,49 @@ async function main() {
     assert.ok(link?.startsWith("https://wa.me/491512345678?text="));
     assert.ok(link?.includes(encodeURIComponent("Përshëndetje Arben,\nqiraja për shtator")));
     assert.equal(whatsappLink(null, "x"), null);
+  });
+
+  await test("Kautionsabrechnung: Abzüge, offene Miete und Rückzahlung", () => {
+    const angaben = {
+      vorname: "Arben",
+      kautionCents: 20000,
+      abzuege: [
+        { grund: "SCHADEN" as const, text: "Tür Zimmer 2", cents: 5000 },
+        { grund: "SCHLUESSEL" as const, text: "", cents: 3000 },
+      ],
+      offeneMieten: [{ jahr: 2026, monat: 10, offenCents: 4000 }],
+      kontoinhaber: "Wohnwerk GbR",
+      iban: "DE62100101234597563524",
+    };
+    assert.deepEqual(kautionsSaldo(angaben), { abzugCents: 12000, restCents: 8000 });
+    const de = kautionText("de", angaben).replace(/[\u00a0\u202f]/g, " ");
+    assert.ok(de.includes("Gezahlte Kaution: 200,00 €"), de);
+    assert.ok(de.includes("- Schaden (Tür Zimmer 2): −50,00 €"), de);
+    assert.ok(de.includes("- Schlüssel nicht zurückgegeben: −30,00 €"), de);
+    assert.ok(de.includes("- Offene Miete Oktober 2026: −40,00 €"), de);
+    assert.ok(de.includes("Du bekommst von der Kaution zurück: 80,00 €"), de);
+    // Rueckzahlung: keine Bankverbindung der Hausverwaltung, stattdessen Bitte um IBAN.
+    assert.ok(!de.includes("DE62"), de);
+    const sq = kautionText("sq", angaben).replace(/[\u00a0\u202f]/g, " ");
+    assert.ok(sq.startsWith("Përshëndetje Arben,"), sq);
+    assert.ok(sq.includes("Dëm (Tür Zimmer 2)"), sq);
+    assert.ok(sq.includes("tetor 2026"), sq);
+    for (const sprache of KAUTION_SPRACHEN) assert.ok(kautionText(sprache, angaben).endsWith("Wohnwerk"));
+  });
+
+  await test("Kautionsabrechnung: Abzüge über der Kaution ergeben Nachzahlung mit Bankverbindung", () => {
+    const text = kautionText("en", {
+      vorname: "Ion",
+      kautionCents: 0,
+      abzuege: [{ grund: "REINIGUNG", text: "", cents: 6000 }],
+      offeneMieten: [],
+      kontoinhaber: "Wohnwerk GbR",
+      iban: "DE62100101234597563524",
+    }).replace(/[\u00a0\u202f]/g, " ");
+    assert.ok(text.includes("- Cleaning: −€60.00"), text);
+    assert.ok(text.includes("Amount you still have to pay: €60.00"), text);
+    assert.ok(text.includes("IBAN: DE62 1001 0123 4597 5635 24"), text);
+    assert.ok(text.includes("Account holder: Wohnwerk GbR"), text);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

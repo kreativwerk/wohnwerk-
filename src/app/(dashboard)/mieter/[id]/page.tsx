@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
 import { markChargePaid, reopenCharge } from "@/app/actions/accounting";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
+import { addTenantNote, deleteTenantNote, toggleTenantNoteDone } from "@/app/actions/notizen";
+import { AuszugKnopf, type AuszugNotiz } from "@/components/auszug-dialog";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
+import { NachrichtDialog } from "@/components/nachricht-dialog";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
 import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
@@ -13,6 +16,18 @@ import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { centsToInput } from "@/lib/money";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
+import {
+  KAUTION_GRUENDE,
+  KAUTION_GRUND_NAME,
+  KAUTION_SPRACHEN,
+  KAUTION_SPRACHE_NAME,
+  istKautionGrund,
+  kautionText,
+  kautionsSaldo,
+  whatsappLink,
+  type KautionAbzug,
+} from "@/lib/mahnung";
+import { getSettings } from "@/lib/settings";
 import { oberflaeche, type Uebersetzen } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +48,7 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string; konto?: string }>;
 }) {
-  const { t, datum, monat, geld } = await oberflaeche();
+  const { t, datum, datumZeit, monat, geld } = await oberflaeche();
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -61,12 +76,14 @@ export default async function TenantDetailPage({
         orderBy: { startDate: "desc" },
       },
       documents: { orderBy: { uploadedAt: "desc" } },
+      notizen: { orderBy: { createdAt: "desc" } },
+      reminders: { where: { kind: "KAUTION" }, orderBy: { sentAt: "desc" }, take: 1 },
     },
   });
 
   if (!tenant) notFound();
 
-  const beds = await bedOptions();
+  const [beds, einstellungen] = await Promise.all([bedOptions(), getSettings()]);
 
   // Das laufende Mietverhaeltnis - das, was man beim Oeffnen wissen will.
   // Ein Entwurf zaehlt mit: das Bett ist damit schon vergeben, nur der
@@ -77,6 +94,174 @@ export default async function TenantDetailPage({
       .find(Boolean) ?? null;
   // Ohne laufendes Mietverhaeltnis steht das Zuweisungsformular ganz oben.
   const formularOben = !aktuell && tenant.status !== "EHEMALIG";
+
+  // --- Notizen und Kautionsabrechnung -----------------------------------
+  // Abgerechnet wird das laufende Mietverhaeltnis, nach dem Auszug das
+  // zuletzt beendete.
+  const abrechnung = aktuell ?? tenant.tenancies.find((ty) => ty.status === "ENDED") ?? null;
+  const offeneNotizen = tenant.notizen.filter((n) => !n.erledigt);
+  const abzuege: KautionAbzug[] = offeneNotizen
+    .filter((n) => istKautionGrund(n.grund) && (n.amountCents ?? 0) > 0)
+    .map((n) => ({ grund: n.grund as KautionAbzug["grund"], text: n.text, cents: n.amountCents ?? 0 }));
+  const kautionForderung = abrechnung?.charges.find((c) => c.kind === "DEPOSIT") ?? null;
+  // Nur was wirklich eingegangen ist, kann verrechnet werden.
+  const kautionGezahlt = !kautionForderung
+    ? 0
+    : kautionForderung.status === "PAID"
+      ? kautionForderung.amountCents
+      : kautionForderung.status === "WAIVED"
+        ? 0
+        : kautionForderung.allocations.reduce((s, a) => s + a.amountCents, 0);
+  const offeneMieten = (abrechnung?.charges ?? [])
+    .filter((c) => c.kind === "RENT" && (c.status === "OPEN" || c.status === "PARTIAL"))
+    .map((c) => ({
+      jahr: c.periodYear,
+      monat: c.periodMonth,
+      offenCents: c.amountCents - c.allocations.reduce((s, a) => s + a.amountCents, 0),
+    }))
+    .filter((c) => c.offenCents > 0);
+  const saldo = kautionsSaldo({ kautionCents: kautionGezahlt, abzuege, offeneMieten });
+  const kautionVarianten = abrechnung
+    ? KAUTION_SPRACHEN.map((code) => {
+        const text = kautionText(code, {
+          vorname: tenant.firstName,
+          kautionCents: kautionGezahlt,
+          abzuege,
+          offeneMieten,
+          kontoinhaber: einstellungen.bankAccountHolder,
+          iban: einstellungen.bankIban,
+          bank: einstellungen.bankName,
+        });
+        return { code, sprache: KAUTION_SPRACHE_NAME[code], text, whatsapp: whatsappLink(tenant.phone, text) };
+      })
+    : [];
+  const restText =
+    saldo.restCents > 0
+      ? t("Rückzahlung {betrag}", { betrag: geld(saldo.restCents) })
+      : saldo.restCents < 0
+        ? t("Nachzahlung {betrag}", { betrag: geld(-saldo.restCents) })
+        : t("Kaution aufgebraucht");
+  const auszugNotizen: AuszugNotiz[] = offeneNotizen.map((n) => ({
+    id: n.id,
+    text: n.text,
+    grund: istKautionGrund(n.grund) ? KAUTION_GRUND_NAME[n.grund] : null,
+    betrag: n.amountCents ? geld(n.amountCents) : null,
+    datum: datum(n.createdAt),
+  }));
+  const letzteKautionsNachricht = tenant.reminders[0];
+
+  // Nach dem Auszug mit offenen Abzuegen gehoert die Abrechnung nach oben,
+  // nicht unter das Formular fuer ein neues Bett.
+  const notizenOben = !aktuell && abzuege.length > 0;
+  const notizKarte = (
+    <>
+      {/* --- Notizen -------------------------------------------------------
+          Was beim Auszug zaehlt: Schaeden, fehlende Schluessel, Reinigung.
+          Mit Grund und Betrag wird die Notiz zum Kautionsabzug - sie poppt
+          beim Beenden auf und steht in der Abrechnungsnachricht. */}
+      <Card
+        id="notizen"
+        className="mb-6 scroll-mt-4"
+        title={t("Notizen")}
+        description={
+          abzuege.length > 0 || offeneMieten.length > 0
+            ? `${t("Kaution {betrag}", { betrag: geld(kautionGezahlt) })} · ${t("Abzüge {betrag}", { betrag: geld(saldo.abzugCents) })} · ${restText}`
+            : t("Interne Notizen zum Bewohner. Mit Grund und Betrag werden sie beim Auszug von der Kaution abgezogen.")
+        }
+        actions={
+          abrechnung ? (
+            <NachrichtDialog
+              tenantId={tenant.id}
+              name={`${tenant.firstName} ${tenant.lastName}`}
+              gesamt={geld(saldo.abzugCents)}
+              gesamtCents={saldo.abzugCents}
+              varianten={kautionVarianten}
+              telefonFehlt={tenant.phone ? null : `/mieter/${tenant.id}#stammdaten`}
+              zuletzt={
+                letzteKautionsNachricht
+                  ? `${datumZeit(letzteKautionsNachricht.sentAt)} (${letzteKautionsNachricht.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`
+                  : null
+              }
+              art="KAUTION"
+              knopf={t("Kautionsabrechnung")}
+              untertitel={`${t("Kaution {betrag}", { betrag: geld(kautionGezahlt) })} · ${t("Abzüge {betrag}", { betrag: geld(saldo.abzugCents) })} · ${restText}`}
+            />
+          ) : null
+        }
+      >
+        {tenant.notizen.length > 0 && (
+          <ul className="divide-y divide-ink-100 -mx-5 -mt-5 mb-4 border-b border-ink-200">
+            {tenant.notizen.map((notiz) => {
+              const grund = istKautionGrund(notiz.grund) ? notiz.grund : null;
+              return (
+                <li key={notiz.id} className={`flex flex-wrap items-start justify-between gap-3 px-5 py-3 ${notiz.erledigt ? "opacity-60" : ""}`}>
+                  <div className="min-w-0 flex-1">
+                    {grund && (
+                      <p className="mb-0.5 flex flex-wrap items-center gap-1.5">
+                        <Badge tone={notiz.erledigt ? "neutral" : "warning"}>
+                          {t("Kautionsabzug")} · {t(KAUTION_GRUND_NAME[grund])}
+                          {notiz.amountCents ? ` · ${geld(notiz.amountCents)}` : ""}
+                        </Badge>
+                        {notiz.erledigt && <Badge tone="success">{t("Verrechnet")}</Badge>}
+                      </p>
+                    )}
+                    {notiz.text && <p className="whitespace-pre-line text-sm text-ink-900">{notiz.text}</p>}
+                    <p className="mt-0.5 text-xs text-ink-500">
+                      {datumZeit(notiz.createdAt)} · {notiz.author}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {grund && (
+                      <form action={toggleTenantNoteDone}>
+                        <input type="hidden" name="id" value={notiz.id} />
+                        <button type="submit" className="btn btn-ghost btn-sm">
+                          {notiz.erledigt ? t("Wieder offen") : t("Verrechnet")}
+                        </button>
+                      </form>
+                    )}
+                    <form action={deleteTenantNote}>
+                      <input type="hidden" name="id" value={notiz.id} />
+                      <ConfirmButton message={t("Notiz wirklich löschen?")} className="btn btn-ghost btn-sm text-rose-700">
+                        {t("Löschen")}
+                      </ConfirmButton>
+                    </form>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <form action={addTenantNote} className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_auto] sm:items-end">
+          <input type="hidden" name="tenantId" value={tenant.id} />
+          <div className="sm:col-span-4">
+            <label htmlFor="notiz-text">{t("Neue Notiz")}</label>
+            <textarea id="notiz-text" name="text" rows={2} placeholder={t("z. B. Tür im Zimmer beschädigt, Schlüssel verloren …")} />
+          </div>
+          <div className="sm:col-span-1">
+            <label htmlFor="notiz-grund">{t("Von der Kaution abziehen?")}</label>
+            <select id="notiz-grund" name="grund" defaultValue="">
+              <option value="">{t("Nein, nur Notiz")}</option>
+              {KAUTION_GRUENDE.map((g) => (
+                <option key={g} value={g}>
+                  {t("Ja")} – {t(KAUTION_GRUND_NAME[g])}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="notiz-betrag">{t("Betrag")}</label>
+            <input id="notiz-betrag" name="amountCents" inputMode="decimal" placeholder="0,00" />
+          </div>
+          <div className="sm:col-span-2 sm:justify-self-end">
+            <button type="submit" className="btn btn-primary">
+              {t("Notiz speichern")}
+            </button>
+          </div>
+        </form>
+      </Card>
+    </>
+  );
 
   const openTotal = tenant.tenancies
     .flatMap((tenancy) => tenancy.charges)
@@ -117,6 +302,8 @@ export default async function TenantDetailPage({
       />
 
       <Flash ok={flash.ok} fehler={flash.fehler} />
+
+      {notizenOben && notizKarte}
 
       {/* --- Unterkunft ------------------------------------------------------
           Ganz oben, weil es die erste Frage ist: Wo wohnt die Person? Ohne
@@ -179,6 +366,8 @@ export default async function TenantDetailPage({
           </Card>
         )}
       </div>
+
+      {!notizenOben && notizKarte}
 
       {/* --- Mietverhaeltnisse -------------------------------------------- */}
       <Card
@@ -390,12 +579,17 @@ export default async function TenantDetailPage({
                               defaultValue={toDateInput(new Date())}
                             />
                           </div>
-                          <ConfirmButton
-                            message={t("Mietverhältnis wirklich beenden? Das Bett wird danach wieder als frei geführt.")}
-                            className="btn btn-secondary"
-                          >
-                            {t("Beenden")}
-                          </ConfirmButton>
+                          <AuszugKnopf
+                            name={`${tenant.firstName} ${tenant.lastName}`}
+                            notizen={auszugNotizen}
+                            kaution={geld(kautionGezahlt)}
+                            abzug={abzuege.length > 0 || offeneMieten.length > 0 ? geld(saldo.abzugCents) : null}
+                            rest={
+                              abzuege.length > 0 || offeneMieten.length > 0
+                                ? { text: geld(Math.abs(saldo.restCents)), nachzahlung: saldo.restCents < 0 }
+                                : null
+                            }
+                          />
                         </form>
                       </Disclosure>
                     )}
@@ -567,7 +761,7 @@ export default async function TenantDetailPage({
 
       {/* --- Stammdaten ---------------------------------------------------- */}
       <div className="mt-6">
-        <Card title={t("Stammdaten bearbeiten")}>
+        <Card id="stammdaten" className="scroll-mt-4" title={t("Stammdaten bearbeiten")}>
           <form action={updateTenant} className="space-y-4">
             <input type="hidden" name="id" value={tenant.id} />
 

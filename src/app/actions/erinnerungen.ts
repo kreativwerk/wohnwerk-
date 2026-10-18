@@ -17,10 +17,12 @@ export async function vermerkeNachricht(angaben: {
   kanal: "WHATSAPP" | "COPY";
   sprache: string;
   betragCents: number;
+  /** RUECKSTAND (Vorgabe) oder KAUTION fuer die Abrechnung beim Auszug. */
+  art?: "RUECKSTAND" | "KAUTION";
 }): Promise<{ sentAt: string }> {
   const user = await requireAdmin();
-  const sprache: MahnSprache = MAHN_SPRACHEN.includes(angaben.sprache as MahnSprache)
-    ? (angaben.sprache as MahnSprache)
+  const sprache: string = [...MAHN_SPRACHEN, "de"].includes(angaben.sprache as MahnSprache)
+    ? angaben.sprache
     : "sq";
   const kanal = angaben.kanal === "WHATSAPP" ? "WHATSAPP" : "COPY";
 
@@ -31,6 +33,7 @@ export async function vermerkeNachricht(angaben: {
       language: sprache,
       amountCents: Math.max(0, Math.round(angaben.betragCents)),
       actor: user.email,
+      kind: angaben.art === "KAUTION" ? "KAUTION" : "RUECKSTAND",
     },
   });
 

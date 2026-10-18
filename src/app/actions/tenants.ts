@@ -560,7 +560,17 @@ export async function endTenancy(formData: FormData) {
   await audit(user.email, "end", "Tenancy", id, formatDate(endDate));
   refresh(tenancy.tenantId);
   revalidatePath("/buchhaltung/mieteingaenge");
-  redirect(flash(`/mieter/${tenancy.tenantId}`, "ok", auszugMeldung(t, endDate, anpassung)));
+
+  // Offene Kautionsabzuege: gleich zur Notizkarte, dort steht die
+  // Abrechnungsnachricht fuer WhatsApp bereit.
+  const abzuege = await prisma.tenantNote.count({
+    where: { tenantId: tenancy.tenantId, erledigt: false, grund: { not: null } },
+  });
+  let meldung = auszugMeldung(t, endDate, anpassung);
+  if (abzuege > 0) {
+    meldung += " " + t("{anzahl} Kautionsabzug/-abzüge notiert – die Abrechnung für WhatsApp steht unter „Notizen“.", { anzahl: abzuege });
+  }
+  redirect(flash(`/mieter/${tenancy.tenantId}${abzuege > 0 ? "#notizen" : ""}`, "ok", meldung));
 }
 
 function auszugMeldung(

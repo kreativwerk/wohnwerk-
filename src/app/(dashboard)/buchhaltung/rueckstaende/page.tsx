@@ -78,7 +78,7 @@ export default async function RueckstaendePage({
   const letzteNachrichten = tenantIds.length === 0
     ? []
     : await prisma.reminderLog.findMany({
-        where: { tenantId: { in: tenantIds } },
+        where: { tenantId: { in: tenantIds }, kind: "RUECKSTAND" },
         orderBy: { sentAt: "desc" },
         distinct: ["tenantId"],
         select: { tenantId: true, sentAt: true, language: true, channel: true },

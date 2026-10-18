@@ -213,6 +213,7 @@ model Tenant {
   documents Document[]
   tickets   Ticket[]
   reminders ReminderLog[]
+  notizen   TenantNote[]
 
   @@index([lastName])
   @@index([email])
@@ -590,10 +591,32 @@ model ReminderLog {
   language    String   // sq | bg | ro | hu | en
   amountCents Int      // Gesamtforderung zum Zeitpunkt der Nachricht
   actor       String   // E-Mail der Hausverwaltung
+  /// RUECKSTAND = Zahlungserinnerung, KAUTION = Kautionsabrechnung beim Auszug
+  kind        String   @default("RUECKSTAND")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, sentAt])
+}
+
+/// Notiz zu einem Bewohner, z. B. "Tuer im Zimmer 3 beschaedigt". Mit Grund
+/// und Betrag ist sie ein Kautionsabzug: Beim Auszug erscheint sie als
+/// Hinweis, und die Abrechnungsnachricht fuehrt sie als Abzug auf.
+model TenantNote {
+  id          String   @id @default(cuid())
+  tenantId    String
+  text        String
+  /// null = reine Notiz; SCHADEN | REINIGUNG | SCHLUESSEL | SONSTIGES = Kautionsabzug
+  grund       String?
+  amountCents Int?
+  /// Mit der Kaution verrechnet - erscheint beim Auszug nicht mehr.
+  erledigt    Boolean  @default(false)
+  author      String
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
 }
 
 model AuditLog {

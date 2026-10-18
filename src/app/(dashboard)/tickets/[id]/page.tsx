@@ -72,6 +72,10 @@ export default async function TicketPage({
         breadcrumb={[{ label: t("Tickets"), href: "/tickets" }, { label: `#${ticket.nummer}` }]}
         actions={
           <AdminOnly>
+            {/* Am Handy steht das Formular ganz unten - der Knopf springt hin. */}
+            <a href="#bearbeiten" className="btn btn-secondary">
+              {t("Bearbeiten")}
+            </a>
             {weiter ? (
               <form action={setTicketStatus}>
                 <input type="hidden" name="id" value={ticket.id} />
@@ -226,7 +230,7 @@ export default async function TicketPage({
 
         <div className="min-w-0">
           <AdminOnly>
-            <Card title={t("Ticket bearbeiten")}>
+            <Card id="bearbeiten" className="scroll-mt-20" title={t("Ticket bearbeiten")}>
               <form id="ticket-bearbeiten" action={updateTicket} className="grid gap-3">
                 <input type="hidden" name="id" value={ticket.id} />
 
