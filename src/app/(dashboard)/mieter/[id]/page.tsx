@@ -8,6 +8,9 @@ import { addTenantNote, deleteTenantNote, kautionRueckzahlungZuruecknehmen, kaut
 import { AuszugKnopf, type AuszugNotiz } from "@/components/auszug-dialog";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { NachrichtDialog } from "@/components/nachricht-dialog";
+import { BelegDatei } from "@/components/beleg-datei";
+import { deleteMieterDokument, uploadMieterDokument } from "@/app/actions/mieterdokumente";
+import { MIETER_DOKUMENT_ARTEN } from "@/lib/mieterdokumente";
 import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
 import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
@@ -765,53 +768,102 @@ export default async function TenantDetailPage({
         )}
       </Card>
 
-      {/* --- Dokumente ----------------------------------------------------- */}
-      {tenant.documents.length > 0 && (
-        <div className="mt-6">
-          <Card title={t("Dokumente")} padded={false}>
+      {/* --- Dokumente -----------------------------------------------------
+          Alles, was zur Person gehoert: Kuendigung, Ausweis, unterschriebener
+          Vertrag. Hochladen direkt hier, auch per Handykamera. */}
+      <div className="mt-6">
+        <Card id="dokumente" className="scroll-mt-4" title={t("Dokumente")} description={t("Kündigungen, Ausweise, unterschriebene Verträge und andere Unterlagen zum Bewohner.")} padded={false}>
+          {tenant.documents.length > 0 && (
             <Table>
               <thead>
                 <tr>
                   <Th>{t("Titel")}</Th>
                   <Th>{t("Datum")}</Th>
-                  <Th>{t("Ablage")}</Th>
+                  <Th align="right">{t("Aktion")}</Th>
                 </tr>
               </thead>
               <tbody>
-                {tenant.documents.map((document) => (
-                  <tr key={document.id}>
-                    <Td>
-                      {document.title}
-                      {document.kind === "CONTRACT" && (
-                        <span className="ml-2">
-                          <Badge tone="brand">{t("Mietvertrag")}</Badge>
-                        </span>
-                      )}
-                    </Td>
-                    <Td className="text-ink-600">
-                      {datum(document.documentDate ?? document.uploadedAt)}
-                    </Td>
-                    <Td>
-                      {document.driveUrl ? (
-                        <a
-                          href={document.driveUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-700 hover:underline"
-                        >
-                          {t("Öffnen")}
-                        </a>
-                      ) : (
-                        <span className="text-ink-500">–</span>
-                      )}
-                    </Td>
-                  </tr>
-                ))}
+                {tenant.documents.map((document) => {
+                  const link =
+                    document.driveUrl ??
+                    (document.localPath ? `/api/dateien/${document.localPath.split("/").map(encodeURIComponent).join("/")}` : null);
+                  return (
+                    <tr key={document.id}>
+                      <Td>
+                        <span className="font-medium text-ink-900">{document.title}</span>
+                        {document.category && document.category !== document.title && (
+                          <span className="ml-2">
+                            <Badge tone={document.category === "Kündigung" ? "warning" : "neutral"}>{t(document.category)}</Badge>
+                          </span>
+                        )}
+                        {document.kind === "CONTRACT" && !document.category && (
+                          <span className="ml-2">
+                            <Badge tone="brand">{t("Mietvertrag")}</Badge>
+                          </span>
+                        )}
+                        {document.notes && <p className="text-xs text-ink-500">{document.notes}</p>}
+                      </Td>
+                      <Td className="whitespace-nowrap text-ink-600">{datum(document.documentDate ?? document.uploadedAt)}</Td>
+                      <Td align="right">
+                        <div className="flex items-center justify-end gap-1">
+                          {link ? (
+                            <a href={link} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                              {t("Öffnen")}
+                            </a>
+                          ) : (
+                            <span className="text-ink-500">–</span>
+                          )}
+                          <form action={deleteMieterDokument}>
+                            <input type="hidden" name="id" value={document.id} />
+                            <ConfirmButton message={t("Dokument „{titel}“ wirklich löschen?", { titel: document.title })} className="btn btn-ghost btn-sm text-rose-700">
+                              {t("Löschen")}
+                            </ConfirmButton>
+                          </form>
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
-          </Card>
-        </div>
-      )}
+          )}
+
+          <form
+            action={uploadMieterDokument}
+            encType="multipart/form-data"
+            className={`grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 lg:items-end ${tenant.documents.length > 0 ? "border-t border-ink-200" : ""}`}
+          >
+            <input type="hidden" name="tenantId" value={tenant.id} />
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label htmlFor="datei">{t("Datei *")}</label>
+              <BelegDatei name="datei" />
+            </div>
+            <div>
+              <label htmlFor="dok-art">{t("Art")}</label>
+              <select id="dok-art" name="art" defaultValue="Kündigung">
+                {MIETER_DOKUMENT_ARTEN.map((art) => (
+                  <option key={art} value={art}>
+                    {t(art)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="dok-titel">{t("Titel")}</label>
+              <input id="dok-titel" name="titel" placeholder={t("z. B. Kündigung zum 15.11.2026")} />
+            </div>
+            <div>
+              <label htmlFor="dok-datum">{t("Datum")}</label>
+              <input id="dok-datum" name="datum" type="date" defaultValue={toDateInput(new Date())} />
+            </div>
+            <div>
+              <button type="submit" className="btn btn-primary w-full">
+                {t("Dokument ablegen")}
+              </button>
+            </div>
+          </form>
+        </Card>
+      </div>
 
       {/* --- Stammdaten ---------------------------------------------------- */}
       <div className="mt-6">
