@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, Copy } from "@phosphor-icons/react/dist/ssr";
 import { useOberflaeche } from "./sprache-kontext";
 
 /** Absenden mit Rückfrage – für Löschvorgänge und andere endgültige Schritte. */
@@ -28,6 +29,44 @@ export function ConfirmButton({
       }}
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * Kleines Kopier-Symbol neben einem Text, z. B. dem Namen in den
+ * Mieteingaengen - ein Klick, und der Name steht in der Zwischenablage
+ * (fuers Online-Banking oder WhatsApp).
+ */
+export function KopierKnopf({ wert, titel }: { wert: string; titel?: string }) {
+  const { t } = useOberflaeche();
+  const [kopiert, setKopiert] = useState(false);
+
+  useEffect(() => {
+    if (!kopiert) return;
+    const timer = setTimeout(() => setKopiert(false), 1800);
+    return () => clearTimeout(timer);
+  }, [kopiert]);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(wert);
+          setKopiert(true);
+        } catch {
+          setKopiert(false);
+        }
+      }}
+      title={titel ?? t("„{wert}“ kopieren", { wert })}
+      aria-label={titel ?? t("„{wert}“ kopieren", { wert })}
+      className={`ml-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md align-middle transition-colors ${
+        kopiert ? "text-emerald-600" : "text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+      }`}
+    >
+      {kopiert ? <Check size={15} weight="bold" aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+      <span className="sr-only" aria-live="polite">{kopiert ? t("Kopiert") : ""}</span>
     </button>
   );
 }

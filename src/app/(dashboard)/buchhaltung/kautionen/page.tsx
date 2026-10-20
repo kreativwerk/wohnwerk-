@@ -257,6 +257,11 @@ export default async function DepositsPage({
                           <div className="mt-1 flex flex-wrap gap-1">
                             <TenancyBadge status={tenancy.status} />
                             {istErlassen && <Badge tone="neutral">{t("Erlassen")}</Badge>}
+                            {tenancy.depositRefundedAt && (
+                              <Badge tone="info">
+                                {t("Zurückgezahlt am {datum}", { datum: datum(tenancy.depositRefundedAt) })}
+                              </Badge>
+                            )}
                             {lage === "ohneKaution" && <Badge tone="warning">{t("Keine Kaution eingetragen")}</Badge>}
                             {lage === "keineKaution" && <Badge tone="neutral">{t("Keine Kaution vereinbart")}</Badge>}
                             {lage === "ohneForderung" && <Badge tone="warning">{t("Forderung fehlt")}</Badge>}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { generateCharges, markChargePaid, reopenCharge, runAutoMatch, zuordnungenNeuBerechnenAktion } from "@/app/actions/accounting";
-import { ConfirmButton } from "@/components/interactive";
+import { ConfirmButton, KopierKnopf } from "@/components/interactive";
 import { qontoJetztAbgleichen } from "@/app/actions/qonto";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
@@ -316,7 +316,8 @@ export default async function RentIncomePage({
               <li key={ty.id}>
                 <Link href={`/mieter/${ty.tenant.id}`} className="font-medium hover:underline">
                   {ty.tenant.firstName} {ty.tenant.lastName}
-                </Link>{" "}
+                </Link>
+                <KopierKnopf wert={`${ty.tenant.firstName} ${ty.tenant.lastName}`} />{" "}
                 <span className="text-amber-800/80">
                   · {datum(ty.startDate)} ·{" "}
                   {ty.status === "DRAFT"
@@ -447,6 +448,7 @@ export default async function RentIncomePage({
                             >
                               {charge.tenancy.tenant.firstName} {charge.tenancy.tenant.lastName}
                             </Link>
+                            <KopierKnopf wert={`${charge.tenancy.tenant.firstName} ${charge.tenancy.tenant.lastName}`} />
                             {charge.kind === "DEPOSIT" && (
                               <span className="ml-2">
                                 <Badge tone="brand">{t("Kaution")}</Badge>

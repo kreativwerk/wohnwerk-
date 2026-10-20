@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { flash, optionalCents, str } from "@/lib/form";
+import { date, flash, optionalCents, str } from "@/lib/form";
 import { istKautionGrund } from "@/lib/mahnung";
 import { uebersetzer } from "@/lib/i18n";
 
@@ -66,4 +66,59 @@ export async function deleteTenantNote(formData: FormData) {
   await audit(user.email, "delete", "TenantNote", id, notiz.text.slice(0, 80));
   revalidatePath(`/mieter/${notiz.tenantId}`);
   redirect(flash(zurueck(notiz.tenantId), "ok", t("Notiz wurde gelöscht.")));
+}
+
+/**
+ * Kaution zurueckgezahlt - abhaken im Mieterprofil. Betrag nach Abzuegen
+ * und Tag werden festgehalten; offene Kautionsabzuege gelten damit als
+ * verrechnet und poppen nicht mehr auf.
+ */
+export async function kautionZurueckgezahlt(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const tenancyId = str(formData, "tenancyId");
+  const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, select: { id: true, tenantId: true } });
+  if (!tenancy) redirect("/mieter");
+
+  const betrag = optionalCents(formData, "betrag");
+  if (betrag === null || betrag < 0) {
+    redirect(flash(zurueck(tenancy.tenantId), "fehler", t("Bitte den zurückgezahlten Betrag eingeben (0 €, wenn nichts zurückgeht).")));
+  }
+  const tag = date(formData, "datum") ?? new Date();
+
+  await prisma.tenancy.update({
+    where: { id: tenancy.id },
+    data: { depositRefundedAt: tag, depositRefundCents: betrag },
+  });
+  const verrechnet = await prisma.tenantNote.updateMany({
+    where: { tenantId: tenancy.tenantId, erledigt: false, grund: { not: null } },
+    data: { erledigt: true },
+  });
+
+  await audit(user.email, "deposit-refund", "Tenancy", tenancy.id, `${betrag} am ${tag.toISOString().slice(0, 10)}`);
+  revalidatePath(`/mieter/${tenancy.tenantId}`);
+  revalidatePath("/buchhaltung/kautionen");
+  redirect(
+    flash(
+      zurueck(tenancy.tenantId),
+      "ok",
+      verrechnet.count > 0
+        ? t("Kautionsrückzahlung vermerkt. {anzahl} Abzug/Abzüge als verrechnet abgehakt.", { anzahl: verrechnet.count })
+        : t("Kautionsrückzahlung vermerkt."),
+    ),
+  );
+}
+
+export async function kautionRueckzahlungZuruecknehmen(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const tenancyId = str(formData, "tenancyId");
+  const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, select: { id: true, tenantId: true } });
+  if (!tenancy) redirect("/mieter");
+
+  await prisma.tenancy.update({ where: { id: tenancy.id }, data: { depositRefundedAt: null, depositRefundCents: null } });
+  await audit(user.email, "deposit-refund-undo", "Tenancy", tenancy.id);
+  revalidatePath(`/mieter/${tenancy.tenantId}`);
+  revalidatePath("/buchhaltung/kautionen");
+  redirect(flash(zurueck(tenancy.tenantId), "ok", t("Kautionsrückzahlung zurückgenommen.")));
 }

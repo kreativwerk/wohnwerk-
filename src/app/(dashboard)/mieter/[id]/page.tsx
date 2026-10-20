@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
 import { markChargePaid, reopenCharge } from "@/app/actions/accounting";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
-import { addTenantNote, deleteTenantNote, toggleTenantNoteDone } from "@/app/actions/notizen";
+import { addTenantNote, deleteTenantNote, kautionRueckzahlungZuruecknehmen, kautionZurueckgezahlt, toggleTenantNoteDone } from "@/app/actions/notizen";
 import { AuszugKnopf, type AuszugNotiz } from "@/components/auszug-dialog";
 import { BedPicker, ConfirmButton, Disclosure } from "@/components/interactive";
 import { NachrichtDialog } from "@/components/nachricht-dialog";
@@ -230,6 +230,53 @@ export default async function TenantDetailPage({
               );
             })}
           </ul>
+        )}
+
+        {/* Kaution zurueckgezahlt - abhaken mit Betrag und Tag. Vorschlag:
+            gezahlte Kaution minus Abzuege und offene Mieten. */}
+        {abrechnung && (kautionGezahlt > 0 || abrechnung.depositRefundedAt) && (
+          <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3">
+            {abrechnung.depositRefundedAt ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-ink-800">
+                  <Badge tone="success">{t("Kaution zurückgezahlt")}</Badge>{" "}
+                  {t("am {datum}: {betrag}", {
+                    datum: datum(abrechnung.depositRefundedAt),
+                    betrag: geld(abrechnung.depositRefundCents ?? 0),
+                  })}
+                </p>
+                <form action={kautionRueckzahlungZuruecknehmen}>
+                  <input type="hidden" name="tenancyId" value={abrechnung.id} />
+                  <ConfirmButton message={t("Rückzahlung der Kaution wirklich zurücknehmen?")} className="btn btn-ghost btn-sm">
+                    {t("Rückgängig")}
+                  </ConfirmButton>
+                </form>
+              </div>
+            ) : (
+              <form action={kautionZurueckgezahlt} className="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="tenancyId" value={abrechnung.id} />
+                <div className="w-36">
+                  <label htmlFor="kaution-betrag">{t("Zurückgezahlt")}</label>
+                  <input
+                    id="kaution-betrag"
+                    name="betrag"
+                    inputMode="decimal"
+                    defaultValue={centsToInput(Math.max(0, saldo.restCents))}
+                  />
+                </div>
+                <div className="w-40">
+                  <label htmlFor="kaution-datum">{t("Am")}</label>
+                  <input id="kaution-datum" name="datum" type="date" defaultValue={toDateInput(new Date())} />
+                </div>
+                <button type="submit" className="btn btn-secondary">
+                  {t("Kaution zurückgezahlt")}
+                </button>
+                <p className="w-full text-xs text-ink-500">
+                  {t("Gezahlte Kaution {kaution}, Vorschlag nach Abzügen und offenen Mieten. Offene Abzüge werden dabei als verrechnet abgehakt.", { kaution: geld(kautionGezahlt) })}
+                </p>
+              </form>
+            )}
+          </div>
         )}
 
         <form action={addTenantNote} className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_auto] sm:items-end">

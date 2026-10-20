@@ -869,8 +869,23 @@ async function main() {
     assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-09-23T00:00:00Z"), freiCents: 47000, text: "Miete September" }, forderungen), [{ forderungId: "sep", cents: 47000 }]);
     // Ohne Monatsangabe, Zahlung im September: auch September
     assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-09-23T00:00:00Z"), freiCents: 47000, text: "Miete" }, forderungen), [{ forderungId: "sep", cents: 47000 }]);
-    // Zahlung im Oktober: Oktober
-    assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-10-15T00:00:00Z"), freiCents: 47000, text: "Miete" }, forderungen), [{ forderungId: "okt", cents: 47000 }]);
+    // Zahlung im Oktober, September schon mit Geld belegt: Oktober
+    const septBelegt = [{ ...forderungen[0], zugeordnetCents: 47000 }, forderungen[1]];
+    assert.deepEqual(zuordnungPlanen({ bookingDate: new Date("2026-10-15T00:00:00Z"), freiCents: 47000, text: "Miete" }, septBelegt), [{ forderungId: "okt", cents: 47000 }]);
+  });
+
+  await test("Zuordnung: späte Zahlung wird gegen den ältesten Posten gerechnet (Drilon Xhemaili)", () => {
+    // Einzug 14.09., September anteilig 266,39 von Hand abgehakt, Kaution 200 offen,
+    // Oktober 470 offen. Am 01.10. kommen 466,39 "Kaution und Miete".
+    const forderungen: ZuordnungsForderung[] = [
+      { id: "kau", kind: "DEPOSIT", jahr: 2026, monat: 9, dueDate: new Date("2026-09-14T00:00:00Z"), amountCents: 20000, zugeordnetCents: 0, status: "OPEN", manuell: false },
+      { id: "sep", kind: "RENT", jahr: 2026, monat: 9, dueDate: new Date("2026-09-01T00:00:00Z"), amountCents: 26639, zugeordnetCents: 0, status: "PAID", manuell: true },
+      { id: "okt", kind: "RENT", jahr: 2026, monat: 10, dueDate: new Date("2026-10-01T00:00:00Z"), amountCents: 47000, zugeordnetCents: 0, status: "OPEN", manuell: false },
+    ];
+    assert.deepEqual(
+      zuordnungPlanen({ bookingDate: new Date("2026-10-01T00:00:00Z"), freiCents: 46639, text: "Drilon Xhemaili Kaution und Miete" }, forderungen),
+      [{ forderungId: "kau", cents: 20000 }, { forderungId: "sep", cents: 26639 }],
+    );
   });
 
   await test("Zuordnung: nie weit in die Zukunft, Kaution vor Miete, Rückstand zuerst", () => {

@@ -237,6 +237,9 @@ model Tenancy {
   // Bewusst ohne Kaution (aeltere Vertraege) - dann fehlt sie nicht, sie
   // ist nicht vereinbart, und es wird auch keine berechnet.
   noDeposit        Boolean @default(false)
+  /// Kaution an den Mieter zurueckgezahlt (abgehakt im Mieterprofil) - Tag und Betrag nach Abzuegen.
+  depositRefundedAt  DateTime?
+  depositRefundCents Int?
   // Nebenkosten-Pauschale, im Mietpreis enthalten oder zusaetzlich
   utilitiesCents   Int @default(0)
 

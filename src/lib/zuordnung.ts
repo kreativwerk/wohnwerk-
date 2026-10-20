@@ -7,12 +7,12 @@
  *     Kaution.
  *  2. Nennt er Monate ("Miete September", "10/26", "Qiraja tetor"), geht es
  *     an genau diese Monate.
- *  3. Sonst an offene Forderungen, die schon faellig sind - die aelteste
- *     zuerst.
- *  4. Dann an einen von Hand als bezahlt abgehakten Monat, um den
- *     Zahlungstag herum: Die Zahlung ist dann sehr wahrscheinlich genau das,
- *     was abgehakt wurde. So bleibt sie nicht frei und rutscht nicht auf den
- *     naechsten Monat.
+ *  3. Sonst der Reihe nach gegen alles schon Faellige, aelteste zuerst -
+ *     offene Forderungen und von Hand abgehakte Monate um den Zahlungstag,
+ *     zu denen noch kein Geld eingegangen ist. Kommt die Zahlung spaet, ist
+ *     sie sehr wahrscheinlich genau das, was abgehakt wurde, und rutscht
+ *     nicht auf den naechsten Monat.
+ *  4. Dann abgehakte Monate um den Zahlungstag, die noch nicht faellig sind.
  *  5. Erst zuletzt an eine Forderung, die in den naechsten zehn Tagen
  *     faellig wird (Vorauszahlung). Weiter in die Zukunft nie.
  */
@@ -162,16 +162,18 @@ export function zuordnungPlanen(
   if (monate.length > 0) {
     nimm(kandidaten.filter((f) => f.kind === "RENT" && monate.some((m) => m.jahr === f.jahr && m.monat === f.monat)));
   }
-  // 3. Faellige offene Forderungen, aelteste zuerst.
-  nimm(kandidaten.filter((f) => offen(f) && f.dueDate.getTime() <= tag));
-  // 4. Abgehakte Monate um den Zahlungstag: dieser und der vorige Monat.
-  nimm(
-    kandidaten.filter((f) => {
-      if (!unbelegt(f)) return false;
-      const index = f.jahr * 12 + f.monat - 1;
-      return index === zahlungsMonat || index === zahlungsMonat - 1;
-    }),
-  );
+  // Von Hand abgehakt, aber das Geld kam erst spaeter: Monate um den
+  // Zahlungstag (dieser und der vorige) werden mit der Zahlung belegt.
+  const imFenster = (f: ZuordnungsForderung) => {
+    const index = f.jahr * 12 + f.monat - 1;
+    return index === zahlungsMonat || index === zahlungsMonat - 1;
+  };
+  // 3. Alles schon Faellige - offen oder abgehakt-ohne-Geld - der Reihe
+  //    nach, aelteste zuerst. So wird die Zahlung zuerst gegen den
+  //    aeltesten Posten gerechnet, auch wenn sie spaet kommt.
+  nimm(kandidaten.filter((f) => f.dueDate.getTime() <= tag && (offen(f) || (unbelegt(f) && imFenster(f)))));
+  // 4. Abgehakte Monate im Fenster, die erst nach dem Zahlungstag faellig sind.
+  nimm(kandidaten.filter((f) => unbelegt(f) && imFenster(f)));
   // 5. Vorauszahlung fuer bald Faelliges.
   nimm(kandidaten.filter((f) => offen(f) && f.dueDate.getTime() > tag && f.dueDate.getTime() <= tag + VORAUS_TAGE * TAG));
 
