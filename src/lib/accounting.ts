@@ -5,9 +5,14 @@ import { monthsBetween } from "./dates";
 import { anteilNotiz, monatsanteil } from "./mietanteil";
 import { mieterPasst, zuordnungPlanen, type ZuordnungsForderung } from "./zuordnung";
 
-/** Notiz, die "Als bezahlt markieren" an die Forderung haengt. */
+/**
+ * Bezahlt, ohne dass eine Zahlung verknuepft ist: von Hand abgehakt ("Als
+ * bezahlt markieren") oder aus dem Excel-Import als bezahlt uebernommen.
+ * Solche Monate bleiben bezahlt; trifft die passende Zahlung ein, wird sie
+ * mit ihnen belegt.
+ */
 export function istManuellBestaetigt(notes: string | null | undefined): boolean {
-  return Boolean(notes?.includes("Manuell bestätigt"));
+  return Boolean(notes?.includes("Manuell bestätigt") || notes?.includes("(Import)"));
 }
 
 /**
@@ -110,7 +115,7 @@ export type ForderungsAbgleich = {
   gekuerzt: { year: number; month: number; vorher: number; nachher: number; tage: number } | null;
   /** Offene Forderungen ausserhalb des Mietzeitraums, die entfernt wurden. */
   entfernt: number;
-  /** Der letzte Monat ist schon bezahlt - da wird nichts angefasst. */
+  /** Schon bezahlt, aber nach dem Auszug nicht mehr geschuldet - als Guthaben frei geworden. */
   bezahltZuViel: number;
   /** Sonstige offene Monate, deren Betrag neu gerechnet wurde (z. B. nach geaendertem Einzug). */
   neuBerechnet: number;
@@ -130,7 +135,11 @@ export async function forderungenAbgleichen(tenancyId: string): Promise<Forderun
   const ergebnis: ForderungsAbgleich = { gekuerzt: null, entfernt: 0, bezahltZuViel: 0, neuBerechnet: 0 };
   const tenancy = await prisma.tenancy.findUnique({
     where: { id: tenancyId },
-    include: { charges: { include: { allocations: { select: { amountCents: true } } } } },
+    include: {
+      charges: {
+        include: { allocations: { select: { id: true, amountCents: true, bankTransactionId: true }, orderBy: { createdAt: "desc" } } },
+      },
+    },
   });
   if (!tenancy) return ergebnis;
 
@@ -169,6 +178,15 @@ export async function forderungenAbgleichen(tenancyId: string): Promise<Forderun
       if (unberuehrt) {
         await prisma.rentCharge.delete({ where: { id: charge.id } });
         ergebnis.entfernt += 1;
+      } else if (index > endIndex && charge.status !== "WAIVED") {
+        // Monat nach dem Auszug, schon bezahlt: Forderung entfaellt, das
+        // Geld wird wieder frei und steht als Guthaben beim Mieter.
+        const frei = charge.allocations.reduce((s, a) => s + a.amountCents, 0);
+        await prisma.allocation.deleteMany({ where: { rentChargeId: charge.id } });
+        await prisma.rentCharge.delete({ where: { id: charge.id } });
+        await zahlungenFreigeben(charge.allocations.map((a) => a.bankTransactionId));
+        ergebnis.entfernt += 1;
+        ergebnis.bezahltZuViel += frei;
       }
       continue;
     }
@@ -177,7 +195,34 @@ export async function forderungenAbgleichen(tenancyId: string): Promise<Forderun
     if (anteil.amountCents === charge.amountCents) continue;
 
     if (!unberuehrt) {
-      if (index === endIndex) ergebnis.bezahltZuViel = Math.max(0, charge.amountCents - anteil.amountCents);
+      if (charge.status === "WAIVED") continue;
+      // Schon bezahlt (per Konto oder abgehakt). Nur der Auszugsmonat wird
+      // nachtraeglich gekuerzt - was darueber hinaus zugeordnet war, wird
+      // frei und ist Guthaben. Andere Monate bleiben, wie sie bezahlt sind.
+      if (index !== endIndex || anteil.amountCents > charge.amountCents) continue;
+      let zuViel = charge.allocations.reduce((s, a) => s + a.amountCents, 0) - anteil.amountCents;
+      const betroffen: string[] = [];
+      for (const a of charge.allocations) {
+        if (zuViel <= 0) break;
+        const weg = Math.min(zuViel, a.amountCents);
+        if (weg === a.amountCents) await prisma.allocation.delete({ where: { id: a.id } });
+        else await prisma.allocation.update({ where: { id: a.id }, data: { amountCents: a.amountCents - weg } });
+        betroffen.push(a.bankTransactionId);
+        zuViel -= weg;
+        ergebnis.bezahltZuViel += weg;
+      }
+      await prisma.rentCharge.update({
+        where: { id: charge.id },
+        data: { amountCents: anteil.amountCents, notes: [charge.notes, anteilNotiz(anteil)].filter(Boolean).join(" · ") },
+      });
+      await zahlungenFreigeben(betroffen);
+      ergebnis.gekuerzt = {
+        year: charge.periodYear,
+        month: charge.periodMonth,
+        vorher: charge.amountCents,
+        nachher: anteil.amountCents,
+        tage: anteil.billedDays,
+      };
       continue;
     }
     await prisma.rentCharge.update({
@@ -197,6 +242,16 @@ export async function forderungenAbgleichen(tenancyId: string): Promise<Forderun
     }
   }
   return ergebnis;
+}
+
+/** Buchungen ohne verbleibende Zuordnung wieder als offen fuehren - ihr Geld ist dann Guthaben. */
+async function zahlungenFreigeben(bankTransactionIds: string[]): Promise<void> {
+  for (const id of new Set(bankTransactionIds)) {
+    const rest = await prisma.allocation.count({ where: { bankTransactionId: id } });
+    if (rest === 0) {
+      await prisma.bankTransaction.updateMany({ where: { id, reviewStatus: "MATCHED" }, data: { reviewStatus: "OPEN" } });
+    }
+  }
 }
 
 /** Setzt den Status einer Forderung aus der Summe ihrer Zuordnungen neu. */
@@ -286,9 +341,10 @@ export async function allocate(params: {
   });
 
   await recomputeChargeStatus(params.rentChargeId);
+  const mieter = await prisma.tenancy.findUnique({ where: { id: charge.tenancyId }, select: { tenantId: true } });
   await prisma.bankTransaction.update({
     where: { id: params.bankTransactionId },
-    data: { reviewStatus: "MATCHED", category: tx.category ?? "Miete Einnahme" },
+    data: { reviewStatus: "MATCHED", category: tx.category ?? "Miete Einnahme", tenantId: tx.tenantId ?? mieter?.tenantId ?? null },
   });
 
   return { ok: true, message: "Zahlung wurde zugeordnet." };
@@ -338,15 +394,19 @@ export type MatchResult = {
 export async function autoMatch(options: { bankAccountId?: string } = {}): Promise<MatchResult> {
   await ensureRentCharges();
 
-  const transactions = await prisma.bankTransaction.findMany({
-    where: {
-      direction: "CREDIT",
-      reviewStatus: "OPEN",
-      ...(options.bankAccountId ? { bankAccountId: options.bankAccountId } : {}),
-    },
-    include: { allocations: true },
-    orderBy: { bookingDate: "asc" },
-  });
+  // Auch schon zugeordnete Eingaenge mit Restbetrag: Was zu viel kam,
+  // wird so mit dem naechsten faelligen Monat verrechnet.
+  const transactions = (
+    await prisma.bankTransaction.findMany({
+      where: {
+        direction: "CREDIT",
+        reviewStatus: { in: ["OPEN", "MATCHED"] },
+        ...(options.bankAccountId ? { bankAccountId: options.bankAccountId } : {}),
+      },
+      include: { allocations: true },
+      orderBy: { bookingDate: "asc" },
+    })
+  ).filter((tx) => Math.abs(tx.amountCents) - tx.allocations.reduce((s, a) => s + a.amountCents, 0) > 0);
 
   if (transactions.length === 0) return { matched: 0, reviewed: 0 };
 
@@ -391,10 +451,14 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
     const haystack = normalize(text);
     if (!haystack) continue;
 
+    // 0. Zahler schon bekannt (frueherer Abgleich oder von Hand).
+    let mieterIds = new Set<string>(tx.tenantId ? [tx.tenantId] : []);
     // 1. Vertragsreferenz im Verwendungszweck - eindeutig.
-    let mieterIds = new Set(
-      tenancies.filter((ty) => haystack.includes(normalize(ty.reference))).map((ty) => ty.tenantId),
-    );
+    if (mieterIds.size === 0) {
+      mieterIds = new Set(
+        tenancies.filter((ty) => haystack.includes(normalize(ty.reference))).map((ty) => ty.tenantId),
+      );
+    }
     // 2. Sonst der Name des Mieters bzw. seiner Firma.
     if (mieterIds.size === 0) {
       mieterIds = new Set(
@@ -417,6 +481,11 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
       );
       if (exakt.length !== 1) continue;
       mieterId = exakt[0];
+    }
+
+    // Zahler festhalten - auch wenn gerade nichts offen ist: dann ist es Guthaben.
+    if (tx.tenantId !== mieterId) {
+      await prisma.bankTransaction.update({ where: { id: tx.id }, data: { tenantId: mieterId } });
     }
 
     const forderungen = forderungenJeMieter.get(mieterId) ?? [];
@@ -454,6 +523,28 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
   return { matched, reviewed: transactions.length };
 }
 
+/**
+ * Guthaben je Mieter: Eingaenge, die ihm zugeordnet sind, aber noch keine
+ * Forderung tilgen - er hat mehr gezahlt als bisher faellig war.
+ */
+export async function guthabenJeMieter(tenantIds?: string[]): Promise<Map<string, number>> {
+  const zahlungen = await prisma.bankTransaction.findMany({
+    where: {
+      direction: "CREDIT",
+      reviewStatus: { in: ["OPEN", "MATCHED"] },
+      tenantId: tenantIds ? { in: tenantIds } : { not: null },
+    },
+    select: { tenantId: true, amountCents: true, allocations: { select: { amountCents: true } } },
+  });
+  const ergebnis = new Map<string, number>();
+  for (const z of zahlungen) {
+    if (!z.tenantId) continue;
+    const frei = Math.abs(z.amountCents) - z.allocations.reduce((s, a) => s + a.amountCents, 0);
+    if (frei > 0) ergebnis.set(z.tenantId, (ergebnis.get(z.tenantId) ?? 0) + frei);
+  }
+  return ergebnis;
+}
+
 export type NeuberechnungsErgebnis = { geloest: number; zugeordnet: number; geprueft: number };
 
 /**
@@ -462,6 +553,11 @@ export type NeuberechnungsErgebnis = { geloest: number; zugeordnet: number; gepr
  * abgehakte Monate bleiben unberuehrt.
  */
 export async function zuordnungenNeuBerechnen(): Promise<NeuberechnungsErgebnis> {
+  // Auszugsmonate zuerst auf den Tagesanteil bringen - auch schon
+  // bezahlte; was zu viel war, wird dabei Guthaben.
+  const beendet = await prisma.tenancy.findMany({ where: { endDate: { not: null } }, select: { id: true } });
+  for (const ty of beendet) await forderungenAbgleichen(ty.id);
+
   const auto = await prisma.allocation.findMany({
     where: { quelle: "AUTO" },
     select: { rentChargeId: true, bankTransactionId: true },

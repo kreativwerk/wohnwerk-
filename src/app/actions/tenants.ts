@@ -589,7 +589,7 @@ function auszugMeldung(
     );
   }
   if (anpassung.bezahltZuViel > 0) {
-    teile.push(t("Der letzte Monat ist schon voll bezahlt – {betrag} zu viel, bitte mit der Kaution verrechnen.", { betrag: formatCents(anpassung.bezahltZuViel) }));
+    teile.push(t("{betrag} waren schon bezahlt und stehen jetzt als Guthaben beim Mieter – sie kommen mit der Kaution zurück.", { betrag: formatCents(anpassung.bezahltZuViel) }));
   }
   if (anpassung.entfernt > 0) {
     teile.push(t("{anzahl} offene Forderung(en) nach dem Auszug entfernt.", { anzahl: anpassung.entfernt }));

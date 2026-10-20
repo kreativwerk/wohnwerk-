@@ -6,7 +6,7 @@ import { qontoJetztAbgleichen } from "@/app/actions/qonto";
 import { AdminOnly } from "@/components/admin-only";
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { NachrichtDialog } from "@/components/nachricht-dialog";
-import { ensureRentCharges } from "@/lib/accounting";
+import { ensureRentCharges, guthabenJeMieter } from "@/lib/accounting";
 import { getSessionUser, isAdmin } from "@/lib/auth";
 import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
@@ -119,6 +119,8 @@ export default async function RentIncomePage({
   // Kaution. Daraus entsteht die Gesamtaufstellung: Wer zwei Monate
   // hinterher ist, bekommt eine Nachricht mit allem statt zwei einzelne.
   const tenantIds = Array.from(new Set(charges.map((c) => c.tenancy.tenantId)));
+  // Zu viel gezahlt: Eingaenge des Mieters, die noch keine Forderung tilgen.
+  const guthaben = await guthabenJeMieter(tenantIds);
   const alleOffenen = tenantIds.length === 0
     ? []
     : await prisma.rentCharge.findMany({
@@ -449,6 +451,13 @@ export default async function RentIncomePage({
                               {charge.tenancy.tenant.firstName} {charge.tenancy.tenant.lastName}
                             </Link>
                             <KopierKnopf wert={`${charge.tenancy.tenant.firstName} ${charge.tenancy.tenant.lastName}`} />
+                            {(guthaben.get(charge.tenancy.tenantId) ?? 0) > 0 && (
+                              <span className="ml-1">
+                                <Badge tone="success">
+                                  {t("Guthaben {betrag}", { betrag: geld(guthaben.get(charge.tenancy.tenantId) ?? 0) })}
+                                </Badge>
+                              </span>
+                            )}
                             {charge.kind === "DEPOSIT" && (
                               <span className="ml-2">
                                 <Badge tone="brand">{t("Kaution")}</Badge>

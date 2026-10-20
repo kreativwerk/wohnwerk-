@@ -1284,4 +1284,10 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Zurückgezahlt am {datum}": "Refunded on {datum}",
   "am {datum}: {betrag}": "on {datum}: {betrag}",
   "„{wert}“ kopieren": "Copy “{wert}”",
+  "Eingänge, die noch keine Forderung tilgen. Sie werden automatisch mit dem nächsten fälligen Monat verrechnet.": "Payments that do not settle any charge yet. They are offset against the next month due automatically.",
+  "Guthaben": "Credit",
+  "Guthaben {betrag}": "Credit {betrag}",
+  "Guthaben – zu viel gezahlt": "Credit – overpaid",
+  "Guthaben: {betrag} zu viel gezahlt": "Credit: {betrag} overpaid",
+  "{betrag} waren schon bezahlt und stehen jetzt als Guthaben beim Mieter – sie kommen mit der Kaution zurück.": "{betrag} had already been paid and is now the tenant's credit – it is refunded with the deposit.",
 };

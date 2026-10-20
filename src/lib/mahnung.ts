@@ -416,6 +416,8 @@ export type KautionAngaben = {
   abzuege: KautionAbzug[];
   /** Offene Mieten werden ebenfalls verrechnet. */
   offeneMieten: { jahr: number; monat: number; offenCents: number }[];
+  /** Zu viel gezahlte Miete - kommt mit der Kaution zurueck. */
+  guthabenCents?: number;
   kontoinhaber: string;
   iban: string;
   bank?: string | null;
@@ -426,6 +428,7 @@ type KautionPaket = {
   anrede: (vorname: string) => string;
   einleitung: string;
   kaution: (betrag: string) => string;
+  guthaben: (betrag: string) => string;
   abzuegeTitel: string;
   grund: Record<KautionGrund, string>;
   miete: (monatJahr: string) => string;
@@ -447,6 +450,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Përshëndetje ${v},`,
     einleitung: "faleminderit që qëndruat te ne. Ja llogaritja e depozitës (kaucionit) tuaj:",
     kaution: (b) => `Depozita e paguar: ${b}`,
+    guthaben: (b) => `Qira e paguar tepër: +${b}`,
     abzuegeTitel: "Zbritjet:",
     grund: { SCHADEN: "Dëm", REINIGUNG: "Pastrim", SCHLUESSEL: "Çelës i pakthyer", SONSTIGES: "Tjetër" },
     miete: (mj) => `Qiraja e papaguar për ${mj}`,
@@ -466,6 +470,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Здравейте, ${v},`,
     einleitung: "благодарим ви, че бяхте при нас. Ето разчета на вашия депозит:",
     kaution: (b) => `Платен депозит: ${b}`,
+    guthaben: (b) => `Надплатен наем: +${b}`,
     abzuegeTitel: "Удръжки:",
     grund: { SCHADEN: "Щета", REINIGUNG: "Почистване", SCHLUESSEL: "Невърнат ключ", SONSTIGES: "Друго" },
     miete: (mj) => `Неплатен наем за ${mj}`,
@@ -485,6 +490,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Bună ziua, ${v},`,
     einleitung: "vă mulțumim că ați locuit la noi. Iată decontul garanției dumneavoastră:",
     kaution: (b) => `Garanție plătită: ${b}`,
+    guthaben: (b) => `Chirie plătită în plus: +${b}`,
     abzuegeTitel: "Rețineri:",
     grund: { SCHADEN: "Daună", REINIGUNG: "Curățenie", SCHLUESSEL: "Cheie nereturnată", SONSTIGES: "Altele" },
     miete: (mj) => `Chirie neplătită pentru ${mj}`,
@@ -504,6 +510,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Kedves ${v}!`,
     einleitung: "Köszönjük, hogy nálunk lakott. Íme a kaució elszámolása:",
     kaution: (b) => `Befizetett kaució: ${b}`,
+    guthaben: (b) => `Túlfizetett bérleti díj: +${b}`,
     abzuegeTitel: "Levonások:",
     grund: { SCHADEN: "Kár", REINIGUNG: "Takarítás", SCHLUESSEL: "Vissza nem adott kulcs", SONSTIGES: "Egyéb" },
     miete: (mj) => `Kifizetetlen bérleti díj: ${mj}`,
@@ -523,6 +530,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Hello ${v},`,
     einleitung: "thank you for staying with us. Here is the settlement of your deposit:",
     kaution: (b) => `Deposit paid: ${b}`,
+    guthaben: (b) => `Rent overpaid: +${b}`,
     abzuegeTitel: "Deductions:",
     grund: { SCHADEN: "Damage", REINIGUNG: "Cleaning", SCHLUESSEL: "Key not returned", SONSTIGES: "Other" },
     miete: (mj) => `Unpaid rent for ${mj}`,
@@ -542,6 +550,7 @@ const KAUTION_PAKETE: Record<KautionSprache, KautionPaket> = {
     anrede: (v) => `Hallo ${v},`,
     einleitung: "danke, dass du bei uns gewohnt hast. Hier die Abrechnung deiner Kaution:",
     kaution: (b) => `Gezahlte Kaution: ${b}`,
+    guthaben: (b) => `Zu viel gezahlte Miete: +${b}`,
     abzuegeTitel: "Abzüge:",
     grund: { SCHADEN: "Schaden", REINIGUNG: "Reinigung", SCHLUESSEL: "Schlüssel nicht zurückgegeben", SONSTIGES: "Sonstiges" },
     miete: (mj) => `Offene Miete ${mj}`,
@@ -575,7 +584,7 @@ function kautionMonatJahr(sprache: KautionSprache, jahr: number, monat: number):
 }
 
 /** Summen der Abrechnung - auch fuer die Anzeige in der Oberflaeche. */
-export function kautionsSaldo(a: Pick<KautionAngaben, "kautionCents" | "abzuege" | "offeneMieten">): {
+export function kautionsSaldo(a: Pick<KautionAngaben, "kautionCents" | "abzuege" | "offeneMieten" | "guthabenCents">): {
   abzugCents: number;
   /** Positiv: Rueckzahlung an den Mieter. Negativ: Nachzahlung. */
   restCents: number;
@@ -583,7 +592,7 @@ export function kautionsSaldo(a: Pick<KautionAngaben, "kautionCents" | "abzuege"
   const abzugCents =
     a.abzuege.reduce((s, x) => s + Math.max(0, x.cents), 0) +
     a.offeneMieten.reduce((s, x) => s + Math.max(0, x.offenCents), 0);
-  return { abzugCents, restCents: a.kautionCents - abzugCents };
+  return { abzugCents, restCents: a.kautionCents + Math.max(0, a.guthabenCents ?? 0) - abzugCents };
 }
 
 /**
@@ -597,6 +606,7 @@ export function kautionText(sprache: KautionSprache, a: KautionAngaben): string 
   const { abzugCents, restCents } = kautionsSaldo(a);
 
   const zeilen = [p.anrede(a.vorname.trim()), "", p.einleitung, "", p.kaution(b(a.kautionCents))];
+  if ((a.guthabenCents ?? 0) > 0) zeilen.push(p.guthaben(b(a.guthabenCents ?? 0)));
 
   const posten: string[] = [];
   for (const x of a.abzuege.filter((x) => x.cents > 0)) {

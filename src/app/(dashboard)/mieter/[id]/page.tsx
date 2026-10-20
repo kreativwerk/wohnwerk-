@@ -16,6 +16,7 @@ import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { centsToInput } from "@/lib/money";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
+import { guthabenJeMieter } from "@/lib/accounting";
 import {
   KAUTION_GRUENDE,
   KAUTION_GRUND_NAME,
@@ -83,7 +84,9 @@ export default async function TenantDetailPage({
 
   if (!tenant) notFound();
 
-  const [beds, einstellungen] = await Promise.all([bedOptions(), getSettings()]);
+  const [beds, einstellungen, guthabenMap] = await Promise.all([bedOptions(), getSettings(), guthabenJeMieter([id])]);
+  // Zu viel gezahlt: Eingaenge, die noch keine Forderung tilgen.
+  const guthaben = guthabenMap.get(id) ?? 0;
 
   // Das laufende Mietverhaeltnis - das, was man beim Oeffnen wissen will.
   // Ein Entwurf zaehlt mit: das Bett ist damit schon vergeben, nur der
@@ -120,7 +123,7 @@ export default async function TenantDetailPage({
       offenCents: c.amountCents - c.allocations.reduce((s, a) => s + a.amountCents, 0),
     }))
     .filter((c) => c.offenCents > 0);
-  const saldo = kautionsSaldo({ kautionCents: kautionGezahlt, abzuege, offeneMieten });
+  const saldo = kautionsSaldo({ kautionCents: kautionGezahlt, abzuege, offeneMieten, guthabenCents: guthaben });
   const kautionVarianten = abrechnung
     ? KAUTION_SPRACHEN.map((code) => {
         const text = kautionText(code, {
@@ -128,6 +131,7 @@ export default async function TenantDetailPage({
           kautionCents: kautionGezahlt,
           abzuege,
           offeneMieten,
+          guthabenCents: guthaben,
           kontoinhaber: einstellungen.bankAccountHolder,
           iban: einstellungen.bankIban,
           bank: einstellungen.bankName,
@@ -164,7 +168,7 @@ export default async function TenantDetailPage({
         className="mb-6 scroll-mt-4"
         title={t("Notizen")}
         description={
-          abzuege.length > 0 || offeneMieten.length > 0
+          abzuege.length > 0 || offeneMieten.length > 0 || guthaben > 0
             ? `${t("Kaution {betrag}", { betrag: geld(kautionGezahlt) })} · ${t("Abzüge {betrag}", { betrag: geld(saldo.abzugCents) })} · ${restText}`
             : t("Interne Notizen zum Bewohner. Mit Grund und Betrag werden sie beim Auszug von der Kaution abgezogen.")
         }
@@ -421,11 +425,14 @@ export default async function TenantDetailPage({
         id="mietverhaeltnisse"
         className="scroll-mt-4"
         title={t("Mietverhältnisse")}
-        description={
+        description={[
           openTotal > 0
             ? t("Offene Forderungen: {betrag}", { betrag: geld(openTotal) })
-            : t("Alle fälligen Mieten sind ausgeglichen.")
-        }
+            : t("Alle fälligen Mieten sind ausgeglichen."),
+          guthaben > 0 ? t("Guthaben: {betrag} zu viel gezahlt", { betrag: geld(guthaben) }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       >
         {tenant.tenancies.length === 0 ? (
           <p className="text-sm text-ink-500">
@@ -630,9 +637,9 @@ export default async function TenantDetailPage({
                             name={`${tenant.firstName} ${tenant.lastName}`}
                             notizen={auszugNotizen}
                             kaution={geld(kautionGezahlt)}
-                            abzug={abzuege.length > 0 || offeneMieten.length > 0 ? geld(saldo.abzugCents) : null}
+                            abzug={abzuege.length > 0 || offeneMieten.length > 0 || guthaben > 0 ? geld(saldo.abzugCents) : null}
                             rest={
-                              abzuege.length > 0 || offeneMieten.length > 0
+                              abzuege.length > 0 || offeneMieten.length > 0 || guthaben > 0
                                 ? { text: geld(Math.abs(saldo.restCents)), nachzahlung: saldo.restCents < 0 }
                                 : null
                             }

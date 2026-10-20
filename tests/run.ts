@@ -933,6 +933,14 @@ async function main() {
     assert.ok(!passt("Valon Dobratiqi Miete", "Valon", "Sejdiu"));
   });
 
+  await test("Kautionsabrechnung: Guthaben aus zu viel gezahlter Miete kommt mit zurück", () => {
+    const a = { vorname: "Ardit", kautionCents: 20000, abzuege: [], offeneMieten: [], guthabenCents: 4700, kontoinhaber: "Wohnwerk GbR", iban: "" };
+    assert.deepEqual(kautionsSaldo(a), { abzugCents: 0, restCents: 24700 });
+    const de = kautionText("de", a).replace(/[\u00a0\u202f]/g, " ");
+    assert.ok(de.includes("Zu viel gezahlte Miete: +47,00 €"), de);
+    assert.ok(de.includes("Du bekommst von der Kaution zurück: 247,00 €"), de);
+  });
+
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);
   if (failed > 0) process.exit(1);
 }

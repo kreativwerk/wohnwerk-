@@ -214,6 +214,7 @@ model Tenant {
   tickets   Ticket[]
   reminders ReminderLog[]
   notizen   TenantNote[]
+  zahlungen BankTransaction[]
 
   @@index([lastName])
   @@index([email])
@@ -370,6 +371,9 @@ model BankTransaction {
   notes        String?
 
   propertyId String?
+  /// Wer hat gezahlt? Gesetzt vom Abgleich bzw. beim Zuordnen von Hand. Was
+  /// davon keiner Forderung zugeordnet ist, ist Guthaben des Mieters.
+  tenantId   String?
 
   // Deduplizierung ueber fachlichen Hash
   dedupeHash String @unique
@@ -380,10 +384,12 @@ model BankTransaction {
   bankAccount BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   statement   BankStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
   property    Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  tenant      Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   allocations Allocation[]
   documents   Document[]
 
   @@index([bankAccountId, bookingDate])
+  @@index([tenantId])
   @@index([reviewStatus])
   @@index([direction])
 }

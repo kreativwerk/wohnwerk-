@@ -7,6 +7,7 @@ import { NachrichtDialog } from "@/components/nachricht-dialog";
 import { TenancyBadge } from "@/components/status";
 import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
+import { guthabenJeMieter } from "@/lib/accounting";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
@@ -36,6 +37,19 @@ export default async function RueckstaendePage({
   const params = await searchParams;
   const back = "/buchhaltung/rueckstaende";
   const einstellungen = await getSettings();
+
+  // Wer zu viel gezahlt hat - unten als eigene Liste.
+  const guthabenMap = await guthabenJeMieter();
+  const guthabenMieter = guthabenMap.size === 0
+    ? []
+    : (
+        await prisma.tenant.findMany({
+          where: { id: { in: [...guthabenMap.keys()] } },
+          select: { id: true, firstName: true, lastName: true, status: true },
+        })
+      )
+        .map((m) => ({ ...m, betrag: guthabenMap.get(m.id) ?? 0 }))
+        .sort((a, b) => b.betrag - a.betrag);
 
   const charges = await prisma.rentCharge.findMany({
     where: { status: { in: ["OPEN", "PARTIAL"] } },
@@ -231,6 +245,40 @@ export default async function RueckstaendePage({
           </div>
         )}
       </ListenFilter>
+
+      {guthabenMieter.length > 0 && (
+        <div className="mt-6">
+          <Card
+            title={t("Guthaben – zu viel gezahlt")}
+            description={t("Eingänge, die noch keine Forderung tilgen. Sie werden automatisch mit dem nächsten fälligen Monat verrechnet.")}
+            padded={false}
+          >
+            <Table>
+              <thead>
+                <tr>
+                  <Th>{t("Mieter")}</Th>
+                  <Th align="right">{t("Guthaben")}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {guthabenMieter.map((m) => (
+                  <tr key={m.id}>
+                    <Td>
+                      <Link href={`/mieter/${m.id}`} className="font-medium hover:text-brand-700">
+                        {m.firstName} {m.lastName}
+                      </Link>
+                      {m.status === "EHEMALIG" && <span className="ml-2 text-xs text-ink-500">{t("Ehemalig")}</span>}
+                    </Td>
+                    <Td align="right" className="font-semibold tabular-nums text-emerald-700">
+                      {geld(m.betrag)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
+        </div>
+      )}
     </>
   );
 }
