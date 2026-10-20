@@ -534,11 +534,26 @@ export async function guthabenJeMieter(tenantIds?: string[]): Promise<Map<string
       reviewStatus: { in: ["OPEN", "MATCHED"] },
       tenantId: tenantIds ? { in: tenantIds } : { not: null },
     },
-    select: { tenantId: true, amountCents: true, allocations: { select: { amountCents: true } } },
+    select: { tenantId: true, bookingDate: true, amountCents: true, allocations: { select: { amountCents: true } } },
   });
+  // Nur Zahlungen ab dem Einzug (Kaution darf einen Monat vorher kommen):
+  // Geld aus einem frueheren Aufenthalt, zu dem es in der App kein
+  // Mietverhaeltnis gibt, ist kein Guthaben fuer das jetzige.
+  const ids = [...new Set(zahlungen.map((z) => z.tenantId).filter((id): id is string => Boolean(id)))];
+  const einzug = new Map<string, number>();
+  for (const ty of await prisma.tenancy.findMany({
+    where: { tenantId: { in: ids }, status: { not: "CANCELLED" } },
+    select: { tenantId: true, startDate: true },
+  })) {
+    const t = ty.startDate.getTime();
+    einzug.set(ty.tenantId, Math.min(einzug.get(ty.tenantId) ?? t, t));
+  }
+  const MONAT = 31 * 86_400_000;
   const ergebnis = new Map<string, number>();
   for (const z of zahlungen) {
     if (!z.tenantId) continue;
+    const ab = einzug.get(z.tenantId);
+    if (ab === undefined || z.bookingDate.getTime() < ab - MONAT) continue;
     const frei = Math.abs(z.amountCents) - z.allocations.reduce((s, a) => s + a.amountCents, 0);
     if (frei > 0) ergebnis.set(z.tenantId, (ergebnis.get(z.tenantId) ?? 0) + frei);
   }
