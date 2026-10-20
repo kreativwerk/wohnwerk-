@@ -14,7 +14,9 @@
  *     nicht auf den naechsten Monat.
  *  4. Dann abgehakte Monate um den Zahlungstag, die noch nicht faellig sind.
  *  5. Erst zuletzt an eine Forderung, die in den naechsten zehn Tagen
- *     faellig wird (Vorauszahlung). Weiter in die Zukunft nie.
+ *     faellig wird (Vorauszahlung).
+ *  6. Was dann noch uebrig ist, ist Guthaben. Beim naechsten Abgleich
+ *     tilgt es auch spaeter faellige Forderungen - die naechste zuerst.
  */
 
 export type ZuordnungsForderung = {
@@ -145,7 +147,13 @@ function nachDatum(a: ZuordnungsForderung, b: ZuordnungsForderung): number {
  * frei und wird in der Oberflaeche von Hand entschieden.
  */
 export function zuordnungPlanen(
-  zahlung: { bookingDate: Date; freiCents: number; text: string },
+  zahlung: {
+    bookingDate: Date;
+    freiCents: number;
+    text: string;
+    /** Rest einer schon zugeordneten Zahlung: Guthaben - darf auch spaeter Faelliges tilgen. */
+    guthaben?: boolean;
+  },
   forderungen: ZuordnungsForderung[],
 ): ZuordnungsPosten[] {
   const kandidaten = forderungen.filter((f) => f.status !== "WAIVED" && (offen(f) || unbelegt(f)));
@@ -176,6 +184,9 @@ export function zuordnungPlanen(
   nimm(kandidaten.filter((f) => unbelegt(f) && imFenster(f)));
   // 5. Vorauszahlung fuer bald Faelliges.
   nimm(kandidaten.filter((f) => offen(f) && f.dueDate.getTime() > tag && f.dueDate.getTime() <= tag + VORAUS_TAGE * TAG));
+  // 6. Guthaben (zu viel Gezahltes) tilgt jede spaeter faellige Forderung,
+  //    die naechste zuerst.
+  if (zahlung.guthaben) nimm(kandidaten.filter((f) => offen(f)));
 
   const posten: ZuordnungsPosten[] = [];
   let frei = zahlung.freiCents;

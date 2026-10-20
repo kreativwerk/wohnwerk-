@@ -941,6 +941,14 @@ async function main() {
     assert.ok(de.includes("Du bekommst von der Kaution zurück: 247,00 €"), de);
   });
 
+  await test("Zuordnung: Guthaben tilgt den nächsten fälligen Monat (Leon Dobra)", () => {
+    // 470 gezahlt am 14.09., 370 davon fuer September; Auszug 05.10., Oktober 61,65 offen.
+    const okt: ZuordnungsForderung = { id: "okt", kind: "RENT", jahr: 2026, monat: 10, dueDate: new Date("2026-10-01T00:00:00Z"), amountCents: 6165, zugeordnetCents: 0, status: "OPEN", manuell: false };
+    const zahlung = { bookingDate: new Date("2026-09-14T00:00:00Z"), freiCents: 10000, text: "Leon Dobra Überweisung" };
+    assert.deepEqual(zuordnungPlanen(zahlung, [okt]), []);
+    assert.deepEqual(zuordnungPlanen({ ...zahlung, guthaben: true }, [okt]), [{ forderungId: "okt", cents: 6165 }]);
+  });
+
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);
   if (failed > 0) process.exit(1);
 }

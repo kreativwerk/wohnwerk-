@@ -467,7 +467,8 @@ export async function autoMatch(options: { bankAccountId?: string } = {}): Promi
     }
     if (mieterIds.size === 0) continue;
 
-    const zahlung = { bookingDate: tx.bookingDate, freiCents: free, text };
+    // Schon einmal gesehen und Rest uebrig: das ist Guthaben.
+    const zahlung = { bookingDate: tx.bookingDate, freiCents: free, text, guthaben: Boolean(tx.tenantId) };
     let mieterId: string | null = null;
     if (mieterIds.size === 1) {
       mieterId = [...mieterIds][0];
