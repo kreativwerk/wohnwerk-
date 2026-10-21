@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { autoMatch } from "@/lib/accounting";
-import { qontoAbgleich, qontoZugang } from "@/lib/qonto";
+import { qontoAbgleich, qontoBelegeNachholen, qontoZugang } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Taeglicher Qonto-Abgleich, ausgeloest von Vercel Cron (vercel.json).
@@ -26,6 +26,20 @@ export async function GET(request: Request) {
   if (!(await qontoZugang())) {
     const zuordnung = await autoMatch();
     return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched });
+  }
+
+  // Nachholen aller Belege ab einem Tag: /api/cron/qonto?belege_ab=2026-01-01
+  const belegeAb = new URL(request.url).searchParams.get("belege_ab");
+  if (belegeAb && /^\d{4}-\d{2}-\d{2}$/.test(belegeAb)) {
+    const nach = await qontoBelegeNachholen("cron", new Date(`${belegeAb}T00:00:00Z`));
+    return NextResponse.json({
+      ok: nach.ok,
+      belege: nach.belege ?? 0,
+      ohneBuchung: nach.belegeOhneBuchung ?? 0,
+      weitere: Boolean(nach.belegeWeitere),
+      hinweis: nach.belegHinweis ?? null,
+      fehler: nach.fehler ?? null,
+    });
   }
 
   const ergebnis = await qontoAbgleich("cron");

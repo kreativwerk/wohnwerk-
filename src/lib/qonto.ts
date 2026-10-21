@@ -49,6 +49,10 @@ export type QontoErgebnis = {
   belege?: number;
   /** Hinweis, wenn einzelne Belege nicht abgelegt werden konnten - der Abgleich gilt trotzdem. */
   belegHinweis?: string;
+  /** Belege, zu denen es in der App keine Buchung gibt (z. B. vor dem ersten Auszug). */
+  belegeOhneBuchung?: number;
+  /** Beim Nachholen: Es gibt noch weitere Belege, ein weiterer Lauf holt sie. */
+  belegeWeitere?: boolean;
   konten: string[];
   fehler?: string;
 };
@@ -227,10 +231,12 @@ async function belegeHolen(
   kontoId: string,
   ab: Date,
   ergebnis: QontoErgebnis,
+  optionen: { verknuepfen?: boolean; hoechstens?: number } = {},
 ): Promise<void> {
   const umsaetze = await qontoUmsaetze(zugang, qk, ab, "mitBeleg");
   let fehlgeschlagen = 0;
   let letzterFehler = "";
+  let geholt = 0;
 
   for (const umsatz of umsaetze) {
     // Eingebettete Anhaenge plus alle Kennungen, die dort fehlen.
@@ -241,14 +247,36 @@ async function belegeHolen(
     ];
     if (anhaenge.length === 0) continue;
 
-    const buchung = await prisma.bankTransaction.findFirst({
+    // Schon alle Anhaenge abgelegt? Dann gar nicht erst suchen.
+    const offen = [];
+    for (const roh of anhaenge) {
+      if (roh.id && !(await prisma.document.findUnique({ where: { qontoAttachmentId: roh.id }, select: { id: true } }))) offen.push(roh);
+    }
+    if (offen.length === 0) continue;
+
+    let buchung = await prisma.bankTransaction.findFirst({
       where: { bankAccountId: kontoId, endToEndId: qontoKennung(umsatz.id) },
     });
-    if (!buchung) continue;
+    // Beim Nachholen: aeltere Umsaetze kamen per Kontoauszug - dieselbe
+    // Zahlung dort suchen und mit Qonto verknuepfen. Angelegt wird nichts.
+    if (!buchung && optionen.verknuepfen) {
+      const daten = qontoZuBuchung(umsatz);
+      const treffer = daten ? await auszugsDoppel(kontoId, daten) : null;
+      if (treffer && daten) {
+        buchung = await prisma.bankTransaction.update({ where: { id: treffer }, data: { endToEndId: daten.endToEndId } });
+      }
+    }
+    if (!buchung) {
+      ergebnis.belegeOhneBuchung = (ergebnis.belegeOhneBuchung ?? 0) + offen.length;
+      continue;
+    }
 
-    for (const roh of anhaenge) {
-      if (!roh.id) continue;
-      if (await prisma.document.findUnique({ where: { qontoAttachmentId: roh.id }, select: { id: true } })) continue;
+    for (const roh of offen) {
+      if (optionen.hoechstens !== undefined && geholt >= optionen.hoechstens) {
+        ergebnis.belegeWeitere = true;
+        break;
+      }
+      geholt += 1;
 
       try {
         const anhang = await anhangDetails(zugang, roh);
@@ -312,6 +340,34 @@ async function belegeHolen(
   if (fehlgeschlagen > 0) {
     ergebnis.belegHinweis = `${fehlgeschlagen} Beleg(e) konnten nicht abgelegt werden: ${letzterFehler}`;
   }
+}
+
+/**
+ * Alle Belege seit `ab` nachholen - auch zu Buchungen, die per Kontoauszug
+ * kamen. Je Lauf hoechstens `hoechstens` Dateien, damit die Anfrage nicht
+ * zu lange dauert; ein weiterer Lauf macht weiter, schon Abgelegtes wird
+ * uebersprungen.
+ */
+export async function qontoBelegeNachholen(ausgeloestVon: string, ab: Date, hoechstens = 40): Promise<QontoErgebnis> {
+  const ergebnis: QontoErgebnis = { ok: false, zeitpunkt: new Date().toISOString(), neu: 0, doppelt: 0, zugeordnet: 0, konten: [], belege: 0 };
+  try {
+    const zugang = await qontoZugang();
+    if (!zugang) throw new QontoFehler("Qonto ist noch nicht eingerichtet.");
+    const [qontoKontenListe, appKonten] = await Promise.all([qontoKonten(zugang), prisma.bankAccount.findMany({ where: { active: true } })]);
+    for (const qk of qontoKontenListe) {
+      const konto = appKonten.find((k) => iban(k.iban) === iban(qk.iban));
+      if (!konto) continue;
+      ergebnis.konten.push(konto.name);
+      await belegeHolen(zugang, qk, konto.id, ab, ergebnis, { verknuepfen: true, hoechstens });
+      if (ergebnis.belegeWeitere) break;
+    }
+    ergebnis.ok = true;
+  } catch (fehler) {
+    ergebnis.fehler = fehler instanceof QontoFehler ? fehler.message : "Das Nachholen der Belege ist fehlgeschlagen.";
+    if (!(fehler instanceof QontoFehler)) console.error("Qonto-Belege", fehler);
+  }
+  await audit(ausgeloestVon, "qonto-belege", "Document", null, ergebnis.ok ? `${ergebnis.belege ?? 0} Belege nachgeholt` : ergebnis.fehler ?? "Fehler");
+  return ergebnis;
 }
 
 /**

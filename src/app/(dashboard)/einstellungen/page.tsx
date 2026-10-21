@@ -1,4 +1,4 @@
-import { qontoJetztAbgleichen, qontoZugangLoeschen, qontoZugangSichern } from "@/app/actions/qonto";
+import { qontoBelegeNachholenAktion, qontoJetztAbgleichen, qontoZugangLoeschen, qontoZugangSichern } from "@/app/actions/qonto";
 import { changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
@@ -340,6 +340,17 @@ export default async function SettingsPage({
                 {t("Nur Inhaber und Admins sehen den API-Schlüssel in Qonto. Abgeglichen wird jedes Qonto-Konto, dessen IBAN hier als Bankkonto angelegt ist.")}
               </p>
             </Disclosure>
+
+            {qonto.eingerichtet && (
+              <form action={qontoBelegeNachholenAktion} className="flex flex-wrap items-center gap-3 border-t border-ink-200 pt-4">
+                <button type="submit" className="btn btn-secondary">
+                  {t("Alle Belege seit Jahresbeginn holen")}
+                </button>
+                <p className="text-xs text-ink-500">
+                  {t("Holt jeden Beleg, der in Qonto an einem Umsatz hängt, legt ihn in der Belegablage ab und ordnet ihn der Buchung zu. Bereits Abgelegtes wird übersprungen.")}
+                </p>
+              </form>
+            )}
 
             {qonto.quelle === "einstellungen" && (
               <form action={qontoZugangLoeschen}>

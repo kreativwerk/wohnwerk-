@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { flash, str } from "@/lib/form";
-import { qontoAbgleich, qontoZugangEntfernen, qontoZugangSpeichern } from "@/lib/qonto";
+import { qontoAbgleich, qontoBelegeNachholen, qontoZugangEntfernen, qontoZugangSpeichern } from "@/lib/qonto";
 import { uebersetzer } from "@/lib/i18n";
 
 function erlaubterRuecksprung(back: string, vorgabe: string): string {
@@ -83,4 +83,24 @@ export async function qontoZugangLoeschen() {
   await audit(user.email, "delete", "Settings", null, "Qonto-Zugang");
   revalidatePath("/einstellungen");
   redirect(flash("/einstellungen#qonto", "ok", t("Qonto-Zugang wurde entfernt.")));
+}
+
+/** Alle Belege seit Jahresbeginn aus Qonto holen und den Buchungen zuordnen. */
+export async function qontoBelegeNachholenAktion() {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const ab = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const ergebnis = await qontoBelegeNachholen(user.email, ab);
+  revalidatePath("/buchhaltung/belege");
+  revalidatePath("/buchhaltung");
+  if (!ergebnis.ok) redirect(flash("/einstellungen#qonto", "fehler", t(ergebnis.fehler ?? "Das Nachholen der Belege ist fehlgeschlagen.")));
+  const teile = [
+    t("{anzahl} Beleg(e) aus Qonto abgelegt und zugeordnet.", { anzahl: ergebnis.belege ?? 0 }),
+    (ergebnis.belegeOhneBuchung ?? 0) > 0
+      ? t("{anzahl} Beleg(e) ohne passende Buchung in der App.", { anzahl: ergebnis.belegeOhneBuchung ?? 0 })
+      : null,
+    ergebnis.belegeWeitere ? t("Es gibt noch weitere – bitte noch einmal drücken.") : null,
+    ergebnis.belegHinweis ?? null,
+  ];
+  redirect(flash("/einstellungen#qonto", "ok", teile.filter(Boolean).join(" ")));
 }

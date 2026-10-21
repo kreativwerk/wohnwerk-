@@ -1301,4 +1301,10 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Mietvertrag (unterschrieben)": "Tenancy agreement (signed)",
   "Meldebescheinigung": "Registration certificate",
   "Unterlagen der Firma": "Company documents",
+  "{anzahl} Beleg(e) aus Qonto abgelegt und zugeordnet.": "{anzahl} receipt(s) from Qonto filed and matched.",
+  "{anzahl} Beleg(e) ohne passende Buchung in der App.": "{anzahl} receipt(s) without a matching transaction in the app.",
+  "Es gibt noch weitere – bitte noch einmal drücken.": "There are more – please press again.",
+  "Alle Belege seit Jahresbeginn holen": "Fetch all receipts since the start of the year",
+  "Holt jeden Beleg, der in Qonto an einem Umsatz hängt, legt ihn in der Belegablage ab und ordnet ihn der Buchung zu. Bereits Abgelegtes wird übersprungen.": "Fetches every receipt attached to a transaction in Qonto, files it and matches it to the transaction. Anything already filed is skipped.",
+  "Das Nachholen der Belege ist fehlgeschlagen.": "Fetching the receipts failed.",
 };
