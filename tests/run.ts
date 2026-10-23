@@ -18,6 +18,7 @@ import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
 import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
+import { adressSchluessel, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -954,6 +955,21 @@ async function main() {
     const zahlung = { bookingDate: new Date("2026-06-15T00:00:00Z"), freiCents: 20000, text: "Ramadan Mekshi Miete" };
     assert.deepEqual(zuordnungPlanen(zahlung, [kaution]), []);
     assert.deepEqual(zuordnungPlanen({ ...zahlung, guthaben: true }, [kaution]), [{ forderungId: "kau", cents: 20000 }]);
+  });
+
+  await test("Eigenbeleg Objektmiete: Mietzahlung wird dem Objekt über die Adresse zugeordnet", () => {
+    const objekte = [
+      { id: "nbg", name: "Nürnberger Str. Bamberg", street: "Nürnbergerstr. 149", ownerName: "Christian Kalb" },
+      { id: "dechs", name: "Dechsendorfer Str. 5 Erlangen", street: "Dechsendorfer Str. 5", ownerName: "Christian Kalb" },
+      { id: "stm", name: "Sankt Michael 27", street: "Sankt Michael 27", ownerName: null },
+    ];
+    const zahlung = (purpose: string, counterpartyName = "X") => objektZurMietzahlung({ direction: "DEBIT", purpose, counterpartyName }, objekte)?.id ?? null;
+    assert.equal(adressSchluessel("Nürnbergerstr. 149"), adressSchluessel("Nuernberger Str. 149"));
+    assert.equal(zahlung("Verwendungszweck: Miete 09/2026 Nuernberger Str. 149 Bamberg (anteilig"), "nbg");
+    assert.equal(zahlung("Verwendungszweck: Miete 10/2026 Dechsendorfer Str. 5 Hinterhaus 1. OG", "ERDECHS GmbH"), "dechs");
+    assert.equal(zahlung("Sepa-Überweisung PN:801 Alexander Rizzelli Miete mfh St Michael 27 Sec"), "stm");
+    assert.equal(zahlung("Rechnung 2026-051"), null);
+    assert.equal(objektZurMietzahlung({ direction: "CREDIT", purpose: "Miete Sankt Michael 27", counterpartyName: "Mieter" }, objekte), null);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

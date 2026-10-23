@@ -6,6 +6,10 @@ import { prisma } from "./db";
 import { formatDate } from "./dates";
 import { formatCents } from "./money";
 import { getSettings } from "./settings";
+import { monateAusText } from "./zuordnung";
+import { gebuehrArt, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
+
+export { adressSchluessel, gebuehrArt, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
 
 /**
  * Eigenbelege fuer Qonto-Gebuehren. Qonto bucht Gebuehren (je Ueberweisung,
@@ -13,29 +17,6 @@ import { getSettings } from "./settings";
  * jede Ausgabe einen Beleg hat, entsteht dafuer ein Eigenbeleg: erzeugt bei
  * Bedarf als PDF aus der Buchung, ohne gespeicherte Datei.
  */
-
-const ART: Record<string, string> = {
-  sepa_inbound_transfer: "Gebühr für eingehende SEPA-Überweisung",
-  sepa_outbound_transfer: "Gebühr für ausgehende SEPA-Überweisung",
-  sepa_instant_inbound_transfer: "Gebühr für eingehende Echtzeitüberweisung",
-  sepa_instant_outbound_transfer: "Gebühr für ausgehende Echtzeitüberweisung",
-  additional_user: "Monatsgebühr für zusätzlichen Nutzer",
-  card: "Kartengebühr",
-};
-
-export function istQontoGebuehr(tx: { direction: string; counterpartyName: string | null; bankTxCode: string | null; purpose: string | null }): boolean {
-  if (tx.direction !== "DEBIT") return false;
-  if (tx.bankTxCode === "qonto_fee") return true;
-  return /^qonto$/i.test((tx.counterpartyName ?? "").trim()) && /abonnement|gebühr|gebuehr|fee/i.test(tx.purpose ?? "");
-}
-
-/** "sepa_inbound_transfer" -> "Gebühr für eingehende SEPA-Überweisung"; Abo-Kennungen als Kontoführung. */
-export function gebuehrArt(purpose: string | null): string {
-  const roh = (purpose ?? "").trim();
-  if (ART[roh]) return ART[roh];
-  if (/^solo_|^standard_|^essential_|^basic_|_20\d{2}/i.test(roh)) return `Kontoführungsgebühr (Abonnement ${roh})`;
-  return roh || "Bankgebühr";
-}
 
 function winAnsi(value: string): string {
   return (value ?? "")
@@ -53,8 +34,17 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   ]);
   if (!tx) return null;
 
+  const gebuehr = istQontoGebuehr(tx);
+  const objekt = !gebuehr && tx.propertyId
+    ? await prisma.property.findUnique({ where: { id: tx.propertyId }, select: { name: true, street: true, zip: true, city: true, ownerName: true } })
+    : null;
+  const monate = monateAusText(tx.purpose, tx.bookingDate);
+  const zeitraum = monate.length > 0
+    ? monate.map((m) => `${String(m.monat).padStart(2, "0")}/${m.jahr}`).join(", ")
+    : `${String(tx.bookingDate.getUTCMonth() + 1).padStart(2, "0")}/${tx.bookingDate.getUTCFullYear()}`;
+
   const doc = await PDFDocument.create();
-  doc.setTitle(`Eigenbeleg Qonto-Gebühr ${formatDate(tx.bookingDate)}`);
+  doc.setTitle(gebuehr ? `Eigenbeleg Qonto-Gebühr ${formatDate(tx.bookingDate)}` : `Eigenbeleg Objektmiete ${formatDate(tx.bookingDate)}`);
   const page = doc.addPage([595.28, 841.89]);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -70,18 +60,29 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   y -= 50;
   text("EIGENBELEG", { font: bold, size: 18 });
   y -= 20;
-  text("Bankgebühr ohne gesonderte Rechnung", { color: grau });
+  text(gebuehr ? "Bankgebühr ohne gesonderte Rechnung" : "Mietzahlung an den Vermieter (Objektmiete)", { color: grau });
   y -= 40;
 
-  const zeilen: Array<[string, string]> = [
-    ["Belegdatum", formatDate(tx.bookingDate)],
-    ["Zahlungsempfänger", "Qonto (Kontoanbieter)"],
-    ["Art der Ausgabe", gebuehrArt(tx.purpose)],
-    ["Betrag", formatCents(Math.abs(tx.amountCents))],
-    ["Bezahlt über", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
-    ["Buchungstext", tx.purpose ?? "–"],
-    ["Kategorie", "Bankgebühren"],
-  ];
+  const zeilen: Array<[string, string]> = gebuehr
+    ? [
+        ["Belegdatum", formatDate(tx.bookingDate)],
+        ["Zahlungsempfänger", "Qonto (Kontoanbieter)"],
+        ["Art der Ausgabe", gebuehrArt(tx.purpose)],
+        ["Betrag", formatCents(Math.abs(tx.amountCents))],
+        ["Bezahlt über", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
+        ["Buchungstext", tx.purpose ?? "–"],
+        ["Kategorie", "Bankgebühren"],
+      ]
+    : [
+        ["Belegdatum", formatDate(tx.bookingDate)],
+        ["Zahlungsempfänger", tx.counterpartyName ?? objekt?.ownerName ?? "–"],
+        ["Objekt", objekt ? [objekt.name, [objekt.street, [objekt.zip, objekt.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")].join(" · ") : "–"],
+        ["Mietzeitraum", zeitraum],
+        ["Betrag", formatCents(Math.abs(tx.amountCents))],
+        ["Bezahlt über", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
+        ["Buchungstext", (tx.purpose ?? "–").slice(0, 70)],
+        ["Kategorie", "Objektmiete (Ausgabe)"],
+      ];
   for (const [k, v] of zeilen) {
     text(k, { color: grau, size: 10 });
     text(v, { x: 200 });
@@ -89,11 +90,17 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   }
 
   y -= 20;
-  for (const zeile of [
-    "Begründung: Die Gebühr wurde von Qonto direkt vom Geschäftskonto abgebucht.",
-    "Eine gesonderte Rechnung liegt für diesen Einzelbetrag nicht vor; die Abbuchung",
-    "ist durch den Kontoauszug nachgewiesen. Der Betrag ist betrieblich veranlasst.",
-  ]) {
+  for (const zeile of gebuehr
+    ? [
+        "Begründung: Die Gebühr wurde von Qonto direkt vom Geschäftskonto abgebucht.",
+        "Eine gesonderte Rechnung liegt für diesen Einzelbetrag nicht vor; die Abbuchung",
+        "ist durch den Kontoauszug nachgewiesen. Der Betrag ist betrieblich veranlasst.",
+      ]
+    : [
+        "Begründung: Monatliche Miete für das angemietete Objekt laut Mietvertrag mit dem",
+        "Vermieter. Der Mietvertrag gilt als Dauerbeleg; eine monatliche Rechnung wird",
+        "nicht ausgestellt. Die Zahlung ist durch den Kontoauszug nachgewiesen.",
+      ]) {
     text(zeile, { size: 10 });
     y -= 15;
   }
@@ -123,12 +130,41 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
  * gebucht. Idempotent: Gebuehren mit Beleg werden uebersprungen.
  */
 export async function eigenbelegeFuerGebuehren(): Promise<number> {
-  const kandidaten = await prisma.bankTransaction.findMany({
-    where: { direction: "DEBIT", reviewStatus: { not: "IGNORED" }, documents: { none: {} } },
-    select: { id: true, direction: true, counterpartyName: true, bankTxCode: true, purpose: true, bookingDate: true, amountCents: true, propertyId: true },
-  });
+  const [kandidaten, objekte] = await Promise.all([
+    prisma.bankTransaction.findMany({
+      where: { direction: "DEBIT", reviewStatus: { not: "IGNORED" }, documents: { none: {} } },
+      select: { id: true, direction: true, counterpartyName: true, bankTxCode: true, purpose: true, bookingDate: true, amountCents: true, propertyId: true },
+    }),
+    prisma.property.findMany({ where: { tenure: "ANGEMIETET" }, select: { id: true, name: true, street: true, ownerName: true } }),
+  ]);
   let anzahl = 0;
   for (const tx of kandidaten) {
+    // Mietzahlung an einen Vermieter: Eigenbeleg Objektmiete, Objekt zuordnen.
+    const objekt = objektZurMietzahlung(tx, objekte);
+    if (objekt) {
+      await prisma.document.create({
+        data: {
+          kind: "RECEIPT",
+          title: `Eigenbeleg Objektmiete – ${objekt.name}`,
+          fileName: `Eigenbeleg Objektmiete ${tx.bookingDate.toISOString().slice(0, 10)}.pdf`,
+          mimeType: "application/pdf",
+          driveUrl: `/api/eigenbeleg/${tx.id}`,
+          documentDate: tx.bookingDate,
+          amountCents: Math.abs(tx.amountCents),
+          supplier: tx.counterpartyName ?? objekt.ownerName,
+          category: "Objektmiete (Ausgabe)",
+          notes: "Eigenbeleg – Mietzahlung laut Mietvertrag (Dauerbeleg)",
+          bankTransactionId: tx.id,
+          propertyId: objekt.id,
+        },
+      });
+      await prisma.bankTransaction.update({
+        where: { id: tx.id },
+        data: { reviewStatus: "BOOKED", category: "Objektmiete (Ausgabe)", propertyId: tx.propertyId ?? objekt.id },
+      });
+      anzahl += 1;
+      continue;
+    }
     if (!istQontoGebuehr(tx)) continue;
     await prisma.document.create({
       data: {
