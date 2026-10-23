@@ -186,7 +186,9 @@ export function zuordnungPlanen(
   nimm(kandidaten.filter((f) => offen(f) && f.dueDate.getTime() > tag && f.dueDate.getTime() <= tag + VORAUS_TAGE * TAG));
   // 6. Guthaben (zu viel Gezahltes) tilgt jede spaeter faellige Forderung,
   //    die naechste zuerst.
-  if (zahlung.guthaben) nimm(kandidaten.filter((f) => offen(f)));
+  //    Auch abgehakte Monate ohne Geld jeden Alters (z. B. eine Kaution
+  //    aus dem Import), aelteste zuerst - so steht das Geld beim Posten.
+  if (zahlung.guthaben) nimm(kandidaten.filter((f) => offen(f) || unbelegt(f)));
 
   const posten: ZuordnungsPosten[] = [];
   let frei = zahlung.freiCents;

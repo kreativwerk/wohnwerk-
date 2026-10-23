@@ -949,6 +949,13 @@ async function main() {
     assert.deepEqual(zuordnungPlanen({ ...zahlung, guthaben: true }, [okt]), [{ forderungId: "okt", cents: 6165 }]);
   });
 
+  await test("Zuordnung: Guthaben belegt eine abgehakte Kaution ohne Geld (Ramadan Mekshi)", () => {
+    const kaution: ZuordnungsForderung = { id: "kau", kind: "DEPOSIT", jahr: 2026, monat: 4, dueDate: new Date("2026-04-10T00:00:00Z"), amountCents: 20000, zugeordnetCents: 0, status: "PAID", manuell: true };
+    const zahlung = { bookingDate: new Date("2026-06-15T00:00:00Z"), freiCents: 20000, text: "Ramadan Mekshi Miete" };
+    assert.deepEqual(zuordnungPlanen(zahlung, [kaution]), []);
+    assert.deepEqual(zuordnungPlanen({ ...zahlung, guthaben: true }, [kaution]), [{ forderungId: "kau", cents: 20000 }]);
+  });
+
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);
   if (failed > 0) process.exit(1);
 }
