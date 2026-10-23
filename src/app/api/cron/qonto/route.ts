@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { autoMatch } from "@/lib/accounting";
+import { eigenbelegeFuerGebuehren } from "@/lib/eigenbeleg";
 import { qontoAbgleich, qontoBelegeNachholen, qontoZugang } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,8 @@ export async function GET(request: Request) {
   // Ohne Qonto trotzdem zuordnen: Eingaenge aus hochgeladenen Auszuegen.
   if (!(await qontoZugang())) {
     const zuordnung = await autoMatch();
-    return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched });
+    const eigenbelege = await eigenbelegeFuerGebuehren();
+    return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched, eigenbelege });
   }
 
   // Nachholen aller Belege ab einem Tag: /api/cron/qonto?belege_ab=2026-01-01

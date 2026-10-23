@@ -16,6 +16,7 @@ import {
   type QontoTransaktion,
 } from "./qonto-umsatz";
 import { FOLDER, uploadFile } from "./storage";
+import { eigenbelegeFuerGebuehren } from "./eigenbeleg";
 
 /**
  * Abgleich mit Qonto: holt die Umsaetze des Wohnwerk-Kontos ueber die
@@ -457,6 +458,9 @@ export async function qontoAbgleich(ausgeloestVon: string): Promise<QontoErgebni
 
       await belegeHolen(zugang, qk, konto.id, ab, ergebnis);
     }
+
+    // Qonto-Gebuehren ohne Rechnung: Eigenbeleg dran, als gebucht abhaken.
+    ergebnis.belege = (ergebnis.belege ?? 0) + (await eigenbelegeFuerGebuehren());
 
     // Ueber alle Konten: auch offene Eingaenge aus hochgeladenen Auszuegen
     // bekommen so taeglich eine Chance.
