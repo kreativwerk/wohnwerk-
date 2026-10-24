@@ -969,6 +969,14 @@ async function main() {
     assert.equal(zahlung("Verwendungszweck: Miete 10/2026 Dechsendorfer Str. 5 Hinterhaus 1. OG", "ERDECHS GmbH"), "dechs");
     assert.equal(zahlung("Sepa-Überweisung PN:801 Alexander Rizzelli Miete mfh St Michael 27 Sec"), "stm");
     assert.equal(zahlung("Rechnung 2026-051"), null);
+    // "Mietzahlung" statt "Miete"
+    assert.equal(zahlung("Echtzeit-Überweisung PN:801 Alexander Rizzelli Mietzahlung 02/2026 mfh st Michael 27 Erlangen"), "stm");
+    // Kaution an den Vermieter: kein Eigenbeleg
+    assert.equal(zahlung("Alexander Rizzelli Kaution St. Michael 27 Erlangen"), null);
+    // Bekannter Vermieter, nur Adresse im Zweck
+    const mitBamberg = [...objekte, { id: "bam", name: "Bamberg, Dr. Martinet Str. 3", street: "Dr.-Martinet-Straße 3", ownerName: null }];
+    assert.equal(objektZurMietzahlung({ direction: "DEBIT", purpose: "Christian Kalb Dr. Martinet Str. 3, Gaustadt, EG links.", counterpartyName: "Christian Kalb" }, mitBamberg)?.id, "bam");
+    assert.equal(objektZurMietzahlung({ direction: "DEBIT", purpose: "Dr. Martinet Str. 3 Reparatur", counterpartyName: "Handwerker GmbH" }, mitBamberg), null);
     assert.equal(objektZurMietzahlung({ direction: "CREDIT", purpose: "Miete Sankt Michael 27", counterpartyName: "Mieter" }, objekte), null);
   });
 

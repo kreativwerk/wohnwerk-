@@ -49,7 +49,12 @@ export function objektZurMietzahlung(
 ): ObjektKurz | null {
   if (tx.direction !== "DEBIT") return null;
   const zweck = tx.purpose ?? "";
-  if (!/miete/i.test(zweck)) return null;
+  // Kaution an den Vermieter ist keine Ausgabe, sondern eine Forderung - kein Eigenbeleg.
+  if (/kaution/i.test(zweck)) return null;
+  // "Miete", "Mietzahlung" - oder der Empfaenger ist als Vermieter eines Objekts bekannt.
+  const empfaenger = adressSchluessel(tx.counterpartyName);
+  const bekannterVermieter = empfaenger.length >= 5 && objekte.some((o) => adressSchluessel(o.ownerName) === empfaenger);
+  if (!/miet/i.test(zweck) && !bekannterVermieter) return null;
   const text = adressSchluessel(`${zweck} ${tx.counterpartyName ?? ""}`);
   const treffer = objekte.filter((o) => {
     const strasse = adressSchluessel(o.street);
