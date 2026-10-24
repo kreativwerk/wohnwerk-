@@ -18,7 +18,7 @@ import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
 import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
-import { adressSchluessel, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
+import { adressSchluessel, istKautionsRueckzahlung, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -978,6 +978,15 @@ async function main() {
     assert.equal(objektZurMietzahlung({ direction: "DEBIT", purpose: "Christian Kalb Dr. Martinet Str. 3, Gaustadt, EG links.", counterpartyName: "Christian Kalb" }, mitBamberg)?.id, "bam");
     assert.equal(objektZurMietzahlung({ direction: "DEBIT", purpose: "Dr. Martinet Str. 3 Reparatur", counterpartyName: "Handwerker GmbH" }, mitBamberg), null);
     assert.equal(objektZurMietzahlung({ direction: "CREDIT", purpose: "Miete Sankt Michael 27", counterpartyName: "Mieter" }, objekte), null);
+  });
+
+  await test("Eigenbeleg: Kautionsrückzahlungen werden erkannt, Kaution an Vermieter nicht", () => {
+    const d = (purpose: string) => istKautionsRueckzahlung({ direction: "DEBIT", purpose });
+    assert.ok(d("Rueckzahlung Kaution"));
+    assert.ok(d("Ardi Syla Kaution Rueckzahlung"));
+    assert.ok(d("Manuel Shuli Rückzahlung Kaution"));
+    assert.ok(!d("Alexander Rizzelli Kaution St. Michael 27 Erlangen"));
+    assert.ok(!istKautionsRueckzahlung({ direction: "CREDIT", purpose: "Rueckzahlung Kaution" }));
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

@@ -64,3 +64,11 @@ export function objektZurMietzahlung(
   return treffer.length === 1 ? treffer[0] : null;
 }
 
+
+/** "Rueckzahlung Kaution", "Kaution Rückzahlung", "Kaution zurück" - Ausgang an einen Mieter. */
+export function istKautionsRueckzahlung(tx: { direction: string; purpose: string | null }): boolean {
+  if (tx.direction !== "DEBIT") return false;
+  const zweck = (tx.purpose ?? "").toLowerCase();
+  if (!/kaution|kaucion|deposit/.test(zweck)) return false;
+  return /r(ue|ü|u)ckzahl|zur(ue|ü|u)ck|erstatt|refund|kthim/.test(zweck);
+}
