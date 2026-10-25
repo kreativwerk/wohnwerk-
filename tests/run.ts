@@ -13,7 +13,7 @@ import { parseCsv, parseMt940, parseCamt053, parseStatement, parsePdfText, dedup
 import { contrastRatio, readTokens } from "../src/lib/contrast";
 import { besterTreffer, nameAusTitel, namensAehnlichkeit } from "../src/lib/namen";
 import { kontextText, liegtSeitTagen, naechsterStatus, sortiereTickets } from "../src/lib/tickets";
-import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
+import { KAUTION_SPRACHEN, kautionText, kautionsSaldo, MAHN_SPRACHEN, ZAHLTAG, ibanLesbar, istMahnSprache, mahnungAlbanisch, mahnungText, fristInEinerWoche, rueckstandAlbanisch, rueckstandText, verwendungszweckGesamt, whatsappLink, whatsappNummer } from "../src/lib/mahnung";
 import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil";
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
@@ -726,6 +726,24 @@ async function main() {
       assert.ok(text.includes(summe[sprache]), `${sprache}: Summe ${summe[sprache]}`);
       assert.ok(text.includes("Miete August 2026, September 2026 + Kaution"), `${sprache}: Zweck`);
       assert.ok(!text.includes("IBAN"), `${sprache}: ohne IBAN kein Bankblock`);
+    }
+  });
+
+  await test("Letzte Mahnung: Frist eine Woche, Hinweis auf den Anwalt, kein Vorschuss", () => {
+    const frist = fristInEinerWoche(new Date(Date.UTC(2026, 9, 28, 15)));
+    assert.equal(frist.toISOString().slice(0, 10), "2026-11-04");
+    const posten = [{ art: "RENT" as const, jahr: 2026, monat: 10, offenCents: 47000 }];
+    const datum: Record<string, string> = { sq: "04.11.2026", bg: "04.11.2026 г.", ro: "04.11.2026", hu: "2026. 11. 04.", en: "04/11/2026" };
+    const anwalt: Record<string, string> = { sq: "avokat", bg: "адвокат", ro: "avocat", hu: "ügyvéd", en: "lawyer" };
+    for (const sprache of MAHN_SPRACHEN) {
+      const normal = rueckstandText(sprache, { vorname: "Arben", posten, kontoinhaber: "Wohnwerk", iban: "DE00" });
+      const text = rueckstandText(sprache, { vorname: "Arben", posten, kontoinhaber: "Wohnwerk", iban: "DE00", stufe: "anwalt", frist });
+      assert.ok(text.includes(datum[sprache]), `${sprache}: Frist ${datum[sprache]}`);
+      assert.ok(text.includes(anwalt[sprache]), `${sprache}: Anwalt`);
+      assert.ok(!normal.includes(anwalt[sprache]), `${sprache}: Erinnerung ohne Anwalt`);
+      assert.ok(text.includes("Miete Oktober 2026"), `${sprache}: Zweck`);
+      assert.ok(text.trimEnd().endsWith("Wohnwerk"), `${sprache}: Absender`);
+      assert.ok(!text.includes("undefined"), `${sprache}: kein undefined`);
     }
   });
 

@@ -10,7 +10,7 @@ import { ensureRentCharges, guthabenJeMieter } from "@/lib/accounting";
 import { getSessionUser, isAdmin } from "@/lib/auth";
 import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
-import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
+import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, fristInEinerWoche, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 import { qontoAbgleich, qontoStatus, qontoVeraltet } from "@/lib/qonto";
 
@@ -49,12 +49,15 @@ function verschiebe(year: number, month: number, um: number): { year: number; mo
 export default async function RentIncomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; fehler?: string; monat?: string }>;
+  searchParams: Promise<{ ok?: string; fehler?: string; monat?: string; nur?: string }>;
 }) {
   const { t, datum, datumZeit, monat, geld } = await oberflaeche();
   const params = await searchParams;
   const { year, month } = parseMonat(params.monat);
-  const seite = (jahr: number, mon: number) => `/buchhaltung/mieteingaenge?monat=${monatsWert(jahr, mon)}`;
+  // "Nur offene": bleibt beim Blaettern durch die Monate und nach dem Abhaken erhalten.
+  const nurOffen = params.nur === "offen";
+  const seite = (jahr: number, mon: number, offenFilter = nurOffen) =>
+    `/buchhaltung/mieteingaenge?monat=${monatsWert(jahr, mon)}${offenFilter ? "&nur=offen" : ""}`;
   const back = seite(year, month);
 
   const zurueck = verschiebe(year, month, -1);
@@ -145,17 +148,20 @@ export default async function RentIncomePage({
   const letzteNachrichten = tenantIds.length === 0
     ? []
     : await prisma.reminderLog.findMany({
-        where: { tenantId: { in: tenantIds }, kind: "RUECKSTAND" },
+        where: { tenantId: { in: tenantIds }, kind: { in: ["RUECKSTAND", "MAHNUNG"] } },
         orderBy: { sentAt: "desc" },
         distinct: ["tenantId"],
-        select: { tenantId: true, sentAt: true, language: true, channel: true },
+        select: { tenantId: true, sentAt: true, language: true, channel: true, kind: true },
       });
   const zuletztGesendet = new Map(
     letzteNachrichten.map((n) => [
       n.tenantId,
-      `${datumZeit(n.sentAt)} (${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
+      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
     ]),
   );
+  // Letzte Mahnung: immer eine Woche Frist ab heute.
+  const mahnFrist = fristInEinerWoche();
+  const mahnFristText = `${String(mahnFrist.getUTCDate()).padStart(2, "0")}.${String(mahnFrist.getUTCMonth() + 1).padStart(2, "0")}.${mahnFrist.getUTCFullYear()}`;
 
   charges.sort((a, b) => {
     const pa = a.tenancy.bed.room.property.name;
@@ -185,9 +191,12 @@ export default async function RentIncomePage({
   const offen = sollGesamt - eingegangen;
   const bezahltAnzahl = relevante.filter((c) => c.status === "PAID").length;
 
+  const offeneCharges = charges.filter((c) => c.status === "OPEN" || c.status === "PARTIAL");
+  const angezeigt = nurOffen ? offeneCharges : charges;
+
   // Nach Objekt gruppieren
   const gruppen = new Map<string, { name: string; charges: typeof charges }>();
-  for (const charge of charges) {
+  for (const charge of angezeigt) {
     const property = charge.tenancy.bed.room.property;
     const gruppe = gruppen.get(property.id) ?? { name: property.name, charges: [] };
     gruppe.charges.push(charge);
@@ -358,8 +367,36 @@ export default async function RentIncomePage({
         <StatCard label={t("Soll gesamt")} value={geld(sollGesamt)} />
       </div>
 
-      <ListenFilter placeholder={t("Mieter, Zimmer, Objekt …")} zeilen="tbody tr" gruppen=".card" className="mt-6">
-      {charges.length === 0 ? (
+      {charges.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label={t("Anzeige")}>
+          <Link
+            href={seite(year, month, false)}
+            aria-current={!nurOffen ? "page" : undefined}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${!nurOffen ? "bg-brand-900 text-white" : "bg-white text-ink-700 ring-1 ring-ink-200 hover:bg-ink-50"}`}
+          >
+            {t("Alle")} ({charges.length})
+          </Link>
+          <Link
+            href={seite(year, month, true)}
+            aria-current={nurOffen ? "page" : undefined}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${nurOffen ? "bg-brand-900 text-white" : "bg-white text-ink-700 ring-1 ring-ink-200 hover:bg-ink-50"}`}
+          >
+            {t("Nur offene")} ({offeneCharges.length})
+          </Link>
+        </div>
+      )}
+
+      <ListenFilter placeholder={t("Mieter, Zimmer, Objekt …")} zeilen="tbody tr" gruppen=".card" className="mt-4">
+      {nurOffen && charges.length > 0 && offeneCharges.length === 0 ? (
+        <div className="mt-6">
+          <Card>
+            <EmptyState
+              title={t("Alles abgehakt")}
+              description={t("Für {monat} sind alle Mieten und Kautionen bezahlt.", { monat: monat(year, month) })}
+            />
+          </Card>
+        </div>
+      ) : charges.length === 0 ? (
         <div className="mt-6">
           <Card>
             <EmptyState
@@ -519,6 +556,23 @@ export default async function RentIncomePage({
                                     whatsapp: whatsappLink(charge.tenancy.tenant.phone, text),
                                   };
                                 });
+                                const mahnung = MAHN_SPRACHEN.map((code) => {
+                                  const text = rueckstandText(code, {
+                                    vorname: charge.tenancy.tenant.firstName,
+                                    posten,
+                                    kontoinhaber: einstellungen.bankAccountHolder,
+                                    iban: einstellungen.bankIban,
+                                    bank: einstellungen.bankName,
+                                    stufe: "anwalt",
+                                    frist: mahnFrist,
+                                  });
+                                  return {
+                                    code,
+                                    sprache: MAHN_SPRACHE_NAME[code],
+                                    text,
+                                    whatsapp: whatsappLink(charge.tenancy.tenant.phone, text),
+                                  };
+                                });
                                 return (
                                   <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
                                     {posten.length > 1 && (
@@ -534,6 +588,8 @@ export default async function RentIncomePage({
                                       varianten={varianten}
                                       telefonFehlt={`/mieter/${charge.tenancy.tenantId}`}
                                       zuletzt={zuletztGesendet.get(charge.tenancy.tenantId) ?? null}
+                                      mahnung={mahnung}
+                                      mahnungFrist={mahnFristText}
                                     />
                                   </div>
                                 );

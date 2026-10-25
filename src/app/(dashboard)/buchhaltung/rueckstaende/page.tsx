@@ -9,7 +9,7 @@ import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } f
 import { prisma } from "@/lib/db";
 import { guthabenJeMieter } from "@/lib/accounting";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
-import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
+import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, fristInEinerWoche, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
@@ -92,17 +92,20 @@ export default async function RueckstaendePage({
   const letzteNachrichten = tenantIds.length === 0
     ? []
     : await prisma.reminderLog.findMany({
-        where: { tenantId: { in: tenantIds }, kind: "RUECKSTAND" },
+        where: { tenantId: { in: tenantIds }, kind: { in: ["RUECKSTAND", "MAHNUNG"] } },
         orderBy: { sentAt: "desc" },
         distinct: ["tenantId"],
-        select: { tenantId: true, sentAt: true, language: true, channel: true },
+        select: { tenantId: true, sentAt: true, language: true, channel: true, kind: true },
       });
   const zuletztGesendet = new Map(
     letzteNachrichten.map((n) => [
       n.tenantId,
-      `${datumZeit(n.sentAt)} (${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
+      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
     ]),
   );
+  // Letzte Mahnung: immer eine Woche Frist ab heute.
+  const mahnFrist = fristInEinerWoche();
+  const mahnFristText = `${String(mahnFrist.getUTCDate()).padStart(2, "0")}.${String(mahnFrist.getUTCMonth() + 1).padStart(2, "0")}.${mahnFrist.getUTCFullYear()}`;
 
   return (
     <>
@@ -166,6 +169,18 @@ export default async function RueckstaendePage({
                 });
                 return { code, sprache: MAHN_SPRACHE_NAME[code], text, whatsapp: whatsappLink(tenant.phone, text) };
               });
+              const mahnung = MAHN_SPRACHEN.map((code) => {
+                const text = rueckstandText(code, {
+                  vorname: tenant.firstName,
+                  posten: nachrichtPosten,
+                  kontoinhaber: einstellungen.bankAccountHolder,
+                  iban: einstellungen.bankIban,
+                  bank: einstellungen.bankName,
+                  stufe: "anwalt",
+                  frist: mahnFrist,
+                });
+                return { code, sprache: MAHN_SPRACHE_NAME[code], text, whatsapp: whatsappLink(tenant.phone, text) };
+              });
               return (
                 <Card
                   key={tenant.id}
@@ -188,6 +203,8 @@ export default async function RueckstaendePage({
                           varianten={varianten}
                           telefonFehlt={`/mieter/${tenant.id}`}
                           zuletzt={zuletztGesendet.get(tenant.id) ?? null}
+                          mahnung={mahnung}
+                          mahnungFrist={mahnFristText}
                         />
                       </AdminOnly>
                     </>

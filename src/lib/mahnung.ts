@@ -63,7 +63,16 @@ export type RueckstandAngaben = {
   kontoinhaber: string;
   iban: string;
   bank?: string | null;
+  /** "erinnerung" (Vorgabe) oder "anwalt": letzte Mahnung mit Frist und Hinweis auf den Anwalt. */
+  stufe?: "erinnerung" | "anwalt";
+  /** Zahlungsfrist der letzten Mahnung - ueblich: heute plus eine Woche. */
+  frist?: Date;
 };
+
+/** Heute plus sieben Tage, als Kalendertag. */
+export function fristInEinerWoche(heute = new Date()): Date {
+  return new Date(Date.UTC(heute.getUTCFullYear(), heute.getUTCMonth(), heute.getUTCDate() + 7));
+}
 
 /**
  * Der Verwendungszweck steht auf dem deutschen Kontoauszug - deshalb
@@ -162,7 +171,16 @@ type Sprachpaket = {
   /** Wer neu ist und noch nicht genug verdient hat, soll den Arbeitgeber um Vorschuss bitten - steht unten in jeder Nachricht. */
   vorschuss: string;
   dank: string;
+  /** Letzte Mahnung: Ueberschrift, Frist mit Datum, Hinweis auf den Anwalt. */
+  anwaltTitel: string;
+  anwaltFrist: (datum: string) => string;
+  anwaltHinweis: string;
+  /** Datum in der gewohnten Schreibweise der Sprache. */
+  datum: (d: Date) => string;
 };
+
+const tt = (d: Date) => String(d.getUTCDate()).padStart(2, "0");
+const mm = (d: Date) => String(d.getUTCMonth() + 1).padStart(2, "0");
 
 const PAKETE: Record<MahnSprache, Sprachpaket> = {
   sq: {
@@ -184,6 +202,10 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     zweck: "Qëllimi i pagesës:",
     vorschuss: "Nëse jeni të rinj dhe ende nuk keni fituar para të mjaftueshme, mund të kërkoni një paradhënie nga firma juaj.",
     dank: "Faleminderit!",
+    anwaltTitel: "KËRKESË E FUNDIT PËR PAGESË",
+    anwaltFrist: (d) => `Ju lutemi paguani shumën e plotë më së voni deri më ${d}.`,
+    anwaltHinweis: "Nëse pagesa nuk arrin brenda këtij afati, çështja do t'i dorëzohet avokatit tonë. Kostot shtesë do të jenë në ngarkesën tuaj.",
+    datum: (d) => `${tt(d)}.${mm(d)}.${d.getUTCFullYear()}`,
   },
   bg: {
     locale: "bg",
@@ -204,6 +226,10 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     zweck: "Основание за плащане:",
     vorschuss: "Ако сте нови и още не сте изкарали достатъчно пари, можете да поискате аванс от вашата фирма.",
     dank: "Благодарим!",
+    anwaltTitel: "ПОСЛЕДНО ИСКАНЕ ЗА ПЛАЩАНЕ",
+    anwaltFrist: (d) => `Моля, платете цялата сума най-късно до ${d}.`,
+    anwaltHinweis: "Ако плащането не постъпи в този срок, случаят ще бъде предаден на нашия адвокат. Допълнителните разходи ще бъдат за ваша сметка.",
+    datum: (d) => `${tt(d)}.${mm(d)}.${d.getUTCFullYear()} г.`,
   },
   ro: {
     locale: "ro",
@@ -224,6 +250,10 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     zweck: "Detalii plată:",
     vorschuss: "Dacă sunteți noi și încă nu ați câștigat destui bani, puteți cere un avans de la firma dumneavoastră.",
     dank: "Mulțumim!",
+    anwaltTitel: "ULTIMA SOMAȚIE DE PLATĂ",
+    anwaltFrist: (d) => `Vă rugăm să plătiți întreaga sumă cel târziu până la ${d}.`,
+    anwaltHinweis: "Dacă plata nu sosește în acest termen, cazul va fi predat avocatului nostru. Costurile suplimentare vor fi suportate de dumneavoastră.",
+    datum: (d) => `${tt(d)}.${mm(d)}.${d.getUTCFullYear()}`,
   },
   hu: {
     locale: "hu",
@@ -246,6 +276,10 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     zweck: "Közlemény:",
     vorschuss: "Ha új és még nem keresett elég pénzt, kérhet előleget a cégétől.",
     dank: "Köszönjük!",
+    anwaltTitel: "UTOLSÓ FIZETÉSI FELSZÓLÍTÁS",
+    anwaltFrist: (d) => `Kérjük, a teljes összeget legkésőbb ${d}-ig fizesse be.`,
+    anwaltHinweis: "Ha a fizetés eddig a határidőig nem érkezik meg, az ügyet átadjuk ügyvédünknek. A további költségek Önt terhelik.",
+    datum: (d) => `${d.getUTCFullYear()}. ${mm(d)}. ${tt(d)}.`,
   },
   en: {
     locale: "en-GB",
@@ -266,6 +300,10 @@ const PAKETE: Record<MahnSprache, Sprachpaket> = {
     zweck: "Payment reference:",
     vorschuss: "If you are new and have not earned enough money yet, you can ask your company for an advance.",
     dank: "Thank you!",
+    anwaltTitel: "FINAL PAYMENT REMINDER",
+    anwaltFrist: (d) => `Please pay the full amount by ${d} at the latest.`,
+    anwaltHinweis: "If payment is not received by this deadline, the matter will be handed over to our lawyer. Any additional costs will be charged to you.",
+    datum: (d) => `${tt(d)}/${mm(d)}/${d.getUTCFullYear()}`,
   },
 };
 
@@ -345,13 +383,31 @@ export function rueckstandText(sprache: MahnSprache, a: RueckstandAngaben): stri
   const posten = sortierePosten(a.posten).filter((x) => x.offenCents > 0);
   const summe = posten.reduce((sum, x) => sum + x.offenCents, 0);
 
-  const zeilen = [p.anrede(a.vorname.trim()), "", p.gesamtEinleitung];
+  const anwalt = a.stufe === "anwalt";
+  const zeilen = anwalt
+    ? [p.anrede(a.vorname.trim()), "", p.anwaltTitel, "", p.gesamtEinleitung]
+    : [p.anrede(a.vorname.trim()), "", p.gesamtEinleitung];
   for (const x of posten) {
     zeilen.push(
       x.art === "DEPOSIT"
         ? p.gesamtKaution(betrag(sprache, x.offenCents))
         : p.gesamtMiete(p.monatJahr(monatsname(sprache, x.monat), x.jahr), betrag(sprache, x.offenCents)),
     );
+  }
+  if (anwalt) {
+    zeilen.push(
+      "",
+      p.gesamtSumme(betrag(sprache, summe)),
+      "",
+      p.anwaltFrist(p.datum(a.frist ?? fristInEinerWoche())),
+      p.anwaltHinweis,
+      ...bankblock(p, a.kontoinhaber, a.iban, a.bank),
+      "",
+      `${p.zweck} ${verwendungszweckGesamt(posten)}`,
+      "",
+      "Wohnwerk",
+    );
+    return zeilen.join("\n");
   }
   zeilen.push(
     "",

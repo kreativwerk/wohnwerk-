@@ -36,6 +36,8 @@ export function NachrichtDialog({
   art = "RUECKSTAND",
   knopf,
   untertitel,
+  mahnung,
+  mahnungFrist,
 }: {
   tenantId: string;
   name: string;
@@ -52,6 +54,10 @@ export function NachrichtDialog({
   knopf?: string;
   /** Zeile unter der Ueberschrift, schon uebersetzt. */
   untertitel?: string;
+  /** Letzte Mahnung mit Frist und Hinweis auf den Anwalt - zweite Auswahl neben der Erinnerung. */
+  mahnung?: NachrichtVariante[];
+  /** Frist der letzten Mahnung, fertig formatiert. */
+  mahnungFrist?: string;
 }) {
   const { t, datumZeit } = useOberflaeche();
   const router = useRouter();
@@ -60,6 +66,7 @@ export function NachrichtDialog({
   const [gewaehlt, setGewaehlt] = useState(varianten[0]?.code ?? "");
   const [kopiert, setKopiert] = useState<string | null>(null);
   const [manuell, setManuell] = useState(false);
+  const [stufe, setStufe] = useState<"erinnerung" | "anwalt">("erinnerung");
 
   useEffect(() => {
     if (!offen) return;
@@ -81,13 +88,17 @@ export function NachrichtDialog({
     return () => clearTimeout(timer);
   }, [kopiert]);
 
-  const aktuell = varianten.find((v) => v.code === gewaehlt) ?? varianten[0];
+  const anwalt = stufe === "anwalt" && Boolean(mahnung?.length);
+  const liste = anwalt && mahnung ? mahnung : varianten;
+  const aktuell = liste.find((v) => v.code === gewaehlt) ?? liste[0];
 
   /** Versand festhalten - die Zeile zeigt danach "Nachricht gesendet am ...". */
   async function vermerken(v: NachrichtVariante, kanal: "WHATSAPP" | "COPY") {
     try {
-      const { sentAt } = await vermerkeNachricht({ tenantId, kanal, sprache: v.code, betragCents: gesamtCents, art });
-      setGesendet(`${datumZeit(new Date(sentAt))} (${t(v.sprache)}, ${kanal === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`);
+      const vermerkArt = anwalt ? "MAHNUNG" : art;
+      const { sentAt } = await vermerkeNachricht({ tenantId, kanal, sprache: v.code, betragCents: gesamtCents, art: vermerkArt });
+      const wie = `${t(v.sprache)}, ${kanal === "WHATSAPP" ? "WhatsApp" : t("kopiert")}`;
+      setGesendet(`${datumZeit(new Date(sentAt))} (${vermerkArt === "MAHNUNG" ? `${t("Letzte Mahnung")}, ${wie}` : wie})`);
       router.refresh();
     } catch {
       // Der Vermerk ist Komfort - scheitert er, bleibt die Nachricht trotzdem kopiert.
@@ -162,9 +173,49 @@ export function NachrichtDialog({
               </button>
             </div>
 
+            {/* Erinnerung oder letzte Mahnung mit Anwalt-Hinweis. */}
+            {mahnung && mahnung.length > 0 && (
+              <div className="mb-3">
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-ink-200 bg-ink-100 p-1" role="tablist" aria-label={t("Art der Nachricht")}>
+                  {(["erinnerung", "anwalt"] as const).map((s) => {
+                    const aktiv = stufe === s;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="tab"
+                        aria-selected={aktiv}
+                        onClick={() => {
+                          setStufe(s);
+                          setKopiert(null);
+                          setManuell(false);
+                        }}
+                        className={`rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${
+                          aktiv
+                            ? s === "anwalt"
+                              ? "bg-red-600 text-white shadow-sm"
+                              : "bg-brand-700 text-white shadow-sm"
+                            : "bg-transparent text-ink-700 hover:bg-white/60 hover:text-ink-900"
+                        }`}
+                      >
+                        {s === "anwalt" ? t("Letzte Mahnung (Anwalt)") : t("Erinnerung")}
+                      </button>
+                    );
+                  })}
+                </div>
+                {anwalt && (
+                  <p className="mt-1.5 text-xs leading-relaxed text-red-700">
+                    {mahnungFrist
+                      ? t("Frist bis {datum} (eine Woche) – sonst geht es an den Anwalt.", { datum: mahnungFrist })
+                      : t("Frist von einer Woche – sonst geht es an den Anwalt.")}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Je Sprache eine Zeile: Name, Kopieren, WhatsApp. */}
             <ul className="divide-y divide-ink-200/70 rounded-xl border border-ink-200/70">
-              {varianten.map((v) => {
+              {liste.map((v) => {
                 const aktiv = v.code === aktuell?.code;
                 return (
                   <li key={v.code} className={`flex flex-wrap items-center gap-2 px-3 py-2 ${aktiv ? "bg-brand-50/60" : ""}`}>
@@ -197,7 +248,7 @@ export function NachrichtDialog({
               })}
             </ul>
 
-            {!varianten.some((v) => v.whatsapp) && telefonFehlt && (
+            {!liste.some((v) => v.whatsapp) && telefonFehlt && (
               <p className="mt-2 text-xs text-ink-500">
                 {t("Kein WhatsApp-Link: Es ist keine Telefonnummer hinterlegt.")}{" "}
                 <a href={telefonFehlt} className="font-semibold text-brand-700 hover:underline">
