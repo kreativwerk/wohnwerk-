@@ -374,7 +374,7 @@ export default async function SettingsPage({
         <Card
           id="postfach"
           className="scroll-mt-4"
-          title={t("Postfach (E-Mail)")}
+          title={t("E-Mail Postfach")}
           description={t("Holt E-Mails aus eurem Postfach in die App: Rechnungen werden automatisch als Beleg abgelegt und der Abbuchung zugeordnet, Kündigungen von Mietern landen beim Mieter. Gesendet wird von eurer eigenen Adresse. Die App liest nur – sie löscht und verschiebt im Postfach nichts.")}
           actions={
             postfach.eingerichtet ? (

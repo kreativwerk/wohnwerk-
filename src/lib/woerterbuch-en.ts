@@ -1401,4 +1401,5 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "✓ Erledigt": "✓ Done",
   "Das Postfach lehnt die Anmeldung ab. Bitte E-Mail-Adresse und Passwort prüfen.": "The mailbox rejects the login. Please check email address and password.",
   "Kein Postfach eingerichtet.": "No mailbox set up.",
+  "E-Mail Postfach": "Email mailbox",
 };

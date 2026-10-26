@@ -46,7 +46,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
       { href: "/mieter", label: "Mieter", icon: User },
       { href: "/vertraege", label: "Mietverträge", icon: PencilSimpleLine },
       { href: "/tickets", label: "Tickets", icon: Wrench },
-      { href: "/postfach", label: "Postfach", icon: EnvelopeSimple },
+      { href: "/postfach", label: "E-Mail Postfach", icon: EnvelopeSimple },
     ],
   },
   {

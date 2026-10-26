@@ -99,7 +99,7 @@ export default async function EmailPage({
     <>
       <PageHeader
         title={n.betreff}
-        breadcrumb={[{ label: t("Postfach"), href: "/postfach" }, { label: n.richtung === "AUS" ? t("Gesendet") : t("E-Mail") }]}
+        breadcrumb={[{ label: t("E-Mail Postfach"), href: "/postfach" }, { label: n.richtung === "AUS" ? t("Gesendet") : t("E-Mail") }]}
         actions={
           <AdminOnly>
             {n.richtung === "EIN" && (

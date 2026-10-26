@@ -14,7 +14,7 @@ import { vorschau } from "@/lib/postfach-regeln";
 
 export async function generateMetadata() {
   const t = await uebersetzer();
-  return { title: t("Postfach") };
+  return { title: t("E-Mail Postfach") };
 }
 export const dynamic = "force-dynamic";
 // Beim Oeffnen wird das Postfach abgeholt, wenn es laenger her ist.
@@ -109,7 +109,7 @@ export default async function PostfachPage({
   return (
     <>
       <PageHeader
-        title={t("Postfach")}
+        title={t("E-Mail Postfach")}
         description={
           status.eingerichtet
             ? t("{adresse} · Rechnungen werden automatisch als Beleg abgelegt, Kündigungen beim Mieter.", { adresse: status.benutzer ?? "" })

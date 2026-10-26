@@ -31,7 +31,7 @@ export default async function NeueEmailPage({
 
   return (
     <>
-      <PageHeader title={t("Neue E-Mail")} breadcrumb={[{ label: t("Postfach"), href: "/postfach" }, { label: t("Neue E-Mail") }]} />
+      <PageHeader title={t("Neue E-Mail")} breadcrumb={[{ label: t("E-Mail Postfach"), href: "/postfach" }, { label: t("Neue E-Mail") }]} />
       <Flash ok={params.ok} fehler={params.fehler} />
       {!status.eingerichtet ? (
         <Card>
