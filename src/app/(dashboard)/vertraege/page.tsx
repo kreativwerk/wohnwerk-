@@ -39,7 +39,7 @@ export default async function ContractsPage({
   const status = params.status ?? "";
   const heute = new Date();
 
-  const [contracts, counts, ohneVertrag, ehemalige, inAblage, laufendeMietverhaeltnisse] =
+  const [contracts, counts, ohneVertrag, ehemalige, inAblage, laufendeMietverhaeltnisse, laufendUnterschrieben] =
     await Promise.all([
     prisma.contract.findMany({
       where: status ? { status } : {},
@@ -93,6 +93,16 @@ export default async function ContractsPage({
         OR: [{ endDate: null }, { endDate: { gte: heute } }],
       },
     }),
+    // Als hinterlegt zaehlt nur, was der Mieter unterschrieben hat - ein
+    // versendeter oder angesehener Vertrag ist noch kein Vertrag.
+    prisma.tenancy.count({
+      where: {
+        tenant: { status: { not: "EHEMALIG" } },
+        status: { not: "ENDED" },
+        OR: [{ endDate: null }, { endDate: { gte: heute } }],
+        contract: { status: "SIGNED" },
+      },
+    }),
   ]);
 
   const istAktiv = (tenancy: (typeof ohneVertrag)[number]) =>
@@ -104,7 +114,8 @@ export default async function ContractsPage({
 
   // Der eigentliche Abgleich: zu jedem laufenden Mietverhältnis gehört ein
   // Vertrag. Was hier fehlt, steht unten namentlich in der Liste.
-  const mitVertrag = Math.max(0, laufendeMietverhaeltnisse - aktiveOhneVertrag);
+  const mitVertrag = laufendUnterschrieben;
+  const ohneUnterschrift = Math.max(0, laufendeMietverhaeltnisse - laufendUnterschrieben);
 
   /** Der hinterlegte Scan bzw. das erzeugte PDF eines Vertrags. */
   const vertragsPdf = (contract: (typeof contracts)[number]) =>
@@ -133,15 +144,24 @@ export default async function ContractsPage({
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label={t("Laufende Mietverhältnisse")} value={String(laufendeMietverhaeltnisse)} />
         <StatCard
-          label={t("Vertrag hinterlegt")}
+          label={t("Unterschrieben hinterlegt")}
           value={t("{mit} von {gesamt}", { mit: mitVertrag, gesamt: laufendeMietverhaeltnisse })}
-          tone={aktiveOhneVertrag === 0 ? "success" : "neutral"}
+          tone={ohneUnterschrift === 0 ? "success" : "neutral"}
+          hint={t("nur vom Mieter unterschriebene Verträge")}
         />
         <StatCard
-          label={t("Vertrag fehlt")}
-          value={String(aktiveOhneVertrag)}
-          tone={aktiveOhneVertrag > 0 ? "danger" : "success"}
-          hint={aktiveOhneVertrag > 0 ? t("namentlich in der Liste unten") : t("alle vollständig")}
+          label={t("Unterschrift fehlt")}
+          value={String(ohneUnterschrift)}
+          tone={ohneUnterschrift > 0 ? "danger" : "success"}
+          href={ohneUnterschrift > aktiveOhneVertrag ? "/vertraege?status=SENT" : undefined}
+          hint={
+            ohneUnterschrift > 0
+              ? t("{ohne} ohne Vertrag, {offen} versendet, aber nicht unterschrieben", {
+                  ohne: aktiveOhneVertrag,
+                  offen: ohneUnterschrift - aktiveOhneVertrag,
+                })
+              : t("alle vollständig")
+          }
         />
         <StatCard
           label={t("In der Ablage")}

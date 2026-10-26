@@ -195,12 +195,16 @@ export default async function TenantsPage({
                     <Td>
                       {!current ? (
                         <span className="text-ink-500">–</span>
-                      ) : current.contract ? (
+                      ) : current.contract?.status === "SIGNED" ? (
                         <Link
                           href={`/vertraege/${current.contract.id}`}
                           className="text-brand-700 hover:underline"
                         >
-                          {t("vorhanden")}
+                          {t("unterschrieben")}
+                        </Link>
+                      ) : current.contract ? (
+                        <Link href={`/vertraege/${current.contract.id}`}>
+                          <Badge tone="warning">{t("nicht unterschrieben")}</Badge>
                         </Link>
                       ) : (
                         <Badge tone="danger">{t("Vertrag fehlt")}</Badge>

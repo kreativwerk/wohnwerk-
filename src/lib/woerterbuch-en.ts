@@ -1403,4 +1403,10 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Kein Postfach eingerichtet.": "No mailbox set up.",
   "E-Mail Postfach": "Email mailbox",
   "Letzter Verbindungstest ({zeitpunkt}, {adresse}) fehlgeschlagen: {fehler}": "Last connection test ({zeitpunkt}, {adresse}) failed: {fehler}",
+  "Unterschrieben hinterlegt": "Signed on file",
+  "Unterschrift fehlt": "Signature missing",
+  "nicht unterschrieben": "not signed",
+  "nur vom Mieter unterschriebene Verträge": "only contracts signed by the tenant",
+  "unterschrieben": "signed",
+  "{ohne} ohne Vertrag, {offen} versendet, aber nicht unterschrieben": "{ohne} without contract, {offen} sent but not signed",
 };
