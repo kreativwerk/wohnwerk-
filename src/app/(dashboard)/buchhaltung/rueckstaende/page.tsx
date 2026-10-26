@@ -9,6 +9,7 @@ import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } f
 import { prisma } from "@/lib/db";
 import { guthabenJeMieter } from "@/lib/accounting";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
+import { postfachStatus } from "@/lib/postfach";
 import { MAHN_SPRACHEN, MAHN_SPRACHE_NAME, fristInEinerWoche, rueckstandText, whatsappLink, type OffenerPosten } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 
@@ -34,6 +35,7 @@ export default async function RueckstaendePage({
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
   const { t, datum, datumZeit, monat, geld } = await oberflaeche();
+  const postfachBereit = (await postfachStatus()).eingerichtet;
   const params = await searchParams;
   const back = "/buchhaltung/rueckstaende";
   const einstellungen = await getSettings();
@@ -57,7 +59,7 @@ export default async function RueckstaendePage({
       allocations: { select: { amountCents: true } },
       tenancy: {
         include: {
-          tenant: { select: { id: true, firstName: true, lastName: true, phone: true, status: true } },
+          tenant: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true } },
           bed: { include: { room: { include: { property: { select: { id: true, name: true } } } } } },
         },
       },
@@ -100,7 +102,7 @@ export default async function RueckstaendePage({
   const zuletztGesendet = new Map(
     letzteNachrichten.map((n) => [
       n.tenantId,
-      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
+      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : n.channel === "EMAIL" ? "E-Mail" : t("kopiert")})`,
     ]),
   );
   // Letzte Mahnung: immer eine Woche Frist ab heute.
@@ -202,6 +204,8 @@ export default async function RueckstaendePage({
                           gesamtCents={summe}
                           varianten={varianten}
                           telefonFehlt={`/mieter/${tenant.id}`}
+                          email={tenant.email}
+                          emailMoeglich={postfachBereit}
                           zuletzt={zuletztGesendet.get(tenant.id) ?? null}
                           mahnung={mahnung}
                           mahnungFrist={mahnFristText}

@@ -7,7 +7,7 @@ import { formatDate } from "./dates";
 import { formatCents } from "./money";
 import { getSettings } from "./settings";
 import { monateAusText } from "./zuordnung";
-import { gebuehrArt, istKautionsRueckzahlung, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
+import { bankAbschlussArt, bankAbschlussKopf, bankAbschlussPosten, gebuehrArt, istAbschlussSteuer, istBankAbschluss, istKautionsRueckzahlung, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
 import { mieterPasst } from "./zuordnung";
 
 export { adressSchluessel, gebuehrArt, istKautionsRueckzahlung, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
@@ -36,7 +36,8 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   if (!tx) return null;
 
   const gebuehr = istQontoGebuehr(tx);
-  const kaution = !gebuehr && istKautionsRueckzahlung(tx);
+  const abschluss = !gebuehr && istBankAbschluss(tx);
+  const kaution = !gebuehr && !abschluss && istKautionsRueckzahlung(tx);
   const mietverhaeltnis = kaution && tx.tenantId
     ? await prisma.tenancy.findFirst({
         where: { tenantId: tx.tenantId },
@@ -44,7 +45,7 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
         include: { tenant: true, bed: { include: { room: { include: { property: true } } } } },
       })
     : null;
-  const objekt = !gebuehr && !kaution && tx.propertyId
+  const objekt = !gebuehr && !abschluss && !kaution && tx.propertyId
     ? await prisma.property.findUnique({ where: { id: tx.propertyId }, select: { name: true, street: true, zip: true, city: true, ownerName: true } })
     : null;
   const monate = monateAusText(tx.purpose, tx.bookingDate);
@@ -56,7 +57,9 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   doc.setTitle(
     gebuehr
       ? `Eigenbeleg Qonto-Gebühr ${formatDate(tx.bookingDate)}`
-      : kaution
+      : abschluss
+        ? `Eigenbeleg Kontoabschluss ${tx.bankAccount.name} ${formatDate(tx.bookingDate)}`
+        : kaution
         ? `Eigenbeleg Kautionsrückzahlung ${formatDate(tx.bookingDate)}`
         : `Eigenbeleg Objektmiete ${formatDate(tx.bookingDate)}`,
   );
@@ -76,7 +79,7 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   text("EIGENBELEG", { font: bold, size: 18 });
   y -= 20;
   text(
-    gebuehr ? "Bankgebühr ohne gesonderte Rechnung" : kaution ? "Rückzahlung der Mietkaution an den Mieter" : "Mietzahlung an den Vermieter (Objektmiete)",
+    gebuehr || abschluss ? "Bankgebühr ohne gesonderte Rechnung" : kaution ? "Rückzahlung der Mietkaution an den Mieter" : "Mietzahlung an den Vermieter (Objektmiete)",
     { color: grau },
   );
   y -= 40;
@@ -99,7 +102,18 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
         ["Bezahlt über", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
         ["Buchungstext", (tx.purpose ?? "–").slice(0, 70)],
       ];
-  const zeilen: Array<[string, string]> = kaution ? kautionZeilen : gebuehr
+  const kopf = abschluss ? bankAbschlussKopf(tx.purpose) : null;
+  const abschlussZeilen: Array<[string, string]> = [
+    ["Belegdatum", formatDate(tx.bookingDate)],
+    ["Zahlungsempfänger", `${tx.bankAccount.name} (kontoführende Bank)`],
+    ["Art der Ausgabe", bankAbschlussArt(tx.purpose, tx.bookingDate)],
+    ...(kopf?.zeitraum ? ([["Abrechnungszeitraum", kopf.zeitraum]] as Array<[string, string]>) : []),
+    ...(kopf?.rechnungNr ? ([["Abschluss-Nr. der Bank", kopf.rechnungNr]] as Array<[string, string]>) : []),
+    ["Betrag", formatCents(Math.abs(tx.amountCents))],
+    ["Abgebucht von", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
+    ["Kategorie", "Bankgebühren"],
+  ];
+  const zeilen: Array<[string, string]> = abschluss ? abschlussZeilen : kaution ? kautionZeilen : gebuehr
     ? [
         ["Belegdatum", formatDate(tx.bookingDate)],
         ["Zahlungsempfänger", "Qonto (Kontoanbieter)"],
@@ -125,12 +139,38 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
     y -= 22;
   }
 
+  // Kontoabschluss: die Posten aus dem Buchungstext der Bank.
+  const posten = abschluss && !istAbschlussSteuer(tx.purpose) ? bankAbschlussPosten(tx.purpose) : [];
+  if (posten.length > 0) {
+    y -= 6;
+    text("Posten laut Kontoabschluss", { font: bold, size: 10 });
+    y -= 16;
+    for (const pst of posten) {
+      text(pst.text, { size: 10, x: 72 });
+      page.drawText(winAnsi(formatCents(pst.betragCents)), {
+        x: 470 - regular.widthOfTextAtSize(winAnsi(formatCents(pst.betragCents)), 10),
+        y,
+        size: 10,
+        font: regular,
+        color: rgb(0.1, 0.12, 0.12),
+      });
+      y -= 15;
+    }
+  }
+
   y -= 20;
   for (const zeile of kaution
     ? [
         "Begründung: Rückzahlung der beim Einzug hinterlegten Mietkaution nach dem Auszug.",
         "Die Kaution war eine Sicherheitsleistung des Mieters und keine Einnahme; die",
         "Rückzahlung ist daher keine Ausgabe. Nachweis durch den Kontoauszug.",
+      ]
+    : abschluss
+    ? [
+        "Begründung: Entgelte und Zinsen aus dem monatlichen Kontoabschluss wurden von der",
+        "Bank direkt vom Geschäftskonto abgebucht; die Umsatzsteuer darauf wird gesondert",
+        "abgebucht. Eine Rechnung in Papierform liegt nicht vor; Nachweis durch den",
+        "Kontoauszug (Rechnungsabschluss der Bank). Der Betrag ist betrieblich veranlasst.",
       ]
     : gebuehr
     ? [
@@ -175,7 +215,7 @@ export async function eigenbelegeFuerGebuehren(): Promise<number> {
   const [kandidaten, objekte] = await Promise.all([
     prisma.bankTransaction.findMany({
       where: { direction: "DEBIT", reviewStatus: { not: "IGNORED" }, documents: { none: {} } },
-      select: { id: true, direction: true, counterpartyName: true, bankTxCode: true, purpose: true, bookingDate: true, amountCents: true, propertyId: true, tenantId: true },
+      select: { id: true, direction: true, counterpartyName: true, bankTxCode: true, purpose: true, bookingDate: true, amountCents: true, propertyId: true, tenantId: true, bankAccount: { select: { name: true } } },
     }),
     prisma.property.findMany({ where: { tenure: "ANGEMIETET" }, select: { id: true, name: true, street: true, ownerName: true } }),
   ]);
@@ -249,6 +289,29 @@ export async function eigenbelegeFuerGebuehren(): Promise<number> {
         where: { id: tx.id },
         data: { reviewStatus: "BOOKED", category: "Objektmiete (Ausgabe)", propertyId: tx.propertyId ?? objekt.id },
       });
+      anzahl += 1;
+      continue;
+    }
+    // Kontoabschluss der Hausbank (VR-Bank): Entgelte, Zinsen, Umsatzsteuer darauf.
+    if (!istQontoGebuehr(tx) && istBankAbschluss(tx)) {
+      const art = bankAbschlussArt(tx.purpose, tx.bookingDate);
+      await prisma.document.create({
+        data: {
+          kind: "RECEIPT",
+          title: `Eigenbeleg ${tx.bankAccount.name} – ${art}`,
+          fileName: `Eigenbeleg Kontoabschluss ${tx.bookingDate.toISOString().slice(0, 10)}${istAbschlussSteuer(tx.purpose) ? " USt" : ""}.pdf`,
+          mimeType: "application/pdf",
+          driveUrl: `/api/eigenbeleg/${tx.id}`,
+          documentDate: tx.bookingDate,
+          amountCents: Math.abs(tx.amountCents),
+          supplier: tx.bankAccount.name,
+          category: "Bankgebühren",
+          notes: "Eigenbeleg – Kontoabschluss der Bank ohne gesonderte Rechnung",
+          bankTransactionId: tx.id,
+          propertyId: tx.propertyId,
+        },
+      });
+      await prisma.bankTransaction.update({ where: { id: tx.id }, data: { reviewStatus: "BOOKED", category: "Bankgebühren" } });
       anzahl += 1;
       continue;
     }

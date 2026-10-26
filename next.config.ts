@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["googleapis", "@prisma/client", "pdf-lib"],
+  serverExternalPackages: ["googleapis", "@prisma/client", "pdf-lib", "imapflow", "mailparser", "nodemailer"],
   experimental: {
     serverActions: { bodySizeLimit: "25mb" },
   },

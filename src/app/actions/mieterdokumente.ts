@@ -86,7 +86,10 @@ export async function deleteMieterDokument(formData: FormData) {
   const dokument = await prisma.document.findUnique({ where: { id } });
   if (!dokument?.tenantId) redirect("/mieter");
 
-  await deleteFile({ driveFileId: dokument.driveFileId, localPath: dokument.localPath });
+  // Aus dem Postfach: die Datei gehoert weiter zur E-Mail.
+  if (!dokument.emailAnhangId) {
+    await deleteFile({ driveFileId: dokument.driveFileId, localPath: dokument.localPath });
+  }
   await prisma.document.delete({ where: { id } });
   await audit(user.email, "delete", "Document", id, dokument.title);
   revalidatePath(`/mieter/${dokument.tenantId}`);

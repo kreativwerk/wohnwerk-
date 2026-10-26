@@ -72,3 +72,59 @@ export function istKautionsRueckzahlung(tx: { direction: string; purpose: string
   if (!/kaution|kaucion|deposit/.test(zweck)) return false;
   return /r(ue|ü|u)ckzahl|zur(ue|ü|u)ck|erstatt|refund|kthim/.test(zweck);
 }
+
+/**
+ * Kontoabschluss einer Hausbank (VR-Bank, Sparkasse): Kontofuehrungsentgelt,
+ * Buchungsposten und Zinsen werden einmal im Monat abgebucht ("Abschluss
+ * PN:905"), die Umsatzsteuer darauf als eigene Buchung ("siehe Anlage 1").
+ * Eine Rechnung kommt nicht per Post - der Eigenbeleg ersetzt sie.
+ */
+export function istBankAbschluss(tx: { direction: string; purpose: string | null; counterpartyName: string | null }): boolean {
+  if (tx.direction !== "DEBIT") return false;
+  const text = `${tx.purpose ?? ""} ${tx.counterpartyName ?? ""}`;
+  return (
+    /\bPN:\s?905\b/i.test(text) ||
+    /kontof(ü|ue)hrungs(entgelt|geb(ü|ue)hr)/i.test(text) ||
+    /\babschluss vom \d{2}\.\d{2}\.\d{4} bis/i.test(text) ||
+    /\bsollzins/i.test(text)
+  );
+}
+
+/** Nur die Umsatzsteuer auf die Entgelte ("siehe Anlage 1")? */
+export function istAbschlussSteuer(purpose: string | null): boolean {
+  return /^\s*siehe anlage\s*\d*/i.test(purpose ?? "");
+}
+
+/** "Kontoführungsentgelte 05/2026" bzw. "Umsatzsteuer auf Kontoführungsentgelte 05/2026". */
+export function bankAbschlussArt(purpose: string | null, buchungstag: Date): string {
+  const monat = `${String(buchungstag.getUTCMonth() + 1).padStart(2, "0")}/${buchungstag.getUTCFullYear()}`;
+  return istAbschlussSteuer(purpose)
+    ? `Umsatzsteuer 19 % auf Kontoführungsentgelte ${monat}`
+    : `Kontoführungsentgelte und Buchungsposten ${monat}`;
+}
+
+/**
+ * Die Posten aus dem Buchungstext eines Abschlusses:
+ * "* Überweisung Online 2 3101 0,60S" -> { text: "Überweisung Online (2)", betrag: 60 }.
+ * Zinsen mit 0,00 fallen weg.
+ */
+export function bankAbschlussPosten(purpose: string | null): Array<{ text: string; betragCents: number }> {
+  const posten: Array<{ text: string; betragCents: number }> = [];
+  const muster = /\*\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß. -]*?)\s+(?:(\d{1,3})\s+)?\d{4}\s+(\d+),(\d{2})\s?[SH]/g;
+  for (const t of (purpose ?? "").matchAll(muster)) {
+    const cent = Number(t[3]) * 100 + Number(t[4]);
+    if (cent <= 0) continue;
+    posten.push({ text: t[2] ? `${t[1].trim()} (${t[2]}×)` : t[1].trim(), betragCents: cent });
+  }
+  const ust = /USt\.?\s*(\d{1,2})\s*%\s*(\d+),(\d{2})/i.exec(purpose ?? "");
+  if (ust) posten.push({ text: `Umsatzsteuer ${ust[1]} % (gesondert abgebucht)`, betragCents: Number(ust[2]) * 100 + Number(ust[3]) });
+  return posten;
+}
+
+/** Abrechnungszeitraum und Rechnungsnummer aus dem Abschlusstext. */
+export function bankAbschlussKopf(purpose: string | null): { zeitraum: string | null; rechnungNr: string | null } {
+  const text = purpose ?? "";
+  const z = /abschluss vom (\d{2}\.\d{2}\.\d{4}) bis (\d{2}\.\d{2}\.\d{4})/i.exec(text);
+  const r = /rechnung nr\.?\s*([0-9.]+[0-9])/i.exec(text);
+  return { zeitraum: z ? `${z[1]} – ${z[2]}` : null, rechnungNr: r ? r[1] : null };
+}

@@ -6,6 +6,8 @@ import { requireUser, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { qontoStatus } from "@/lib/qonto";
+import { postfachStatus } from "@/lib/postfach";
+import { postfachJetztAbrufen, postfachZugangLoeschen, postfachZugangSichern } from "@/app/actions/postfach";
 import { checkDriveStatus } from "@/lib/storage";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
@@ -27,12 +29,13 @@ export default async function SettingsPage({
   const { t, datumZeit } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
-  const [me, settings, drive, users, qonto] = await Promise.all([
+  const [me, settings, drive, users, qonto, postfach] = await Promise.all([
     requireUser(),
     getSettings(),
     checkDriveStatus(),
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
     qontoStatus(),
+    postfachStatus(),
   ]);
 
   const mailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
@@ -355,6 +358,131 @@ export default async function SettingsPage({
             {qonto.quelle === "einstellungen" && (
               <form action={qontoZugangLoeschen}>
                 <ConfirmButton message={t("Qonto-Zugang wirklich entfernen? Der automatische Abgleich hört dann auf.")} className="btn btn-ghost text-rose-700">
+                  {t("Zugang entfernen")}
+                </ConfirmButton>
+              </form>
+            )}
+          </div>
+        </Card>
+      </div>
+
+
+      {/* --- Postfach ---------------------------------------------------------
+          IONOS, Strato oder ein anderes Postfach per IMAP/SMTP. Das Passwort
+          wird verschluesselt gespeichert und nie angezeigt. */}
+      <div className="mt-6">
+        <Card
+          id="postfach"
+          className="scroll-mt-4"
+          title={t("Postfach (E-Mail)")}
+          description={t("Holt E-Mails aus eurem Postfach in die App: Rechnungen werden automatisch als Beleg abgelegt und der Abbuchung zugeordnet, Kündigungen von Mietern landen beim Mieter. Gesendet wird von eurer eigenen Adresse. Die App liest nur – sie löscht und verschiebt im Postfach nichts.")}
+          actions={
+            postfach.eingerichtet ? (
+              <form action={postfachJetztAbrufen}>
+                <input type="hidden" name="back" value="/einstellungen#postfach" />
+                <button type="submit" className="btn btn-secondary">
+                  {t("Jetzt abrufen")}
+                </button>
+              </form>
+            ) : null
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {postfach.eingerichtet ? <Badge tone="success">{t("Verbunden")}</Badge> : <Badge tone="neutral">{t("Nicht verbunden")}</Badge>}
+              {postfach.benutzer && (
+                <span className="text-ink-600">
+                  <span className="font-mono">{postfach.benutzer}</span> · {postfach.imapHost}
+                  {postfach.quelle === "umgebung" && ` · ${t("aus den Vercel-Umgebungsvariablen")}`}
+                </span>
+              )}
+            </div>
+            {postfach.zuletzt && (
+              <p className={`text-sm ${postfach.zuletzt.ok ? "text-ink-600" : "text-rose-700"}`}>
+                {postfach.zuletzt.ok
+                  ? t("Zuletzt abgerufen: {zeitpunkt} · {neu} neue E-Mail(s), {belege} Beleg(e) abgelegt", {
+                      zeitpunkt: datumZeit(new Date(postfach.zuletzt.zeitpunkt)),
+                      neu: postfach.zuletzt.neu,
+                      belege: postfach.zuletzt.belege,
+                    })
+                  : `${t("Letzter Versuch fehlgeschlagen ({zeitpunkt}):", { zeitpunkt: datumZeit(new Date(postfach.zuletzt.zeitpunkt)) })} ${t(postfach.zuletzt.fehler ?? "")}`}
+              </p>
+            )}
+
+            {postfach.quelle !== "umgebung" && (
+              <form action={postfachZugangSichern} className="grid gap-3 sm:grid-cols-2" autoComplete="off">
+                <div>
+                  <label htmlFor="pf-anbieter">{t("Anbieter")}</label>
+                  <select id="pf-anbieter" name="anbieter" defaultValue={postfach.anbieter ?? "ionos"}>
+                    <option value="ionos">IONOS (1&amp;1)</option>
+                    <option value="strato">Strato</option>
+                    <option value="andere">{t("Anderer Anbieter")}</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="pf-name">{t("Absendername")}</label>
+                  <input id="pf-name" name="absenderName" defaultValue={postfach.absenderName ?? "Wohnwerk"} />
+                </div>
+                <div>
+                  <label htmlFor="pf-benutzer">{t("E-Mail-Adresse")}</label>
+                  <input
+                    id="pf-benutzer"
+                    name="benutzer"
+                    type="email"
+                    defaultValue={postfach.benutzer ?? ""}
+                    placeholder="info@wohnwerk-…de"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pf-passwort">{t("Passwort des Postfachs")}</label>
+                  <input
+                    id="pf-passwort"
+                    name="passwort"
+                    type="password"
+                    placeholder={postfach.eingerichtet ? t("hinterlegt – zum Ändern neu eingeben") : ""}
+                    autoComplete="new-password"
+                    required={!postfach.eingerichtet}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Disclosure summary={t("Anderer Anbieter: Server eintragen")}>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_6rem_1fr_6rem]">
+                      <div>
+                        <label htmlFor="pf-imap">{t("IMAP-Server")}</label>
+                        <input id="pf-imap" name="imapHost" defaultValue={postfach.anbieter === "andere" ? postfach.imapHost ?? "" : ""} placeholder="imap.anbieter.de" />
+                      </div>
+                      <div>
+                        <label htmlFor="pf-imap-port">{t("Port")}</label>
+                        <input id="pf-imap-port" name="imapPort" inputMode="numeric" placeholder="993" />
+                      </div>
+                      <div>
+                        <label htmlFor="pf-smtp">{t("SMTP-Server")}</label>
+                        <input id="pf-smtp" name="smtpHost" defaultValue={postfach.anbieter === "andere" ? postfach.smtpHost ?? "" : ""} placeholder="smtp.anbieter.de" />
+                      </div>
+                      <div>
+                        <label htmlFor="pf-smtp-port">{t("Port")}</label>
+                        <input id="pf-smtp-port" name="smtpPort" inputMode="numeric" placeholder="465" />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-ink-500">{t("Bei IONOS und Strato sind die Server schon eingestellt – hier nichts eintragen.")}</p>
+                  </Disclosure>
+                </div>
+                <div className="sm:col-span-2">
+                  <button type="submit" className="btn btn-primary">
+                    {postfach.eingerichtet ? t("Ändern und testen") : t("Verbinden und testen")}
+                  </button>
+                  <p className="mt-1 text-xs text-ink-500">
+                    {t("Die App meldet sich zur Probe an. Nur wenn Empfangen und Senden klappen, wird der Zugang gespeichert. Danach holt sie die E-Mails der letzten 30 Tage.")}
+                  </p>
+                </div>
+              </form>
+            )}
+
+            {postfach.quelle === "einstellungen" && (
+              <form action={postfachZugangLoeschen}>
+                <ConfirmButton message={t("Postfach-Zugang wirklich entfernen? Neue E-Mails werden dann nicht mehr abgeholt.")} className="btn btn-ghost text-rose-700">
                   {t("Zugang entfernen")}
                 </ConfirmButton>
               </form>

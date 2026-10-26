@@ -33,6 +33,7 @@ import {
 } from "@/lib/mahnung";
 import { getSettings } from "@/lib/settings";
 import { oberflaeche, type Uebersetzen } from "@/lib/i18n";
+import { postfachStatus } from "@/lib/postfach";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,7 @@ export default async function TenantDetailPage({
   searchParams: Promise<{ ok?: string; fehler?: string; konto?: string }>;
 }) {
   const { t, datum, datumZeit, monat, geld } = await oberflaeche();
+  const postfachBereit = (await postfachStatus()).eingerichtet;
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -184,9 +186,11 @@ export default async function TenantDetailPage({
               gesamtCents={saldo.abzugCents}
               varianten={kautionVarianten}
               telefonFehlt={tenant.phone ? null : `/mieter/${tenant.id}#stammdaten`}
+              email={tenant.email}
+              emailMoeglich={postfachBereit}
               zuletzt={
                 letzteKautionsNachricht
-                  ? `${datumZeit(letzteKautionsNachricht.sentAt)} (${letzteKautionsNachricht.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`
+                  ? `${datumZeit(letzteKautionsNachricht.sentAt)} (${letzteKautionsNachricht.channel === "WHATSAPP" ? "WhatsApp" : letzteKautionsNachricht.channel === "EMAIL" ? "E-Mail" : t("kopiert")})`
                   : null
               }
               art="KAUTION"
@@ -348,9 +352,20 @@ export default async function TenantDetailPage({
                 {tenant.status === "EHEMALIG" ? t("Wieder aktiv setzen") : t("Als ehemalig markieren")}
               </button>
             </form>
-            <a href={`mailto:${tenant.email}`} className="btn btn-secondary">
-              {t("E-Mail schreiben")}
-            </a>
+            {postfachBereit ? (
+              <>
+                <Link href={`/postfach/neu?mieter=${tenant.id}`} className="btn btn-secondary">
+                  {t("E-Mail schreiben")}
+                </Link>
+                <Link href={`/postfach?ansicht=alle&mieter=${tenant.id}`} className="btn btn-ghost">
+                  {t("E-Mails")}
+                </Link>
+              </>
+            ) : (
+              <a href={`mailto:${tenant.email}`} className="btn btn-secondary">
+                {t("E-Mail schreiben")}
+              </a>
+            )}
           </>
         }
       />

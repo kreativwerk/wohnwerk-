@@ -570,7 +570,10 @@ export async function deleteDocument(formData: FormData) {
   const document = await prisma.document.findUnique({ where: { id } });
   if (!document) redirect(flash(back, "fehler", t("Beleg nicht gefunden.")));
 
-  await deleteFile({ driveFileId: document.driveFileId, localPath: document.localPath });
+  // Belege aus dem Postfach teilen sich die Datei mit dem Mail-Anhang - die bleibt.
+  if (!document.emailAnhangId) {
+    await deleteFile({ driveFileId: document.driveFileId, localPath: document.localPath });
+  }
   await prisma.document.delete({ where: { id } });
 
   await audit(user.email, "delete", "Document", id, document.title);

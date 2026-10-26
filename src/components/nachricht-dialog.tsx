@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChatCircleText, Copy, X } from "@phosphor-icons/react/dist/ssr";
+import { ChatCircleText, Copy, EnvelopeSimple, X } from "@phosphor-icons/react/dist/ssr";
 
 import { vermerkeNachricht } from "@/app/actions/erinnerungen";
+import { nachrichtPerEmail } from "@/app/actions/postfach";
 
 import { useOberflaeche } from "./sprache-kontext";
 
@@ -38,6 +39,8 @@ export function NachrichtDialog({
   untertitel,
   mahnung,
   mahnungFrist,
+  email,
+  emailMoeglich = false,
 }: {
   tenantId: string;
   name: string;
@@ -58,6 +61,10 @@ export function NachrichtDialog({
   mahnung?: NachrichtVariante[];
   /** Frist der letzten Mahnung, fertig formatiert. */
   mahnungFrist?: string;
+  /** E-Mail-Adresse des Mieters - dann gibt es neben WhatsApp auch "E-Mail". */
+  email?: string | null;
+  /** Postfach eingerichtet? Ohne Postfach kein E-Mail-Knopf. */
+  emailMoeglich?: boolean;
 }) {
   const { t, datumZeit } = useOberflaeche();
   const router = useRouter();
@@ -67,6 +74,8 @@ export function NachrichtDialog({
   const [kopiert, setKopiert] = useState<string | null>(null);
   const [manuell, setManuell] = useState(false);
   const [stufe, setStufe] = useState<"erinnerung" | "anwalt">("erinnerung");
+  const [mailStatus, setMailStatus] = useState<{ code: string; zustand: "sendet" | "gesendet" | "fehler"; text?: string } | null>(null);
+  const mitEmail = emailMoeglich && Boolean(email && email.includes("@"));
 
   useEffect(() => {
     if (!offen) return;
@@ -102,6 +111,38 @@ export function NachrichtDialog({
       router.refresh();
     } catch {
       // Der Vermerk ist Komfort - scheitert er, bleibt die Nachricht trotzdem kopiert.
+    }
+  }
+
+  async function perEmail(v: NachrichtVariante) {
+    setGewaehlt(v.code);
+    setMailStatus({ code: v.code, zustand: "sendet" });
+    const vermerkArt = anwalt ? "MAHNUNG" : art;
+    const betreff =
+      vermerkArt === "MAHNUNG"
+        ? "Letzte Mahnung / Final reminder – Wohnwerk"
+        : vermerkArt === "KAUTION"
+          ? "Kautionsabrechnung / Deposit settlement – Wohnwerk"
+          : "Zahlungserinnerung / Payment reminder – Wohnwerk";
+    try {
+      const ergebnis = await nachrichtPerEmail({
+        tenantId,
+        sprache: v.code,
+        text: v.text,
+        betreff,
+        betragCents: gesamtCents,
+        art: vermerkArt,
+      });
+      if (!ergebnis.ok || !ergebnis.sentAt) {
+        setMailStatus({ code: v.code, zustand: "fehler", text: ergebnis.fehler });
+        return;
+      }
+      setMailStatus({ code: v.code, zustand: "gesendet" });
+      const wie = `${t(v.sprache)}, E-Mail`;
+      setGesendet(`${datumZeit(new Date(ergebnis.sentAt))} (${vermerkArt === "MAHNUNG" ? `${t("Letzte Mahnung")}, ${wie}` : wie})`);
+      router.refresh();
+    } catch {
+      setMailStatus({ code: v.code, zustand: "fehler" });
     }
   }
 
@@ -232,6 +273,22 @@ export function NachrichtDialog({
                       <Copy size={15} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
                       {kopiert === v.code ? t("Kopiert") : t("Kopieren")}
                     </button>
+                    {mitEmail && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={mailStatus?.zustand === "sendet"}
+                        onClick={() => void perEmail(v)}
+                        title={t("Per E-Mail an {adresse} senden", { adresse: email ?? "" })}
+                      >
+                        <EnvelopeSimple size={15} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
+                        {mailStatus?.code === v.code && mailStatus.zustand === "sendet"
+                          ? t("Sendet …")
+                          : mailStatus?.code === v.code && mailStatus.zustand === "gesendet"
+                            ? t("Gesendet ✓")
+                            : t("E-Mail")}
+                      </button>
+                    )}
                     {v.whatsapp && (
                       <a
                         href={v.whatsapp}
@@ -266,6 +323,12 @@ export function NachrichtDialog({
                 className="mt-3 w-full text-xs leading-relaxed"
                 aria-label={t("Text der Nachricht")}
               />
+            )}
+            {mailStatus?.zustand === "fehler" && (
+              <p className="mt-2 text-xs text-rose-700">
+                {t("E-Mail nicht gesendet")}
+                {mailStatus.text ? `: ${t(mailStatus.text)}` : "."}
+              </p>
             )}
             {manuell && (
               <p className="mt-1 text-xs text-amber-700">

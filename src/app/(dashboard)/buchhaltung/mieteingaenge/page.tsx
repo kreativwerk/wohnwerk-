@@ -15,6 +15,7 @@ import { getSettings } from "@/lib/settings";
 import { qontoAbgleich, qontoStatus, qontoVeraltet } from "@/lib/qonto";
 
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
+import { postfachStatus } from "@/lib/postfach";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
 export async function generateMetadata() {
@@ -52,6 +53,7 @@ export default async function RentIncomePage({
   searchParams: Promise<{ ok?: string; fehler?: string; monat?: string; nur?: string }>;
 }) {
   const { t, datum, datumZeit, monat, geld } = await oberflaeche();
+  const postfachBereit = (await postfachStatus()).eingerichtet;
   const params = await searchParams;
   const { year, month } = parseMonat(params.monat);
   // "Nur offene": bleibt beim Blaettern durch die Monate und nach dem Abhaken erhalten.
@@ -156,7 +158,7 @@ export default async function RentIncomePage({
   const zuletztGesendet = new Map(
     letzteNachrichten.map((n) => [
       n.tenantId,
-      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : t("kopiert")})`,
+      `${datumZeit(n.sentAt)} (${n.kind === "MAHNUNG" ? `${t("Letzte Mahnung")}, ` : ""}${t(MAHN_SPRACHE_NAME[n.language as keyof typeof MAHN_SPRACHE_NAME] ?? n.language)}, ${n.channel === "WHATSAPP" ? "WhatsApp" : n.channel === "EMAIL" ? "E-Mail" : t("kopiert")})`,
     ]),
   );
   // Letzte Mahnung: immer eine Woche Frist ab heute.
@@ -587,6 +589,8 @@ export default async function RentIncomePage({
                                       gesamtCents={gesamt}
                                       varianten={varianten}
                                       telefonFehlt={`/mieter/${charge.tenancy.tenantId}`}
+                                      email={charge.tenancy.tenant.email}
+                                      emailMoeglich={postfachBereit}
                                       zuletzt={zuletztGesendet.get(charge.tenancy.tenantId) ?? null}
                                       mahnung={mahnung}
                                       mahnungFrist={mahnFristText}

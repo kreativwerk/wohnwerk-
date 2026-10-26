@@ -17,6 +17,21 @@ export async function sendMail(params: {
   text: string;
   replyTo?: string;
 }): Promise<MailResult> {
+  // Ist das Postfach eingerichtet, geht alles ueber den eigenen Server - die
+  // Mail kommt dann von der eigenen Adresse und liegt in "Gesendet".
+  const { postfachZugang, postfachSenden } = await import("./postfach");
+  if (await postfachZugang()) {
+    const ergebnis = await postfachSenden({
+      an: [params.to],
+      betreff: params.subject,
+      text: params.text,
+      ausgeloestVon: "system",
+    });
+    return ergebnis.ok
+      ? { sent: true, message: `E-Mail wurde an ${params.to} versendet.` }
+      : { sent: false, message: `E-Mail-Versand fehlgeschlagen: ${ergebnis.fehler}` };
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.MAIL_FROM;
 

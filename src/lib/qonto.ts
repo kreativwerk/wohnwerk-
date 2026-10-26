@@ -17,6 +17,7 @@ import {
 } from "./qonto-umsatz";
 import { FOLDER, uploadFile } from "./storage";
 import { eigenbelegeFuerGebuehren } from "./eigenbeleg";
+import { postfachBelegeNachZuordnen } from "./beleg-zuordnung";
 
 /**
  * Abgleich mit Qonto: holt die Umsaetze des Wohnwerk-Kontos ueber die
@@ -461,6 +462,13 @@ export async function qontoAbgleich(ausgeloestVon: string): Promise<QontoErgebni
 
     // Qonto-Gebuehren ohne Rechnung: Eigenbeleg dran, als gebucht abhaken.
     ergebnis.belege = (ergebnis.belege ?? 0) + (await eigenbelegeFuerGebuehren());
+
+    // Rechnungen aus dem Postfach, die vor der Abbuchung kamen: jetzt zuordnen.
+    try {
+      await postfachBelegeNachZuordnen();
+    } catch (fehler) {
+      console.error("Postfach-Belege nachzuordnen", fehler);
+    }
 
     // Ueber alle Konten: auch offene Eingaenge aus hochgeladenen Auszuegen
     // bekommen so taeglich eine Chance.

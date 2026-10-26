@@ -18,7 +18,8 @@ import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
 import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
-import { adressSchluessel, istKautionsRueckzahlung, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
+import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
+import { absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1005,6 +1006,92 @@ async function main() {
     assert.ok(d("Manuel Shuli Rückzahlung Kaution"));
     assert.ok(!d("Alexander Rizzelli Kaution St. Michael 27 Erlangen"));
     assert.ok(!istKautionsRueckzahlung({ direction: "CREDIT", purpose: "Rueckzahlung Kaution" }));
+  });
+
+  await test("Eigenbeleg: VR-Bank-Kontoabschluss erkennen und Posten lesen", () => {
+    const zweck = "Abschluss PN:905 11,98400% * Sollzins 3101 0,00H 0,30 * Überweisung Online 2 3101 0,60S 0,50 * Einlösung Lastschri 3 3101 1,50S 0,50 * Gutschrift Überweis 29 3101 14,50S 0,50 * Sonstige Buchungen 1 3101 0,50S * Kontoführungsentgelt 3101 6,90S Abschluss vom 30.12.2025 bis 31.01.2026 für Konto 2678900 Rechnung Nr. 0002678900.20260131.002 USt. IdNr. - DE 132505424 > * USt. 19 % 4,56 S";
+    assert.ok(istBankAbschluss({ direction: "DEBIT", purpose: zweck, counterpartyName: "11,98400% * Sollzins 3101 0,00H" }));
+    assert.ok(istBankAbschluss({ direction: "DEBIT", purpose: "siehe Anlage 1 PN:905", counterpartyName: null }));
+    assert.ok(!istBankAbschluss({ direction: "DEBIT", purpose: "Qonto Abonnement / Zusatzgebühren", counterpartyName: "Qonto" }));
+    assert.ok(!istBankAbschluss({ direction: "CREDIT", purpose: zweck, counterpartyName: null }));
+    const posten = bankAbschlussPosten(zweck);
+    // Ohne die gesondert abgebuchte Umsatzsteuer ergeben die Posten genau die Abbuchung (24,00).
+    assert.equal(posten.filter((p) => !p.text.startsWith("Umsatzsteuer")).reduce((s, p) => s + p.betragCents, 0), 2400);
+    assert.ok(posten.some((p) => p.text === "Kontoführungsentgelt" && p.betragCents === 690));
+    assert.deepEqual(bankAbschlussKopf(zweck), { zeitraum: "30.12.2025 – 31.01.2026", rechnungNr: "0002678900.20260131.002" });
+  });
+
+  console.log("\nPostfach");
+
+  await test("Postfach: Beträge aus Rechnungstext, Summenzeile zuerst, Datum ist kein Betrag", () => {
+    const text = [
+      "Stadtwerke Erlangen  Rechnungsdatum 03.09.2026",
+      "Arbeitspreis 512,40 €",
+      "Grundpreis 34,10 €",
+      "MwSt 19 % 104,36 €",
+      "Gesamtbetrag 650,86 €",
+      "Fällig am 15.09.2026",
+    ].join("\n");
+    const b = betraegeAusText(text);
+    assert.equal(b[0], 65086);
+    assert.ok(b.includes(51240));
+    assert.ok(!b.includes(1509), "Datum 15.09 ist kein Betrag");
+    assert.equal(betraegeAusText("Total: 1.234,56 EUR")[0], 123456);
+    assert.equal(betraegeAusText("Amount due $1,234.56")[0], 123456);
+    assert.equal(betraegeAusText("Zu zahlen: 28,56")[0], 2856);
+  });
+
+  await test("Postfach: Rechnungsdatum, Rechnung und Kündigung erkennen", () => {
+    assert.equal(datumAusText("Kunde 4711\nRechnungsdatum: 03.09.2026\nLieferung 01.08.2026")?.toISOString().slice(0, 10), "2026-09-03");
+    assert.equal(datumAusText("ohne Datum"), null);
+    assert.ok(istRechnung("Ihre Rechnung 448317166"));
+    assert.ok(istRechnung(null, "Abschlagsplan 2026"));
+    assert.ok(!istRechnung("Newsletter Oktober", "Angebote der Woche"));
+    assert.ok(istKuendigung("Kündigung zum 15.11.2026"));
+    assert.ok(istKuendigung("Kuendigung Zimmer"));
+    assert.ok(istKuendigung(null, "I want to terminate my rental agreement"));
+    assert.ok(istKuendigung("Dorëheqje nga banesa"));
+    assert.ok(!istKuendigung("Frage zur Waschmaschine"));
+  });
+
+  await test("Postfach: nur echte Anhänge ablegen, Logos und HTML nicht", () => {
+    assert.equal(anhangTyp("rechnung.pdf", "application/octet-stream"), "application/pdf");
+    assert.equal(anhangTyp("seite.html", "text/html"), null);
+    assert.ok(anhangBehalten({ dateiname: "r.pdf", mimeType: "application/pdf", groesse: 5000, eingebettet: true }));
+    assert.ok(!anhangBehalten({ dateiname: "logo.png", mimeType: "image/png", groesse: 8000, eingebettet: true }));
+    assert.ok(anhangBehalten({ dateiname: "foto.jpg", mimeType: "image/jpeg", groesse: 900_000, eingebettet: false }));
+    assert.ok(!anhangBehalten({ dateiname: "x.exe", mimeType: "application/x-msdownload", groesse: 9000, eingebettet: false }));
+  });
+
+  await test("Postfach: Beleg findet seine Abbuchung – eindeutig oder gar nicht", () => {
+    const tag = (s: string) => new Date(`${s}T00:00:00Z`);
+    const kandidaten = [
+      { id: "estw", betragCents: 66400, datum: tag("2026-09-30"), gegenpartei: "ESTW - ERLANGER STADTWERKE AG", zweck: null },
+      { id: "ikea", betragCents: 79696, datum: tag("2026-07-03"), gegenpartei: "IKEA DEUTSCHLAND GMBH", zweck: null },
+      { id: "o2a", betragCents: 2856, datum: tag("2026-08-13"), gegenpartei: "Telefonica Germany", zweck: null },
+      { id: "o2b", betragCents: 2856, datum: tag("2026-09-14"), gegenpartei: "Telefonica Germany", zweck: null },
+    ];
+    const woerter = absenderWoerter("rechnung@ikea.de", "IKEA Deutschland");
+    assert.ok(woerter.includes("ikea"));
+    assert.equal(passendeAusgabe({ betraege: [79696], datum: tag("2026-07-01"), absenderWoerter: woerter }, kandidaten), "ikea");
+    // Gleicher Betrag zweimal: das naehere Datum gewinnt.
+    assert.equal(passendeAusgabe({ betraege: [2856], datum: tag("2026-09-05"), absenderWoerter: ["telefonica"] }, kandidaten), "o2b");
+    // Betrag passt, aber viel zu weit weg.
+    assert.equal(passendeAusgabe({ betraege: [79696], datum: tag("2026-01-01"), absenderWoerter: [] }, kandidaten), null);
+    // Kein Betrag passt.
+    assert.equal(passendeAusgabe({ betraege: [12345], datum: tag("2026-09-01"), absenderWoerter: [] }, kandidaten), null);
+    // Zwei gleiche Kandidaten, gleich weit weg, kein Name: nicht raten.
+    const zwei = [
+      { id: "a", betragCents: 5000, datum: tag("2026-09-10"), gegenpartei: "X", zweck: null },
+      { id: "b", betragCents: 5000, datum: tag("2026-09-11"), gegenpartei: "Y", zweck: null },
+    ];
+    assert.equal(passendeAusgabe({ betraege: [5000], datum: tag("2026-09-10"), absenderWoerter: [] }, zwei), null);
+  });
+
+  await test("Postfach: Antwort-Betreff und Adressen", () => {
+    assert.equal(antwortBetreff("Rechnung"), "Re: Rechnung");
+    assert.equal(antwortBetreff("AW: Rechnung"), "AW: Rechnung");
+    assert.deepEqual(adressenLesen("a@b.de, c@d.de; kaputt, <e@f.de>"), ["a@b.de", "c@d.de", "e@f.de"]);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

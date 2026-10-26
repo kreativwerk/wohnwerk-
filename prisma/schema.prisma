@@ -14,8 +14,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   // Fuer Migrationen: die direkte Verbindung ohne Pooler. Bei Supabase ist
   // das Pflicht (der Transaktions-Pooler kann keine Migrationen), bei Neon
   // oder lokalem Postgres setzt der Build-Ablauf sie gleich DATABASE_URL.
@@ -60,11 +60,12 @@ model Property {
 
   rooms        Room[]
   documents    Document[]
+  emails       EmailNachricht[]
   transactions BankTransaction[]
   templates    PropertyTemplate[]
   costs        PropertyCost[]
   tickets      Ticket[]
-  bankAccount  BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  bankAccount  BankAccount?       @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
   @@index([active])
   @@index([bankAccountId])
@@ -171,11 +172,11 @@ model Bed {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String  @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String
-  phone     String?
+  id           String  @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String
+  phone        String?
   /// Private Adresse des Monteurs - `email` ist oft die der Firma, an die
   /// der Vertragslink geht. Freiwillig, gepflegt ueber die Kontaktliste.
   privateEmail String?
@@ -211,6 +212,7 @@ model Tenant {
 
   tenancies Tenancy[]
   documents Document[]
+  emails    EmailNachricht[]
   tickets   Ticket[]
   reminders ReminderLog[]
   notizen   TenantNote[]
@@ -233,16 +235,16 @@ model Tenancy {
   startDate DateTime
   endDate   DateTime?
 
-  monthlyRentCents Int
-  depositCents     Int @default(0)
+  monthlyRentCents   Int
+  depositCents       Int       @default(0)
   // Bewusst ohne Kaution (aeltere Vertraege) - dann fehlt sie nicht, sie
   // ist nicht vereinbart, und es wird auch keine berechnet.
-  noDeposit        Boolean @default(false)
+  noDeposit          Boolean   @default(false)
   /// Kaution an den Mieter zurueckgezahlt (abgehakt im Mieterprofil) - Tag und Betrag nach Abzuegen.
   depositRefundedAt  DateTime?
   depositRefundCents Int?
   // Nebenkosten-Pauschale, im Mietpreis enthalten oder zusaetzlich
-  utilitiesCents   Int @default(0)
+  utilitiesCents     Int       @default(0)
 
   billingDay Int    @default(1) // Faelligkeit im Monat
   reference  String @unique // Verwendungszweck-Kennung, z.B. "WW-2026-0042"
@@ -304,12 +306,12 @@ model Contract {
 // ---------------------------------------------------------------------------
 
 model BankAccount {
-  id       String  @id @default(cuid())
-  name     String
-  iban     String  @unique
-  bic      String?
+  id   String  @id @default(cuid())
+  name String
+  iban String  @unique
+  bic  String?
 
-  currency String  @default("EUR")
+  currency String @default("EUR")
 
   openingBalanceCents Int      @default(0)
   active              Boolean  @default(true)
@@ -317,7 +319,7 @@ model BankAccount {
 
   statements   BankStatement[]
   transactions BankTransaction[]
-  properties Property[]
+  properties   Property[]
 }
 
 model BankStatement {
@@ -476,6 +478,8 @@ model Document {
 
   /// Beleg aus Qonto (Anhang am Umsatz) - verhindert doppeltes Ablegen beim naechsten Abgleich.
   qontoAttachmentId String? @unique
+  /// Beleg aus dem Postfach - der Anhang, aus dem er stammt.
+  emailAnhangId     String? @unique
 
   uploadedAt DateTime @default(now())
 
@@ -484,6 +488,7 @@ model Document {
   tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
   ticket          Ticket?          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  emailAnhang     EmailAnhang?     @relation(fields: [emailAnhangId], references: [id], onDelete: SetNull)
 
   @@index([kind])
   @@index([bankTransactionId])
@@ -543,10 +548,10 @@ model Ticket {
 
 /// Der Verlauf eines Tickets: wer wann was dazu gesagt hat.
 model TicketKommentar {
-  id       String   @id @default(cuid())
-  ticketId String
-  autor    String
-  text     String
+  id        String   @id @default(cuid())
+  ticketId  String
+  autor     String
+  text      String
   createdAt DateTime @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
@@ -601,10 +606,10 @@ model ReminderLog {
   id          String   @id @default(cuid())
   tenantId    String
   sentAt      DateTime @default(now())
-  channel     String   // WHATSAPP | COPY
-  language    String   // sq | bg | ro | hu | en
-  amountCents Int      // Gesamtforderung zum Zeitpunkt der Nachricht
-  actor       String   // E-Mail der Hausverwaltung
+  channel     String // WHATSAPP | COPY
+  language    String // sq | bg | ro | hu | en
+  amountCents Int // Gesamtforderung zum Zeitpunkt der Nachricht
+  actor       String // E-Mail der Hausverwaltung
   /// RUECKSTAND = Zahlungserinnerung, KAUTION = Kautionsabrechnung beim Auszug
   kind        String   @default("RUECKSTAND")
 
@@ -643,4 +648,59 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Postfach: E-Mails aus dem IMAP-Postfach (IONOS, Strato ...) und gesendete
+// ---------------------------------------------------------------------------
+
+model EmailNachricht {
+  id           String   @id @default(cuid())
+  /// Message-ID aus dem Kopf - verhindert doppeltes Abholen.
+  messageId    String   @unique
+  richtung     String   @default("EIN") // EIN | AUS
+  ordner       String   @default("INBOX")
+  uid          Int?
+  vonAdresse   String
+  vonName      String?
+  an           String
+  cc           String?
+  betreff      String
+  datum        DateTime
+  text         String?
+  /// Was beim Abholen automatisch passiert ist - z. B. "Beleg zur Buchung ... abgelegt".
+  ergebnis     String?
+  gelesen      Boolean  @default(false)
+  erledigt     Boolean  @default(false)
+  tenantId     String?
+  propertyId   String?
+  /// Antwort auf diese Nachricht (beim Senden).
+  antwortAufId String?
+  createdAt    DateTime @default(now())
+
+  tenant   Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  property Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  anhaenge EmailAnhang[]
+
+  @@index([datum])
+  @@index([tenantId])
+  @@index([richtung, gelesen])
+}
+
+model EmailAnhang {
+  id          String   @id @default(cuid())
+  nachrichtId String
+  dateiname   String
+  mimeType    String
+  sizeBytes   Int      @default(0)
+  driveFileId String?
+  driveUrl    String?
+  driveFolder String?
+  localPath   String?
+  createdAt   DateTime @default(now())
+
+  nachricht EmailNachricht @relation(fields: [nachrichtId], references: [id], onDelete: Cascade)
+  dokument  Document?
+
+  @@index([nachrichtId])
 }
