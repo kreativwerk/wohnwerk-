@@ -1402,4 +1402,5 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Das Postfach lehnt die Anmeldung ab. Bitte E-Mail-Adresse und Passwort prüfen.": "The mailbox rejects the login. Please check email address and password.",
   "Kein Postfach eingerichtet.": "No mailbox set up.",
   "E-Mail Postfach": "Email mailbox",
+  "Letzter Verbindungstest ({zeitpunkt}, {adresse}) fehlgeschlagen: {fehler}": "Last connection test ({zeitpunkt}, {adresse}) failed: {fehler}",
 };

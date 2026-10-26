@@ -17,6 +17,7 @@ import {
   postfachAbrufen,
   postfachSenden,
   postfachTesten,
+  postfachTestMerken,
   postfachZugang,
   postfachZugangEntfernen,
   postfachZugangSpeichern,
@@ -43,7 +44,7 @@ export async function postfachZugangSichern(formData: FormData) {
   const benutzer = str(formData, "benutzer");
   const passwort = str(formData, "passwort") || (await gespeichertesPasswort()) || "";
   if (!benutzer || !passwort) {
-    redirect(flash("/einstellungen#postfach", "fehler", t("Bitte E-Mail-Adresse und Passwort des Postfachs eintragen.")));
+    redirect(flash("/einstellungen?bereich=postfach#postfach", "fehler", t("Bitte E-Mail-Adresse und Passwort des Postfachs eintragen.")));
   }
 
   const zugang = zugangAusEingabe({
@@ -57,11 +58,12 @@ export async function postfachZugangSichern(formData: FormData) {
     smtpPort: str(formData, "smtpPort"),
   });
   if (!zugang.imapHost) {
-    redirect(flash("/einstellungen#postfach", "fehler", t("Bitte den Anbieter wählen oder den IMAP-Server eintragen.")));
+    redirect(flash("/einstellungen?bereich=postfach#postfach", "fehler", t("Bitte den Anbieter wählen oder den IMAP-Server eintragen.")));
   }
 
   const test = await postfachTesten(zugang);
-  if (!test.ok) redirect(flash("/einstellungen#postfach", "fehler", t(test.fehler ?? "Die Verbindung zum Postfach ist fehlgeschlagen.")));
+  await postfachTestMerken({ ok: test.ok, fehler: test.fehler ?? null, benutzer: zugang.benutzer, anbieter: zugang.anbieter, imapHost: zugang.imapHost });
+  if (!test.ok) redirect(flash("/einstellungen?bereich=postfach#postfach", "fehler", t(test.fehler ?? "Die Verbindung zum Postfach ist fehlgeschlagen.")));
 
   await postfachZugangSpeichern(zugang);
   await audit(user.email, "update", "Settings", null, `Postfach ${zugang.benutzer}`);
@@ -69,7 +71,7 @@ export async function postfachZugangSichern(formData: FormData) {
   auffrischen();
   redirect(
     flash(
-      "/einstellungen#postfach",
+      "/einstellungen?bereich=postfach#postfach",
       "ok",
       t("Postfach verbunden: {neu} E-Mail(s) abgeholt, {belege} Beleg(e) abgelegt.", { neu: ergebnis.neu, belege: ergebnis.belege }),
     ),
@@ -82,7 +84,7 @@ export async function postfachZugangLoeschen() {
   await postfachZugangEntfernen();
   await audit(user.email, "delete", "Settings", null, "Postfach-Zugang");
   auffrischen();
-  redirect(flash("/einstellungen#postfach", "ok", t("Postfach-Zugang entfernt. Bereits abgeholte E-Mails bleiben in der App.")));
+  redirect(flash("/einstellungen?bereich=postfach#postfach", "ok", t("Postfach-Zugang entfernt. Bereits abgeholte E-Mails bleiben in der App.")));
 }
 
 /** Knopf "Jetzt abrufen". */

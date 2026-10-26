@@ -44,6 +44,7 @@ const KEY = {
   passwort: "postfachPasswort",
   absenderName: "postfachAbsenderName",
   ergebnis: "postfachLetztesErgebnis",
+  test: "postfachLetzterTest",
 } as const;
 
 export type PostfachZugang = {
@@ -231,6 +232,23 @@ export async function postfachStatus(): Promise<PostfachStatus> {
     absenderName: zugang?.absenderName ?? null,
     zuletzt,
   };
+}
+
+export type PostfachTest = { zeitpunkt: string; ok: boolean; fehler: string | null; benutzer: string; anbieter: string; imapHost: string };
+
+/** Ergebnis des letzten Verbindungstests - ohne Passwort, fuer die Anzeige und die Fehlersuche. */
+export async function postfachTestMerken(t: Omit<PostfachTest, "zeitpunkt">): Promise<void> {
+  await setzen(KEY.test, JSON.stringify({ ...t, zeitpunkt: new Date().toISOString() }));
+}
+
+export async function postfachLetzterTest(): Promise<PostfachTest | null> {
+  const w = await werte([KEY.test]);
+  try {
+    const roh = w.get(KEY.test);
+    return roh ? (JSON.parse(roh) as PostfachTest) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Laenger als `minuten` nicht abgeholt (oder nie)? */

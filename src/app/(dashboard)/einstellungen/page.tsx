@@ -6,7 +6,7 @@ import { requireUser, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { qontoStatus } from "@/lib/qonto";
-import { postfachStatus } from "@/lib/postfach";
+import { postfachLetzterTest, postfachStatus } from "@/lib/postfach";
 import { postfachJetztAbrufen, postfachZugangLoeschen, postfachZugangSichern } from "@/app/actions/postfach";
 import { checkDriveStatus } from "@/lib/storage";
 
@@ -24,11 +24,12 @@ export const maxDuration = 60;
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; fehler?: string }>;
+  searchParams: Promise<{ ok?: string; fehler?: string; bereich?: string }>;
 }) {
   const { t, datumZeit } = await oberflaeche();
   await requireAdmin();
   const params = await searchParams;
+  const postfachTest = await postfachLetzterTest();
   const [me, settings, drive, users, qonto, postfach] = await Promise.all([
     requireUser(),
     getSettings(),
@@ -47,7 +48,7 @@ export default async function SettingsPage({
         description={t("Vermieterdaten, Vertragstext, Ablage und Zugänge.")}
       />
 
-      <Flash ok={params.ok} fehler={params.fehler} />
+      {params.bereich !== "postfach" && <Flash ok={params.ok} fehler={params.fehler} />}
 
       {/* --- Systemstatus --------------------------------------------------- */}
       <Card title={t("Systemstatus")} description={t("Woran die Anwendung gerade angebunden ist.")}>
@@ -379,7 +380,7 @@ export default async function SettingsPage({
           actions={
             postfach.eingerichtet ? (
               <form action={postfachJetztAbrufen}>
-                <input type="hidden" name="back" value="/einstellungen#postfach" />
+                <input type="hidden" name="back" value="/einstellungen?bereich=postfach#postfach" />
                 <button type="submit" className="btn btn-secondary">
                   {t("Jetzt abrufen")}
                 </button>
@@ -388,6 +389,17 @@ export default async function SettingsPage({
           }
         >
           <div className="space-y-4">
+            {/* Meldung direkt hier - oben auf der Seite waere sie nach dem Sprung zur Karte nicht zu sehen. */}
+            {params.bereich === "postfach" && <Flash ok={params.ok} fehler={params.fehler} />}
+            {!postfach.eingerichtet && postfachTest && !postfachTest.ok && params.bereich !== "postfach" && (
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                {t("Letzter Verbindungstest ({zeitpunkt}, {adresse}) fehlgeschlagen: {fehler}", {
+                  zeitpunkt: datumZeit(new Date(postfachTest.zeitpunkt)),
+                  adresse: postfachTest.benutzer,
+                  fehler: t(postfachTest.fehler ?? ""),
+                })}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {postfach.eingerichtet ? <Badge tone="success">{t("Verbunden")}</Badge> : <Badge tone="neutral">{t("Nicht verbunden")}</Badge>}
               {postfach.benutzer && (
