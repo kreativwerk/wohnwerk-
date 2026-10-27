@@ -7,7 +7,7 @@ import { formatDate } from "./dates";
 import { formatCents } from "./money";
 import { getSettings } from "./settings";
 import { monateAusText } from "./zuordnung";
-import { bankAbschlussArt, bankAbschlussKopf, bankAbschlussPosten, gebuehrArt, istAbschlussSteuer, istBankAbschluss, istKautionsRueckzahlung, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
+import { bankAbschlussArt, bankAbschlussKopf, bankAbschlussPosten, gebuehrArt, istAbschlussSteuer, istBankAbschluss, istKautionsRueckzahlung, istQontoGebuehr, istTelefonAbbuchung, objektZurMietzahlung, telefonNummern } from "./eigenbeleg-regeln";
 import { mieterPasst } from "./zuordnung";
 
 export { adressSchluessel, gebuehrArt, istKautionsRueckzahlung, istQontoGebuehr, objektZurMietzahlung } from "./eigenbeleg-regeln";
@@ -37,7 +37,8 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
 
   const gebuehr = istQontoGebuehr(tx);
   const abschluss = !gebuehr && istBankAbschluss(tx);
-  const kaution = !gebuehr && !abschluss && istKautionsRueckzahlung(tx);
+  const telefon = !gebuehr && !abschluss && istTelefonAbbuchung(tx);
+  const kaution = !gebuehr && !abschluss && !telefon && istKautionsRueckzahlung(tx);
   const mietverhaeltnis = kaution && tx.tenantId
     ? await prisma.tenancy.findFirst({
         where: { tenantId: tx.tenantId },
@@ -45,7 +46,7 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
         include: { tenant: true, bed: { include: { room: { include: { property: true } } } } },
       })
     : null;
-  const objekt = !gebuehr && !abschluss && !kaution && tx.propertyId
+  const objekt = !gebuehr && !abschluss && !telefon && !kaution && tx.propertyId
     ? await prisma.property.findUnique({ where: { id: tx.propertyId }, select: { name: true, street: true, zip: true, city: true, ownerName: true } })
     : null;
   const monate = monateAusText(tx.purpose, tx.bookingDate);
@@ -59,6 +60,8 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
       ? `Eigenbeleg Qonto-Gebühr ${formatDate(tx.bookingDate)}`
       : abschluss
         ? `Eigenbeleg Kontoabschluss ${tx.bankAccount.name} ${formatDate(tx.bookingDate)}`
+        : telefon
+        ? `Eigenbeleg o2 Business Mobilfunk ${formatDate(tx.bookingDate)}`
         : kaution
         ? `Eigenbeleg Kautionsrückzahlung ${formatDate(tx.bookingDate)}`
         : `Eigenbeleg Objektmiete ${formatDate(tx.bookingDate)}`,
@@ -79,7 +82,7 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
   text("EIGENBELEG", { font: bold, size: 18 });
   y -= 20;
   text(
-    gebuehr || abschluss ? "Bankgebühr ohne gesonderte Rechnung" : kaution ? "Rückzahlung der Mietkaution an den Mieter" : "Mietzahlung an den Vermieter (Objektmiete)",
+    gebuehr || abschluss ? "Bankgebühr ohne gesonderte Rechnung" : telefon ? "Mobilfunk-Lastschrift – Originalrechnung liegt nicht vor" : kaution ? "Rückzahlung der Mietkaution an den Mieter" : "Mietzahlung an den Vermieter (Objektmiete)",
     { color: grau },
   );
   y -= 40;
@@ -113,7 +116,21 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
     ["Abgebucht von", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
     ["Kategorie", "Bankgebühren"],
   ];
-  const zeilen: Array<[string, string]> = abschluss ? abschlussZeilen : kaution ? kautionZeilen : gebuehr
+  const nummern = telefon ? telefonNummern(tx.purpose) : null;
+  const brutto = Math.abs(tx.amountCents);
+  const netto = Math.round(brutto / 1.19);
+  const telefonZeilen: Array<[string, string]> = [
+    ["Belegdatum", formatDate(tx.bookingDate)],
+    ["Zahlungsempfänger", "Telefónica Germany GmbH & Co. OHG (o2 Business)"],
+    ["Art der Ausgabe", "Mobilfunk – monatliche Grundgebühr"],
+    ...(nummern?.kundennummer ? ([["Kundennummer", nummern.kundennummer]] as Array<[string, string]>) : []),
+    ...(nummern?.rechnungsnummer ? ([["Rechnungsnummer", nummern.rechnungsnummer]] as Array<[string, string]>) : []),
+    ["Betrag (brutto)", formatCents(brutto)],
+    ["darin 19 % USt", `${formatCents(brutto - netto)} (netto ${formatCents(netto)})`],
+    ["Abgebucht von", `${tx.bankAccount.name} · ${tx.bankAccount.iban}`],
+    ["Kategorie", "Internet / Telefon"],
+  ];
+  const zeilen: Array<[string, string]> = abschluss ? abschlussZeilen : telefon ? telefonZeilen : kaution ? kautionZeilen : gebuehr
     ? [
         ["Belegdatum", formatDate(tx.bookingDate)],
         ["Zahlungsempfänger", "Qonto (Kontoanbieter)"],
@@ -164,6 +181,13 @@ export async function eigenbelegPdf(bankTransactionId: string): Promise<Uint8Arr
         "Begründung: Rückzahlung der beim Einzug hinterlegten Mietkaution nach dem Auszug.",
         "Die Kaution war eine Sicherheitsleistung des Mieters und keine Einnahme; die",
         "Rückzahlung ist daher keine Ausgabe. Nachweis durch den Kontoauszug.",
+      ]
+    : telefon
+    ? [
+        "Begründung: Monatliche Lastschrift von o2 Business für die Mobilfunkverträge der",
+        "Hausverwaltung. Die Originalrechnung liegt nicht vor; sie kann im o2-Kundenportal",
+        "unter der genannten Rechnungsnummer abgerufen werden. Nachweis durch den",
+        "Kontoauszug. Die Umsatzsteuer ist aus dem Bruttobetrag herausgerechnet.",
       ]
     : abschluss
     ? [
@@ -289,6 +313,31 @@ export async function eigenbelegeFuerGebuehren(): Promise<number> {
         where: { id: tx.id },
         data: { reviewStatus: "BOOKED", category: "Objektmiete (Ausgabe)", propertyId: tx.propertyId ?? objekt.id },
       });
+      anzahl += 1;
+      continue;
+    }
+    // o2-Lastschrift ohne Rechnung: Eigenbeleg - aber erst nach 14 Tagen, damit
+    // die echte Rechnung aus dem Postfach oder von Hand Vorrang hat.
+    if (istTelefonAbbuchung(tx) && tx.bookingDate.getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) {
+      const nummern = telefonNummern(tx.purpose);
+      await prisma.document.create({
+        data: {
+          kind: "RECEIPT",
+          title: `Eigenbeleg o2 Business – Mobilfunk ${String(tx.bookingDate.getUTCMonth() + 1).padStart(2, "0")}/${tx.bookingDate.getUTCFullYear()}`,
+          fileName: `Eigenbeleg o2 ${tx.bookingDate.toISOString().slice(0, 10)}.pdf`,
+          mimeType: "application/pdf",
+          driveUrl: `/api/eigenbeleg/${tx.id}`,
+          documentDate: tx.bookingDate,
+          amountCents: Math.abs(tx.amountCents),
+          vatRatePct: 19,
+          supplier: "Telefónica Germany (o2 Business)",
+          category: "Internet / Telefon",
+          notes: `Eigenbeleg – Originalrechnung liegt nicht vor${nummern.rechnungsnummer ? ` (Rechnung ${nummern.rechnungsnummer} im o2-Portal)` : ""}`,
+          bankTransactionId: tx.id,
+          propertyId: tx.propertyId,
+        },
+      });
+      await prisma.bankTransaction.update({ where: { id: tx.id }, data: { reviewStatus: "BOOKED", category: "Internet / Telefon" } });
       anzahl += 1;
       continue;
     }

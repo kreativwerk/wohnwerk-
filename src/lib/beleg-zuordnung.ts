@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "./db";
-import { absenderWoerter, passendeAusgabe, type BelegDaten } from "./postfach-regeln";
+import { absenderWoerter, passendeAusgabe, rechnungsnummerAusText, type BelegDaten } from "./postfach-regeln";
 
 const TAG = 24 * 60 * 60 * 1000;
 
@@ -14,12 +14,13 @@ export type GefundeneAusgabe = { id: string; bookingDate: Date; amountCents: num
  */
 export async function ausgabeFuerBeleg(beleg: BelegDaten): Promise<GefundeneAusgabe | null> {
   if (beleg.betraege.length === 0) return null;
+  const bezug = beleg.einzug ?? beleg.datum;
   const kandidaten = await prisma.bankTransaction.findMany({
     where: {
       direction: "DEBIT",
       reviewStatus: { not: "IGNORED" },
       documents: { none: {} },
-      bookingDate: { gte: new Date(beleg.datum.getTime() - 20 * TAG), lte: new Date(beleg.datum.getTime() + 75 * TAG) },
+      bookingDate: { gte: new Date(bezug.getTime() - 20 * TAG), lte: new Date(bezug.getTime() + 75 * TAG) },
       amountCents: { in: beleg.betraege.slice(0, 40).map((b) => -b) },
     },
     select: { id: true, bookingDate: true, amountCents: true, counterpartyName: true, purpose: true },
@@ -59,7 +60,8 @@ export async function belegAnBuchung(documentId: string, bankTransactionId: stri
 export async function postfachBelegeNachZuordnen(): Promise<number> {
   const offen = await prisma.document.findMany({
     where: {
-      emailAnhangId: { not: null },
+      // Aus dem Postfach - oder von Hand abgelegt, aber mit Rechnungsnummer (sicherer Treffer).
+      OR: [{ emailAnhangId: { not: null } }, { notes: { contains: "Rechnungsnr." } }],
       bankTransactionId: null,
       kind: "RECEIPT",
       amountCents: { not: null },
@@ -70,6 +72,8 @@ export async function postfachBelegeNachZuordnen(): Promise<number> {
       amountCents: true,
       documentDate: true,
       notes: true,
+      supplier: true,
+      emailAnhangId: true,
       emailAnhang: { select: { nachricht: { select: { vonAdresse: true, vonName: true, datum: true } } } },
     },
     take: 200,
@@ -79,11 +83,18 @@ export async function postfachBelegeNachZuordnen(): Promise<number> {
   for (const d of offen) {
     const nachricht = d.emailAnhang?.nachricht;
     // Weitere Betraege aus der Rechnung stehen in der Notiz ("Beträge: 12,34 / 56,78").
-    const weitere = [...(d.notes ?? "").matchAll(/(\d+),(\d{2})/g)].map((t) => Number(t[1]) * 100 + Number(t[2]));
+    const weitere = [...(d.notes ?? "").matchAll(/(\d+),(\d{2})(?!\d)/g)].map((t) => Number(t[1]) * 100 + Number(t[2]));
+    const rechnungsnummer = rechnungsnummerAusText(d.notes);
+    const einzugTreffer = /Einzug (\d{2})\.(\d{2})\.(\d{4})/.exec(d.notes ?? "");
+    // Von Hand abgelegt: nur ueber die Rechnungsnummer, nie nur ueber den Betrag.
+    if (!d.emailAnhangId && !rechnungsnummer) continue;
     const treffer = await ausgabeFuerBeleg({
       betraege: [...new Set([d.amountCents as number, ...weitere])],
       datum: d.documentDate ?? nachricht?.datum ?? new Date(),
-      absenderWoerter: nachricht ? absenderWoerter(nachricht.vonAdresse, nachricht.vonName) : [],
+      absenderWoerter: nachricht ? absenderWoerter(nachricht.vonAdresse, nachricht.vonName) : absenderWoerter("", d.supplier),
+      rechnungsnummer,
+      einzug: einzugTreffer ? new Date(Date.UTC(Number(einzugTreffer[3]), Number(einzugTreffer[2]) - 1, Number(einzugTreffer[1]))) : null,
+      nurMitNummer: !d.emailAnhangId,
     });
     if (!treffer) continue;
     await belegAnBuchung(d.id, treffer.id);

@@ -156,7 +156,35 @@ export type BelegDaten = {
   betraege: number[];
   datum: Date;
   absenderWoerter: string[];
+  /** Rechnungsnummer - steht sie im Buchungstext, ist der Treffer sicher. */
+  rechnungsnummer?: string | null;
+  /** Angekuendigter Einzugstag ("wird am 13.11.2026 eingezogen") - naeher dran als das Rechnungsdatum. */
+  einzug?: Date | null;
+  /** Nur ein Treffer ueber die Rechnungsnummer zaehlt (von Hand abgelegte Belege). */
+  nurMitNummer?: boolean;
 };
+
+/** Ziffern und Buchstaben, ohne Leer- und Trennzeichen: "478753781/37" -> "47875378137". */
+function nummerSchluessel(nr: string): string {
+  return nr.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Rechnungsnummer aus Rechnungstext oder Buchungstext ("Rechnungsnummer 478753781/37", "Rg-Nr.:436451796/37"). */
+export function rechnungsnummerAusText(text: string | null | undefined): string | null {
+  const t = /(?:rechnungs-?\s?(?:nummer|nr\.?)|rg\.?-?\s?nr\.?|invoice\s?(?:no\.?|number))\s*[:#]?\s*([A-Z0-9][A-Z0-9/._-]{3,}[A-Z0-9])/i.exec(text ?? "");
+  return t && /\d{3,}/.test(t[1]) ? t[1] : null;
+}
+
+/** "wird ... am 13.11.2026 eingezogen" / "Abbuchung am 13.11.2026". */
+export function einzugAusText(text: string | null | undefined): Date | null {
+  const flach = (text ?? "").replace(/\s+/g, " ");
+  const t =
+    /am (\d{1,2})\.(\d{1,2})\.(\d{4}) (?:eingezogen|abgebucht|belastet|abgebucht)/i.exec(flach) ??
+    /(?:einzug|abbuchung|lastschrift|belastung) (?:erfolgt )?(?:am|zum) (\d{1,2})\.(\d{1,2})\.(\d{4})/i.exec(flach);
+  if (!t) return null;
+  const d = new Date(Date.UTC(Number(t[3]), Number(t[2]) - 1, Number(t[1])));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 export type AusgabeKandidat = {
   id: string;
@@ -178,10 +206,22 @@ const TAG = 24 * 60 * 60 * 1000;
  * passt; danach der vordere Betrag (Summenzeile), dann das naechste Datum.
  */
 export function passendeAusgabe(beleg: BelegDaten, kandidaten: AusgabeKandidat[]): string | null {
+  // Rechnungsnummer im Buchungstext: eindeutig. Eine andere Nummer dort: sicher nicht diese Rechnung.
+  if (beleg.rechnungsnummer) {
+    const eigene = nummerSchluessel(beleg.rechnungsnummer);
+    const genau = kandidaten.filter((k) => nummerSchluessel(k.zweck ?? "").includes(eigene) && beleg.betraege.includes(k.betragCents));
+    if (genau.length === 1) return genau[0].id;
+    if (beleg.nurMitNummer) return null;
+    kandidaten = kandidaten.filter((k) => {
+      const fremd = rechnungsnummerAusText(k.zweck);
+      return !fremd || nummerSchluessel(fremd) === eigene;
+    });
+  }
+  const bezug = beleg.einzug ?? beleg.datum;
   const treffer = kandidaten
     .map((k) => {
       const rang = beleg.betraege.indexOf(k.betragCents);
-      const abstand = (k.datum.getTime() - beleg.datum.getTime()) / TAG;
+      const abstand = (k.datum.getTime() - bezug.getTime()) / TAG;
       const text = `${k.gegenpartei ?? ""} ${k.zweck ?? ""}`.toLowerCase();
       const name = beleg.absenderWoerter.some((w) => text.includes(w));
       return { k, rang, abstand, name };

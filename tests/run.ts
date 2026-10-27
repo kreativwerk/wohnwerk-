@@ -18,8 +18,8 @@ import { anteilNotiz, monatsanteil, tagespauschale } from "../src/lib/mietanteil
 import { sortiereStockwerke, stockwerkRang } from "../src/lib/stockwerk";
 import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../src/lib/qonto-umsatz";
 import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
-import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
-import { absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
+import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, istTelefonAbbuchung, telefonNummern, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
+import { einzugAusText, rechnungsnummerAusText, absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1086,6 +1086,23 @@ async function main() {
       { id: "b", betragCents: 5000, datum: tag("2026-09-11"), gegenpartei: "Y", zweck: null },
     ];
     assert.equal(passendeAusgabe({ betraege: [5000], datum: tag("2026-09-10"), absenderWoerter: [] }, zwei), null);
+  });
+
+  await test("Postfach: Rechnungsnummer und Einzug entscheiden bei gleichem Monatsbetrag", () => {
+    const tag = (x: string) => new Date(`${x}T00:00:00Z`);
+    const rechnung = "Rechnungsdatum 13.10.2026\nRechnungsnummer 478753781/37\nRechnungsbetrag (in EUR inkl. MwSt.) 28,56\nDer offene Rechnungsbetrag wird von dem Konto IBAN DEXX am 13.11.2026\neingezogen.";
+    assert.equal(rechnungsnummerAusText(rechnung), "478753781/37");
+    assert.equal(einzugAusText(rechnung)?.toISOString().slice(0, 10), "2026-11-13");
+    const kandidaten = [
+      { id: "okt", betragCents: 2856, datum: tag("2026-10-12"), gegenpartei: "Telefónica", zweck: "Kd-Nr.:40674991,Rg-Nr.:469067626/37,o2 BUSINESS SAGT DANKE" },
+      { id: "nov", betragCents: 2856, datum: tag("2026-11-13"), gegenpartei: "Telefónica", zweck: "Kd-Nr.:40674991,Rg-Nr.:478753781/37,o2 BUSINESS SAGT DANKE" },
+    ];
+    const beleg = { betraege: [2856], datum: tag("2026-10-13"), absenderWoerter: ["telefonica"], rechnungsnummer: "478753781/37", einzug: tag("2026-11-13") };
+    assert.equal(passendeAusgabe(beleg, kandidaten), "nov");
+    // Noch keine November-Abbuchung: die Oktober-Abbuchung (andere Rechnung) darf es nicht werden.
+    assert.equal(passendeAusgabe(beleg, [kandidaten[0]]), null);
+    assert.ok(istTelefonAbbuchung({ direction: "DEBIT", counterpartyName: "Telefonica Germany", purpose: "Kd-Nr.:40674991,Rg-Nr.:448317166/37,o2 BUSINESS SAGT DANKE" }));
+    assert.deepEqual(telefonNummern("Kd-Nr.:40674991,Rg-Nr.:448317166/37,o2 BUSINESS SAGT DANKE"), { kundennummer: "40674991", rechnungsnummer: "448317166/37" });
   });
 
   await test("Postfach: Antwort-Betreff und Adressen", () => {

@@ -12,6 +12,8 @@ import {
   anhangTyp,
   betraegeAusText,
   datumAusText,
+  einzugAusText,
+  rechnungsnummerAusText,
   istKuendigung,
   istRechnung,
   type Anbieter,
@@ -364,6 +366,18 @@ function geldText(cent: number): string {
   return `${Math.floor(cent / 100)},${String(cent % 100).padStart(2, "0")}`;
 }
 
+/** Notiz am Beleg - die Nachzuordnung liest Betraege, Rechnungsnummer und Einzug daraus wieder. */
+export function belegNotiz(quelle: string, betraege: number[], rechnungsnummer: string | null, einzug: Date | null): string {
+  return [
+    quelle,
+    rechnungsnummer ? `Rechnungsnr. ${rechnungsnummer}.` : null,
+    einzug ? `Einzug ${einzug.toISOString().slice(0, 10).split("-").reverse().join(".")}.` : null,
+    betraege.length > 1 ? `Beträge: ${betraege.slice(0, 8).map(geldText).join(" / ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 // --- Abholen ----------------------------------------------------------------------
 
 type Adresse = { address?: string; name?: string };
@@ -654,6 +668,8 @@ async function nachrichtSpeichern(kopf: NachrichtKopf, anhaenge: AnhangRoh[], er
 
       const betraege = betraegeAusText(`${text}\n${kopf.betreff}`);
       const belegDatum = datumAusText(text) ?? kopf.datum;
+      const rechnungsnummer = rechnungsnummerAusText(text) ?? rechnungsnummerAusText(kopf.betreff);
+      const einzug = einzugAusText(text);
       const lieferant = kopf.vonName || kopf.vonAdresse.split("@")[1] || kopf.vonAdresse;
       const dokument = await prisma.document.create({
         data: {
@@ -669,12 +685,7 @@ async function nachrichtSpeichern(kopf: NachrichtKopf, anhaenge: AnhangRoh[], er
           documentDate: belegDatum,
           amountCents: betraege[0] ?? null,
           supplier: lieferant.slice(0, 120),
-          notes: [
-            `Aus dem Postfach (${kopf.vonAdresse}).`,
-            betraege.length > 1 ? `Beträge: ${betraege.slice(0, 8).map(geldText).join(" / ")}` : null,
-          ]
-            .filter(Boolean)
-            .join(" "),
+          notes: belegNotiz(`Aus dem Postfach (${kopf.vonAdresse}).`, betraege, rechnungsnummer, einzug),
           emailAnhangId: g.id,
         },
       });
@@ -684,6 +695,8 @@ async function nachrichtSpeichern(kopf: NachrichtKopf, anhaenge: AnhangRoh[], er
         betraege,
         datum: belegDatum,
         absenderWoerter: absenderWoerter(kopf.vonAdresse, kopf.vonName),
+        rechnungsnummer,
+        einzug,
       });
       if (treffer) {
         // Der Beleg traegt den Betrag der Buchung - das ist der, der gezahlt wurde.
@@ -886,6 +899,8 @@ export async function anhangAlsBeleg(
   }
   const betraege = betraegeAusText(`${text}\n${n.betreff}`);
   const belegDatum = datumAusText(text) ?? n.datum;
+  const rechnungsnummer = rechnungsnummerAusText(text) ?? rechnungsnummerAusText(n.betreff);
+  const einzug = einzugAusText(text);
   const lieferant = n.vonName || n.vonAdresse.split("@")[1] || n.vonAdresse;
 
   const dokument = await prisma.document.create({
@@ -902,12 +917,7 @@ export async function anhangAlsBeleg(
       documentDate: belegDatum,
       amountCents: betraege[0] ?? null,
       supplier: lieferant.slice(0, 120),
-      notes: [
-        `Aus dem Postfach (${n.vonAdresse}).`,
-        betraege.length > 1 ? `Beträge: ${betraege.slice(0, 8).map(geldText).join(" / ")}` : null,
-      ]
-        .filter(Boolean)
-        .join(" "),
+      notes: belegNotiz(`Aus dem Postfach (${n.vonAdresse}).`, betraege, rechnungsnummer, einzug),
       emailAnhangId: anhang.id,
       tenantId: n.tenantId,
     },
@@ -915,7 +925,7 @@ export async function anhangAlsBeleg(
 
   const ziel = bankTransactionId
     ? await prisma.bankTransaction.findUnique({ where: { id: bankTransactionId }, select: { id: true, amountCents: true, bookingDate: true } })
-    : await ausgabeFuerBeleg({ betraege, datum: belegDatum, absenderWoerter: absenderWoerter(n.vonAdresse, n.vonName) });
+    : await ausgabeFuerBeleg({ betraege, datum: belegDatum, absenderWoerter: absenderWoerter(n.vonAdresse, n.vonName), rechnungsnummer, einzug });
   if (ziel) {
     await prisma.document.update({ where: { id: dokument.id }, data: { amountCents: Math.abs(ziel.amountCents) } });
     await belegAnBuchung(dokument.id, ziel.id);

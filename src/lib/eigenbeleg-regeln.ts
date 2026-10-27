@@ -128,3 +128,21 @@ export function bankAbschlussKopf(purpose: string | null): { zeitraum: string | 
   const r = /rechnung nr\.?\s*([0-9.]+[0-9])/i.exec(text);
   return { zeitraum: z ? `${z[1]} – ${z[2]}` : null, rechnungNr: r ? r[1] : null };
 }
+
+/**
+ * Mobilfunk-Abbuchung von o2 Business (Telefonica). Die Rechnung kommt per
+ * Mail; fehlt sie, ersetzt ein Eigenbeleg sie - mit Kunden- und
+ * Rechnungsnummer aus dem Buchungstext.
+ */
+export function istTelefonAbbuchung(tx: { direction: string; purpose: string | null; counterpartyName: string | null }): boolean {
+  if (tx.direction !== "DEBIT") return false;
+  return /telef[oó]nica|o2 business/i.test(`${tx.counterpartyName ?? ""} ${tx.purpose ?? ""}`);
+}
+
+/** "Kd-Nr.:40674991,Rg-Nr.:436451796/37" -> Kunden- und Rechnungsnummer. */
+export function telefonNummern(purpose: string | null): { kundennummer: string | null; rechnungsnummer: string | null } {
+  const text = purpose ?? "";
+  const kd = /Kd\.?-?\s?Nr\.?:?\s*(\d{5,})/i.exec(text);
+  const rg = /Rg\.?-?\s?Nr\.?:?\s*([0-9][0-9/]{4,}[0-9])/i.exec(text);
+  return { kundennummer: kd ? kd[1] : null, rechnungsnummer: rg ? rg[1] : null };
+}
