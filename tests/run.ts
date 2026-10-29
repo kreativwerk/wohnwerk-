@@ -20,6 +20,7 @@ import { belegDateiname, berlinTag, gleicheZahlung, qontoZuBuchung } from "../sr
 import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlanen, type ZuordnungsForderung } from "../src/lib/zuordnung";
 import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, istTelefonAbbuchung, telefonNummern, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
 import { einzugAusText, rechnungsnummerAusText, absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
+import { naechsteFaelligkeiten, tageBis, berlinMitternacht } from "../src/lib/faelligkeit";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1019,6 +1020,26 @@ async function main() {
     assert.equal(posten.filter((p) => !p.text.startsWith("Umsatzsteuer")).reduce((s, p) => s + p.betragCents, 0), 2400);
     assert.ok(posten.some((p) => p.text === "Kontoführungsentgelt" && p.betragCents === 690));
     assert.deepEqual(bankAbschlussKopf(zweck), { zeitraum: "30.12.2025 – 31.01.2026", rechnungNr: "0002678900.20260131.002" });
+  });
+
+  await test("Fälligkeit: nächster Fälligkeitstag aus den Verträgen, anteilig bei Einzug", () => {
+    const tag = (x: string) => new Date(`${x}T00:00:00Z`);
+    const heute = tag("2026-10-29");
+    const f = naechsteFaelligkeiten(
+      [
+        { billingDay: 1, monthlyRentCents: 47000, startDate: tag("2026-01-01"), endDate: null },
+        { billingDay: 1, monthlyRentCents: 47000, startDate: tag("2026-09-01"), endDate: tag("2026-10-31") },
+        { billingDay: 1, monthlyRentCents: 47000, startDate: tag("2026-11-10"), endDate: null },
+      ],
+      heute,
+    );
+    assert.equal(f[0].datum.toISOString().slice(0, 10), "2026-11-01");
+    assert.equal(f[0].anzahl, 1, "Ausgezogene zahlen im November nicht");
+    assert.equal(f[1].datum.toISOString().slice(0, 10), "2026-11-10");
+    assert.equal(f[1].summeCents, 21 * 1567, "Einzug am 10.: anteilig 21 Tage");
+    assert.equal(tageBis(heute, f[0].datum), 3);
+    // Mitternacht in Berlin (Winterzeit) = 23 Uhr UTC am Vortag.
+    assert.equal(berlinMitternacht(tag("2026-11-01")).toISOString(), "2026-10-31T23:00:00.000Z");
   });
 
   console.log("\nPostfach");

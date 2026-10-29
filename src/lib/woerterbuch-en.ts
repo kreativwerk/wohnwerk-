@@ -1409,4 +1409,13 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "nur vom Mieter unterschriebene Verträge": "only contracts signed by the tenant",
   "unterschrieben": "signed",
   "{ohne} ohne Vertrag, {offen} versendet, aber nicht unterschrieben": "{ohne} without contract, {offen} sent but not signed",
+  "Nächste Mietfälligkeit": "Next rent due",
+  "Tage": "days",
+  "Tag": "day",
+  "Std": "hrs",
+  "Min": "min",
+  "Heute fällig": "Due today",
+  "{anzahl} Mieten · {summe}": "{anzahl} rents · {summe}",
+  "Zahlungsfrist bis {datum} (in {tage} Tagen) – danach Erinnerung": "Payment deadline {datum} (in {tage} days) – reminder afterwards",
+  "1 Miete · {summe}": "1 rent · {summe}",
 };

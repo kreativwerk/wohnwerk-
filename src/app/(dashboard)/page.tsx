@@ -5,6 +5,9 @@ import { ChargeBadge, ContractBadge } from "@/components/status";
 import { prisma } from "@/lib/db";
 import { monthlyCashflow, periodSummary } from "@/lib/accounting";
 import { occupancySummary } from "@/lib/tenancy";
+import { Countdown } from "@/components/countdown";
+import { berlinMitternacht, heuteInBerlin, naechsteFaelligkeiten, tageBis } from "@/lib/faelligkeit";
+import { ZAHLTAG } from "@/lib/mahnung";
 
 import { endOfMonth, startOfMonth } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
@@ -24,7 +27,8 @@ export default async function DashboardPage() {
   const from = startOfMonth(now);
   const to = endOfMonth(now);
 
-  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets, offeneMeldungen, aktiveMieter] =
+  const heute = heuteInBerlin(now);
+  const [occupancy, summary, cashflow, properties, upcoming, recentContracts, openCharges, offeneTickets, offeneMeldungen, aktiveMieter, laufend] =
     await Promise.all([
       occupancySummary(),
       periodSummary(from, to),
@@ -68,7 +72,23 @@ export default async function DashboardPage() {
       prisma.ticket.count({ where: { status: { not: "ERLEDIGT" }, art: "SUPPORT" } }),
       // Alle aktiven Bewohner - auch die, die gerade kein Bett haben.
       prisma.tenant.count({ where: { status: "AKTIV" } }),
+      // Faelligkeit laut Vertrag (Faelligkeitstag je Mietverhaeltnis) - fuer den Countdown.
+      prisma.tenancy.findMany({
+        where: {
+          status: { not: "ENDED" },
+          tenant: { status: { not: "EHEMALIG" } },
+          OR: [{ endDate: null }, { endDate: { gte: heute } }],
+        },
+        select: { billingDay: true, monthlyRentCents: true, startDate: true, endDate: true },
+      }),
     ]);
+  const faelligkeiten = naechsteFaelligkeiten(laufend, heute, 3);
+  const naechste = faelligkeiten[0] ?? null;
+  // Zahlungsfrist aus den Erinnerungen: bis zum 15. des Faelligkeitsmonats.
+  const frist = naechste
+    ? new Date(Date.UTC(naechste.datum.getUTCFullYear(), naechste.datum.getUTCMonth(), Math.max(ZAHLTAG, naechste.datum.getUTCDate())))
+    : null;
+  const wochentag = (d: Date) => d.toLocaleDateString("de-DE", { weekday: "short", timeZone: "UTC" });
 
   // Zimmer und Betten ueber alle aktiven Objekte - fuer die Zaehler oben.
   const zimmerGesamt = properties.reduce((sum, p) => sum + p.rooms.filter((r) => r.active).length, 0);
@@ -103,6 +123,45 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      {naechste && (
+        <Card className="mb-4" padded={false}>
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t("Nächste Mietfälligkeit")}</p>
+              <div className="mt-1">
+                <Countdown
+                  ziel={berlinMitternacht(naechste.datum).toISOString()}
+                  einheiten={{ tage: t("Tage"), tag: t("Tag"), std: t("Std"), min: t("Min") }}
+                  faelligText={t("Heute fällig")}
+                />
+              </div>
+              <p className="mt-1 text-sm text-ink-700">
+                {wochentag(naechste.datum)}, {datum(naechste.datum)} ·{" "}
+                {t(naechste.anzahl === 1 ? "1 Miete · {summe}" : "{anzahl} Mieten · {summe}", { anzahl: naechste.anzahl, summe: geld(naechste.summeCents) })}
+              </p>
+              {frist && (
+                <p className="mt-0.5 text-xs text-ink-500">
+                  {t("Zahlungsfrist bis {datum} (in {tage} Tagen) – danach Erinnerung", {
+                    datum: datum(frist),
+                    tage: Math.max(0, tageBis(heute, frist)),
+                  })}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:items-end">
+              {faelligkeiten.slice(1).map((f) => (
+                <p key={f.datum.getTime()} className="text-xs text-ink-600 sm:text-right">
+                  {wochentag(f.datum)}, {datum(f.datum)} · {t(f.anzahl === 1 ? "1 Miete · {summe}" : "{anzahl} Mieten · {summe}", { anzahl: f.anzahl, summe: geld(f.summeCents) })}
+                </p>
+              ))}
+              <Link href="/buchhaltung/mieteingaenge" className="btn btn-secondary btn-sm">
+                {t("Mieteingänge")}
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
         <StatCard
