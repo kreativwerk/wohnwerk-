@@ -333,7 +333,7 @@ export async function postfachTesten(z: PostfachZugang): Promise<{ ok: boolean; 
 // --- PDF-Text -------------------------------------------------------------------
 
 /** Text eines PDFs zeilenweise - fuer Betrag und Datum der Rechnung. */
-async function pdfText(daten: Buffer): Promise<string> {
+export async function pdfText(daten: Buffer): Promise<string> {
   try {
     const { getDocumentProxy } = await import("unpdf");
     const doc = await getDocumentProxy(new Uint8Array(daten));

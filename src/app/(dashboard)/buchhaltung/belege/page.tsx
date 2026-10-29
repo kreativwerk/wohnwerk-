@@ -12,6 +12,7 @@ import { toDateInput } from "@/lib/dates";
 import { checkDriveStatus } from "@/lib/storage";
 import { AdminOnly } from "@/components/admin-only";
 import { BelegDatei } from "@/components/beleg-datei";
+import { SammelUpload } from "@/components/sammel-upload";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
@@ -331,6 +332,22 @@ export default async function DocumentsPage({
         </div>
 
         <div className="min-w-0 space-y-6" id="beleg-hochladen">
+          <AdminOnly>
+            <Card
+              title={t("Mehrere Belege hochladen")}
+              description={t("Alle Dateien auf einmal auswählen, z. B. aus Google Drive. Die App legt jede als Beleg ab und hängt sie an die passende Abbuchung, wenn Betrag und Datum eindeutig sind.")}
+            >
+              <SammelUpload
+                texte={{
+                  auswahl: t("Dateien auswählen"),
+                  knopf: t("Alle hochladen"),
+                  laeuft: t("Lädt hoch …"),
+                  doppelt: t("schon vorhanden"),
+                  netz: t("Keine Verbindung"),
+                }}
+              />
+            </Card>
+          </AdminOnly>
           <Card
             title={t("Beleg erfassen")}
             description={t("Unterwegs abfotografieren – das Foto wird automatisch auf eine sinnvolle Größe gebracht.")}

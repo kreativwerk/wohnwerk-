@@ -1418,4 +1418,11 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "{anzahl} Mieten · {summe}": "{anzahl} rents · {summe}",
   "Zahlungsfrist bis {datum} (in {tage} Tagen) – danach Erinnerung": "Payment deadline {datum} (in {tage} days) – reminder afterwards",
   "1 Miete · {summe}": "1 rent · {summe}",
+  "Mehrere Belege hochladen": "Upload several receipts",
+  "Alle Dateien auf einmal auswählen, z. B. aus Google Drive. Die App legt jede als Beleg ab und hängt sie an die passende Abbuchung, wenn Betrag und Datum eindeutig sind.": "Select all files at once, e.g. from Google Drive. The app files each as a receipt and attaches it to the matching debit when amount and date are unambiguous.",
+  "Dateien auswählen": "Select files",
+  "Alle hochladen": "Upload all",
+  "Lädt hoch …": "Uploading …",
+  "schon vorhanden": "already there",
+  "Keine Verbindung": "No connection",
 };
