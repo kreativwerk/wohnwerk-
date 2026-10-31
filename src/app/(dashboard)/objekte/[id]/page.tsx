@@ -18,7 +18,7 @@ import { PropertyTemplates } from "@/components/template-card";
 import { PropertyCosts } from "@/components/cost-card";
 import { prisma } from "@/lib/db";
 import { bedOccupancy, occupancySummary } from "@/lib/tenancy";
-import { centsToInput } from "@/lib/money";
+import { centsToInput, STANDARD_BETTMIETE_CENTS } from "@/lib/money";
 import { OHNE_STOCKWERK, sortiereStockwerke } from "@/lib/stockwerk";
 
 import { requireAdmin } from "@/lib/auth";
@@ -403,7 +403,7 @@ export default async function PropertyDetailPage({
             </div>
             <div>
               <label htmlFor="new-room-rent">{t("Miete je Bett / Monat")}</label>
-              <input id="new-room-rent" name="defaultBedRentCents" defaultValue="350,00" inputMode="decimal" />
+              <input id="new-room-rent" name="defaultBedRentCents" defaultValue={centsToInput(STANDARD_BETTMIETE_CENTS)} inputMode="decimal" />
             </div>
             <button type="submit" className="btn btn-primary">
               {t("Zimmer anlegen")}

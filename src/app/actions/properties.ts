@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { cents, flash, float, int, optionalStr, str } from "@/lib/form";
+import { STANDARD_BETTMIETE_CENTS } from "@/lib/money";
 import {
   TEMPLATE_KIND,
   TEMPLATE_KIND_LABEL,
@@ -190,7 +191,7 @@ export async function createRoom(formData: FormData) {
   const vorhandene = await prisma.room.count({ where: { propertyId } });
   const name = str(formData, "name") || t("Zimmer {n}", { n: vorhandene + 1 });
 
-  const defaultBedRentCents = cents(formData, "defaultBedRentCents", 35000);
+  const defaultBedRentCents = cents(formData, "defaultBedRentCents", STANDARD_BETTMIETE_CENTS);
   const bedCount = Math.max(0, Math.min(int(formData, "bedCount", 0), 20));
 
   const lastRoom = await prisma.room.findFirst({
@@ -245,7 +246,7 @@ export async function updateRoom(formData: FormData) {
       floor: optionalStr(formData, "floor"),
       sizeSqm: float(formData, "sizeSqm"),
       notes: optionalStr(formData, "notes"),
-      defaultBedRentCents: cents(formData, "defaultBedRentCents", 35000),
+      defaultBedRentCents: cents(formData, "defaultBedRentCents", STANDARD_BETTMIETE_CENTS),
     },
   });
 
@@ -323,7 +324,7 @@ export async function updateBed(formData: FormData) {
     where: { id },
     data: {
       label: str(formData, "label"),
-      monthlyRentCents: cents(formData, "monthlyRentCents", 35000),
+      monthlyRentCents: cents(formData, "monthlyRentCents", STANDARD_BETTMIETE_CENTS),
       status,
       notes: optionalStr(formData, "notes"),
     },

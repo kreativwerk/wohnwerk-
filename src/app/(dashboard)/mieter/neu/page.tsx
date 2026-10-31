@@ -175,7 +175,7 @@ export default async function NewTenantPage({
             </div>
             <div>
               <label htmlFor="monthlyRentCents">{t("Miete / Monat")}</label>
-              <input id="monthlyRentCents" name="monthlyRentCents" inputMode="decimal" placeholder="350,00" />
+              <input id="monthlyRentCents" name="monthlyRentCents" inputMode="decimal" placeholder="470,00" />
               <p className="field-hint">{t("Wird aus dem Bett vorbelegt.")}</p>
             </div>
             <div>

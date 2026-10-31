@@ -11,7 +11,7 @@ import { randomToken } from "@/lib/storage";
 import { findConflictingTenancy, nextContractNumber, nextReference } from "@/lib/tenancy";
 import { ensureRentCharges, forderungenAbgleichen } from "@/lib/accounting";
 import { formatDate } from "@/lib/dates";
-import { formatCents } from "@/lib/money";
+import { formatCents, STANDARD_BETTMIETE_CENTS } from "@/lib/money";
 import { uebersetzer } from "@/lib/i18n";
 
 function refresh(tenantId?: string) {
@@ -108,7 +108,7 @@ export async function createTenant(formData: FormData) {
         bedId,
         startDate,
         endDate,
-        monthlyRentCents: cents(formData, "monthlyRentCents", bed?.monthlyRentCents ?? 35000),
+        monthlyRentCents: cents(formData, "monthlyRentCents", bed?.monthlyRentCents ?? STANDARD_BETTMIETE_CENTS),
         depositCents: cents(formData, "depositCents", 0),
         utilitiesCents: cents(formData, "utilitiesCents", 0),
         billingDay: Math.min(Math.max(int(formData, "billingDay", 1), 1), 28),
@@ -251,7 +251,7 @@ export async function createTenancy(formData: FormData) {
       bedId,
       startDate,
       endDate,
-      monthlyRentCents: cents(formData, "monthlyRentCents", bed?.monthlyRentCents ?? 35000),
+      monthlyRentCents: cents(formData, "monthlyRentCents", bed?.monthlyRentCents ?? STANDARD_BETTMIETE_CENTS),
       depositCents: cents(formData, "depositCents", 0),
       utilitiesCents: cents(formData, "utilitiesCents", 0),
       billingDay: Math.min(Math.max(int(formData, "billingDay", 1), 1), 28),

@@ -93,3 +93,6 @@ export function parseAmountOr(raw: unknown, fallback = 0): number {
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)} %`;
 }
+
+/** Standardmiete je Bett: 470 € im Monat - gilt beim Anlegen von Zimmern und Betten. */
+export const STANDARD_BETTMIETE_CENTS = 47000;
