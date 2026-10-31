@@ -88,6 +88,8 @@ export async function buildTemplateValues(
     heute,
     ort,
     ortDatum: ort ? `${ort}, ${heute}` : heute,
+    // Fuer Kaestchen, die auf jedem Exemplar gleich sind (z. B. "Einzug").
+    "immer.ja": "ja",
   };
 
   if (contract.signatureData) {

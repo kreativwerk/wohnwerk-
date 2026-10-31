@@ -82,7 +82,8 @@ export type PlaceholderKey =
   | "objekt.plzOrtStrasse"
   | "lage"
   | "mieter.maennlich"
-  | "mieter.weiblich";
+  | "mieter.weiblich"
+  | "immer.ja";
 
 export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: string }> = [
   { key: "mieter.vorname", label: "Vorname", group: "Mieter" },
@@ -136,6 +137,7 @@ export const PLACEHOLDERS: Array<{ key: PlaceholderKey; label: string; group: st
   { key: "heute", label: "Heutiges Datum", group: "Ausstellung" },
   { key: "ort", label: "Ausstellungsort", group: "Ausstellung" },
   { key: "ortDatum", label: "Ort und heutiges Datum", group: "Ausstellung" },
+  { key: "immer.ja", label: "Kästchen: immer angekreuzt", group: "Ausstellung" },
 ];
 
 const PLACEHOLDER_KEYS = new Set<string>(PLACEHOLDERS.map((p) => p.key));

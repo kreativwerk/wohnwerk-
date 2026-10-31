@@ -491,6 +491,7 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Für die Kästchen in der Wohnungsgeberbestätigung.": "For the checkboxes in the landlord confirmation.",
   "Kästchen: männlich": "Checkbox: male",
   "Kästchen: weiblich": "Checkbox: female",
+  "Kästchen: immer angekreuzt": "Checkbox: always ticked",
   "Wohnungsgeberbestätigung (PDF)": "Landlord confirmation (PDF)",
   "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",
   "Kein Vordruck für die Wohnungsgeberbestätigung": "No form for the landlord confirmation",
