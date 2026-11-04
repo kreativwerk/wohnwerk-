@@ -21,6 +21,7 @@ import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlane
 import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, istTelefonAbbuchung, telefonNummern, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
 import { einzugAusText, rechnungsnummerAusText, absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
 import { naechsteFaelligkeiten, tageBis, berlinMitternacht } from "../src/lib/faelligkeit";
+import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1130,6 +1131,56 @@ async function main() {
     assert.equal(antwortBetreff("Rechnung"), "Re: Rechnung");
     assert.equal(antwortBetreff("AW: Rechnung"), "AW: Rechnung");
     assert.deepEqual(adressenLesen("a@b.de, c@d.de; kaputt, <e@f.de>"), ["a@b.de", "c@d.de", "e@f.de"]);
+  });
+
+  await test("Objektmiete: 3. Werktag mit bayerischen Feiertagen", () => {
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    assert.equal(iso(ostersonntag(2026)), "2026-04-05");
+    assert.ok(feiertageBayern(2026).has("2026-06-04")); // Fronleichnam
+    // November 2026: 1.11. Sonntag und Allerheiligen -> Mo 2., Di 3., Mi 4.
+    assert.equal(iso(nterWerktag(2026, 11, 3)), "2026-11-04");
+    // Dezember 2026: Di 1., Mi 2., Do 3.
+    assert.equal(iso(faelligAm({ faelligArt: "WERKTAG", faelligTag: 3 }, 2026, 12)), "2026-12-03");
+    // Januar 2027: 1.1. Feiertag (Fr), 6.1. Hl. Drei Koenige -> Mo 4., Di 5., Do 7.
+    assert.equal(iso(nterWerktag(2027, 1, 3)), "2027-01-07");
+    // Samstag zaehlt nicht: August 2026 beginnt am Samstag -> Mo 3., Di 4., Mi 5.
+    assert.equal(iso(nterWerktag(2026, 8, 3)), "2026-08-05");
+    assert.equal(iso(faelligAm({ faelligArt: "TAG", faelligTag: 31 }, 2026, 11)), "2026-11-30");
+  });
+
+  await test("Objektmiete: anteiliger erster Monat und Zahlungen nach Monat im Zweck", () => {
+    const tag = (x: string) => new Date(`${x}T00:00:00Z`);
+    // Nuernberger Str. 149: 2.499 EUR ab 07.09.2026 - September anteilig 24 Tage.
+    const v = { id: "nbg", betragCents: 249900, faelligArt: "WERKTAG", faelligTag: 3, beginn: tag("2026-09-07"), ende: null };
+    const monate = vertragsMonate(v, tag("2026-06-01"), tag("2026-12-31"));
+    assert.equal(monate[0].monat, 9);
+    assert.equal(monate[0].sollCents, 199920);
+    assert.equal(monate[0].faellig.toISOString().slice(0, 10), "2026-09-07");
+    const stand = monateMitZahlungen(monate, [{ id: "z1", datum: tag("2026-10-21"), betragCents: 199920, zweck: "Miete 09/2026 Nuernberger Str. 149 Bamberg (anteilig ab 07.09.)" }], tag("2026-11-04"));
+    assert.deepEqual(stand.map((m) => `${m.monat}:${m.status}`), ["9:BEZAHLT", "10:UEBERFAELLIG", "11:OFFEN", "12:OFFEN"]);
+  });
+
+  await test("Objektmiete: Vorauszahlung Ende Vormonat zaehlt fuer den Folgemonat", () => {
+    const tag = (x: string) => new Date(`${x}T00:00:00Z`);
+    const v = { id: "stm", betragCents: 1011500, faelligArt: "WERKTAG", faelligTag: 3, beginn: tag("2026-01-01"), ende: tag("2026-12-31") };
+    const monate = vertragsMonate(v, tag("2026-06-01"), tag("2026-11-30"));
+    const zahlungen = ["2026-06-01", "2026-06-29", "2026-07-29", "2026-08-29", "2026-09-29"].map((d, i) => ({ id: `z${i}`, datum: tag(d), betragCents: 1011500, zweck: "Miete St. Michael 27" }));
+    const stand = monateMitZahlungen(monate, zahlungen, tag("2026-11-04"));
+    assert.deepEqual(stand.map((m) => m.status), ["BEZAHLT", "BEZAHLT", "BEZAHLT", "BEZAHLT", "BEZAHLT", "OFFEN"]);
+  });
+
+  await test("Objektmiete: Ueberweisung dem richtigen Vertrag zuordnen", () => {
+    assert.ok(passtZumVertrag("kalb+martinet", { counterpartyName: "Christian Kalb", purpose: "Christian Kalb Dr. Martinet Str. 3" }));
+    assert.ok(!passtZumVertrag("kalb+martinet", { counterpartyName: "Christian Kalb", purpose: "Miete 09/2026 Nuernberger Str. 149" }));
+    const oben = { id: "og", betragCents: 214200, kennung: "1. OG" };
+    const klein = { id: "zi", betragCents: 77350, kennung: "1-Zimmer" };
+    assert.equal(zahlungVerteilen([oben, klein], { amountCents: -214200, purpose: "Miete 10/2026 Dechsendorfer Str. 5 Hinterhaus 1. OG" })[0].vertrag.id, "og");
+    assert.equal(zahlungVerteilen([oben, klein], { amountCents: -77350, purpose: "Miete 10/2026 Dechsendorfer Str. 5 Hinterhaus 1-Zimmer" })[0].vertrag.id, "zi");
+    // Zwei gleiche Wohnungen in einer Ueberweisung: wird aufgeteilt.
+    const eg = { id: "eg", betragCents: 142800, kennung: "EG" };
+    const og = { id: "og2", betragCents: 142800, kennung: "1. OG" };
+    const geteilt = zahlungVerteilen([eg, og], { amountCents: -285600, purpose: "Miete November Strullendorf" });
+    assert.deepEqual(geteilt.map((g) => [g.vertrag.id, g.betragCents]), [["eg", 142800], ["og2", 142800]]);
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

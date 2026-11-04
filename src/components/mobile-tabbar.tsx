@@ -8,6 +8,7 @@ import {
   CalendarBlank,
   Camera,
   CurrencyEur,
+  HandCoins,
   ListChecks,
   Plus,
   Receipt,
@@ -67,6 +68,12 @@ const AKTIONEN = [
     label: "Miete abhaken",
     hinweis: "Eingegangene Mieten des Monats bestätigen",
     icon: ListChecks,
+  },
+  {
+    href: "/buchhaltung/mieten-zahlen",
+    label: "Mieten zahlen",
+    hinweis: "Was wir unseren Vermietern überweisen müssen",
+    icon: HandCoins,
   },
   {
     href: "/tickets#ticket-anlegen",

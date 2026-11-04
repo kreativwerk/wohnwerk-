@@ -64,6 +64,7 @@ model Property {
   transactions BankTransaction[]
   templates    PropertyTemplate[]
   costs        PropertyCost[]
+  objektmieten Objektmiete[]
   tickets      Ticket[]
   bankAccount  BankAccount?       @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
@@ -98,6 +99,39 @@ model PropertyCost {
 /// wird sie nicht nachgebaut. Die hochgeladene PDF bleibt Byte fuer Byte
 /// erhalten; gefuellt werden ausschliesslich ihre Formularfelder. Damit ist
 /// das Ergebnis zwangslaeufig identisch mit dem Vordruck der Behoerde.
+/// Mietvertrag, in dem WIR Mieter sind: was wir dem Vermieter des Objekts
+/// zahlen und wann. Grundlage fuer "Mieten zahlen" und den Countdown.
+model Objektmiete {
+  id          String    @id @default(cuid())
+  propertyId  String
+  /// z. B. "Hinterhaus 1. OG" - wenn es beim Objekt mehrere Vertraege gibt
+  bezeichnung String?
+  vermieter   String
+  /// Monatlich zu zahlen (brutto, wie ueberwiesen)
+  betragCents Int
+  /// WERKTAG = n-ter Werktag des Monats, TAG = fester Kalendertag
+  faelligArt  String    @default("WERKTAG")
+  faelligTag  Int       @default(3)
+  beginn      DateTime
+  /// Mietende, z. B. nach Kuendigung; leer = unbefristet
+  ende        DateTime?
+  /// Begriffe im Empfaenger/Verwendungszweck unserer Ueberweisung, durch
+  /// Komma getrennt; "a+b" heisst: beide muessen vorkommen
+  suchbegriffe String?
+  /// Unterscheidet mehrere Vertraege beim selben Vermieter, z. B. "1. OG"
+  kennung     String?
+  /// Link zum Vertrag (Drive)
+  vertragUrl  String?
+  notizen     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
 model PropertyTemplate {
   id         String @id @default(cuid())
   propertyId String
