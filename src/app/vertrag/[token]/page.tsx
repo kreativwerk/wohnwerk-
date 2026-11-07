@@ -56,10 +56,34 @@ async function signContract(formData: FormData) {
     redirect(flash(back, "fehler", t("Bitte bestätigen Sie, dass Sie den Vertrag gelesen haben.")));
   }
 
+  // Das Noetigste fuer Vertrag und Meldebescheinigung - mehr fragen wir nicht.
+  const vorname = str(formData, "firstName") || contract.tenancy.tenant.firstName;
+  const nachname = str(formData, "lastName") || contract.tenancy.tenant.lastName;
+  const pflicht: Array<[string, string]> = [
+    [vorname, t("Vorname")],
+    [nachname, t("Nachname")],
+    [str(formData, "birthDate"), t("Geburtsdatum")],
+    [str(formData, "nationality"), t("Staatsangehörigkeit")],
+    [str(formData, "phone"), t("Telefon")],
+    [str(formData, "street"), t("Straße und Hausnummer")],
+    [str(formData, "city"), t("Ort")],
+  ];
+  const fehlt = pflicht.filter(([wert]) => !wert.trim()).map(([, name]) => name);
+  if (fehlt.length > 0) {
+    redirect(flash(back, "fehler", t("Bitte noch ausfüllen: {felder}", { felder: fehlt.join(", ") })));
+  }
+  const email = (optionalStr(formData, "email") ?? "").toLowerCase();
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    redirect(flash(back, "fehler", t("Bitte eine gültige E-Mail-Adresse angeben.")));
+  }
+
   // Vom Mieter ergaenzte Stammdaten uebernehmen – sie gehoeren in den Vertrag.
   await prisma.tenant.update({
     where: { id: contract.tenancy.tenantId },
     data: {
+      firstName: vorname,
+      lastName: nachname,
+      email: email || contract.tenancy.tenant.email,
       phone: optionalStr(formData, "phone") ?? contract.tenancy.tenant.phone,
       birthDate: fromDateInput(str(formData, "birthDate")) ?? contract.tenancy.tenant.birthDate,
       nationality: optionalStr(formData, "nationality") ?? contract.tenancy.tenant.nationality,
@@ -201,22 +225,31 @@ export default async function PublicContractPage({
 
           <h2 className="text-base font-semibold text-ink-900">{t("Ihre Angaben vervollständigen")}</h2>
           <p className="mt-1 text-sm text-ink-500">
-            {t("Diese Angaben brauchen wir für den Vertrag und die Meldepflicht.")}
+            {t("Nur das Nötigste für den Vertrag und die Anmeldung. Felder mit * sind Pflicht.")}
           </p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="birthDate">{t("Geburtsdatum")}</label>
+              <label htmlFor="firstName">{t("Vorname")} *</label>
+              <input id="firstName" name="firstName" required autoComplete="given-name" defaultValue={tenant.firstName} />
+            </div>
+            <div>
+              <label htmlFor="lastName">{t("Nachname")} *</label>
+              <input id="lastName" name="lastName" required autoComplete="family-name" defaultValue={tenant.lastName} />
+            </div>
+            <div>
+              <label htmlFor="birthDate">{t("Geburtsdatum")} *</label>
               <input
                 id="birthDate"
                 name="birthDate"
                 type="date"
+                required
                 defaultValue={tenant.birthDate ? tenant.birthDate.toISOString().slice(0, 10) : ""}
               />
             </div>
             <div>
-              <label htmlFor="nationality">{t("Staatsangehörigkeit")}</label>
-              <input id="nationality" name="nationality" defaultValue={tenant.nationality ?? ""} />
+              <label htmlFor="nationality">{t("Staatsangehörigkeit")} *</label>
+              <input id="nationality" name="nationality" required defaultValue={tenant.nationality ?? ""} />
             </div>
             <div>
               <label htmlFor="gender">{t("Geschlecht")}</label>
@@ -228,28 +261,32 @@ export default async function PublicContractPage({
               </select>
             </div>
             <div>
-              <label htmlFor="idNumber">{t("Ausweis-/Passnummer")}</label>
+              <label htmlFor="idNumber">{t("Ausweis-/Passnummer")} <span className="font-normal text-ink-500">({t("optional")})</span></label>
               <input id="idNumber" name="idNumber" defaultValue={tenant.idNumber ?? ""} />
             </div>
             <div>
-              <label htmlFor="phone">{t("Telefon")}</label>
-              <input id="phone" name="phone" type="tel" defaultValue={tenant.phone ?? ""} />
+              <label htmlFor="phone">{t("Telefon")} *</label>
+              <input id="phone" name="phone" type="tel" required autoComplete="tel" defaultValue={tenant.phone ?? ""} />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="street">{t("Meldeanschrift (Heimatadresse)")}</label>
-              <input id="street" name="street" defaultValue={tenant.street ?? ""} />
+              <label htmlFor="email">{t("E-Mail")} <span className="font-normal text-ink-500">({t("optional")})</span></label>
+              <input id="email" name="email" type="email" autoComplete="email" defaultValue={tenant.email ?? ""} />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="street">{t("Meldeanschrift (Heimatadresse)")} *</label>
+              <input id="street" name="street" required placeholder={t("Straße und Hausnummer")} defaultValue={tenant.street ?? ""} />
             </div>
             <div>
               <label htmlFor="zip">PLZ</label>
               <input id="zip" name="zip" defaultValue={tenant.zip ?? ""} />
             </div>
             <div>
-              <label htmlFor="city">{t("Ort")}</label>
-              <input id="city" name="city" defaultValue={tenant.city ?? ""} />
+              <label htmlFor="city">{t("Ort")} *</label>
+              <input id="city" name="city" required defaultValue={tenant.city ?? ""} />
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="country">{t("Land")}</label>
-              <input id="country" name="country" defaultValue={tenant.country ?? "Deutschland"} />
+              <input id="country" name="country" defaultValue={tenant.country ?? ""} />
             </div>
           </div>
 

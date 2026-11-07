@@ -49,6 +49,9 @@ export default async function NewTenantPage({
       )}
 
       <form action={createTenant} className="space-y-6">
+        <Alert tone="info">
+          {t("Kurz reicht: Vorname, Handynummer, Bett und Einzug. Den Rest – Nachname, Geburtsdatum, Heimatadresse – trägt der Mieter über den Link selbst ein, bevor er unterschreibt.")}
+        </Alert>
         <Card title={t("Person")} description={t("Pflichtfelder sind mit * gekennzeichnet.")}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

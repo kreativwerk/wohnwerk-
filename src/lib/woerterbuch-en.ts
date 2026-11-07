@@ -1473,4 +1473,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Per WhatsApp senden": "Send via WhatsApp",
   "{betrag} inkl. aller Nebenkosten": "{betrag} incl. all utilities",
   "{name} auf {bett} gesetzt – Vertragsentwurf ab heute mit {miete} und {kaution} Kaution. Anpassen auf der Mieterseite.": "{name} placed on {bett} – draft contract from today with {miete} and {kaution} deposit. Adjust on the tenant page.",
+  "Bitte noch ausfüllen: {felder}": "Please fill in: {felder}",
+  "Kurz reicht: Vorname, Handynummer, Bett und Einzug. Den Rest – Nachname, Geburtsdatum, Heimatadresse – trägt der Mieter über den Link selbst ein, bevor er unterschreibt.": "Keep it short: first name, mobile number, bed and move-in date. The tenant enters the rest – last name, date of birth, home address – via the link before signing.",
+  "Nur das Nötigste für den Vertrag und die Anmeldung. Felder mit * sind Pflicht.": "Only what we need for the contract and registration. Fields marked * are required.",
+  "optional": "optional",
 };
