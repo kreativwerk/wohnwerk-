@@ -1,5 +1,6 @@
 import "server-only";
 
+import { LOGO_HELL_PNG_BASE64, LOGO_HELL_SEITENVERHAELTNIS } from "./logo-png";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
 import { formatCents } from "./money";
@@ -19,6 +20,8 @@ export type ContractData = {
   landlordVatId: string;
   bankName: string;
   bankIban: string;
+  /** Empfaengername fuer die Ueberweisung - aeltere Snapshots haben ihn nicht. */
+  bankHolder?: string;
   bankBic: string;
 
   tenantName: string;
@@ -258,6 +261,17 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
     color: ACCENT,
   });
 
+  // Logo oben rechts, in Originalfarben.
+  const logo = await doc.embedPng(Buffer.from(LOGO_HELL_PNG_BASE64, "base64"));
+  const logoHoehe = 26;
+  const logoBreite = logoHoehe * LOGO_HELL_SEITENVERHAELTNIS;
+  layout.page.drawImage(logo, {
+    x: PAGE_WIDTH - MARGIN - logoBreite,
+    y: PAGE_HEIGHT - MARGIN - logoHoehe + 6,
+    width: logoBreite,
+    height: logoHoehe,
+  });
+
   layout.text("MIETVERTRAG FÜR WOHNRAUM", { size: 20, bold: true });
   layout.space(4);
   layout.text(`Vertragsnummer ${data.contractNumber}`, { size: 9.5, bold: true, color: ACCENT });
@@ -295,7 +309,8 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   layout.row("Objekt", data.propertyName);
   layout.row("Anschrift", fullAddress(data.propertyStreet, data.propertyZip, data.propertyCity));
   layout.row("Zimmer", data.roomName);
-  layout.row("Bett", data.bedLabel);
+  // Der Schlafplatz wird vor Ort festgelegt und kann sich aendern.
+  layout.row("Schlafplatz", "wird vor Ort zugewiesen");
   layout.space(4);
   layout.text(data.intro, { size: 9.5 });
 
@@ -315,6 +330,7 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   layout.row("Fälligkeit", `zum ${data.billingDay}. eines jeden Monats im Voraus`);
   layout.row("Verwendungszweck", data.reference);
   if (data.bankIban) {
+    layout.row("Empfänger", data.bankHolder || "Wohnwerk GbR");
     layout.row(
       "Zahlung auf",
       [data.bankName, `IBAN ${data.bankIban}`, data.bankBic ? `BIC ${data.bankBic}` : null]

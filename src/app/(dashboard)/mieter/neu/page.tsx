@@ -50,7 +50,7 @@ export default async function NewTenantPage({
 
       <form action={createTenant} className="space-y-6">
         <Alert tone="info">
-          {t("Kurz reicht: Vorname, Handynummer, Bett und Einzug. Den Rest – Nachname, Geburtsdatum, Heimatadresse – trägt der Mieter über den Link selbst ein, bevor er unterschreibt.")}
+          {t("Kurz reicht: Vor- und Nachname, Handynummer, Bett und Einzug. Danach geht die Einladung in seiner Sprache per WhatsApp raus; E-Mail, Geburtsdatum und Heimatadresse trägt der Mieter selbst ein, bevor er unterschreibt.")}
         </Alert>
         <Card title={t("Person")} description={t("Pflichtfelder sind mit * gekennzeichnet.")}>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -60,16 +60,16 @@ export default async function NewTenantPage({
             </div>
             <div>
               <label htmlFor="lastName">{t("Nachname *")}</label>
-              <input id="lastName" name="lastName" />
+              <input id="lastName" name="lastName" required />
             </div>
             <div>
-              <label htmlFor="email">{t("E-Mail *")}</label>
-              <input id="email" name="email" type="email" />
+              <label htmlFor="email">{t("E-Mail")} <span className="font-normal text-ink-500">({t("optional")})</span></label>
+              <input id="email" name="email" type="email" autoComplete="off" />
               <p className="field-hint">{t("An diese Adresse geht der Vertragslink.")}</p>
             </div>
             <div>
-              <label htmlFor="phone">{t("Telefon")}</label>
-              <input id="phone" name="phone" type="tel" />
+              <label htmlFor="phone">{t("Handynummer *")}</label>
+              <input id="phone" name="phone" type="tel" required placeholder="+49 …" />
               <p className="field-hint">
                 {t("Mit Landesvorwahl, z. B. +49 151 2345678 – für den WhatsApp-Link bei den Mieteingängen.")}
               </p>

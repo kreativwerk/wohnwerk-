@@ -290,6 +290,41 @@ export async function createContractForTenancy(formData: FormData) {
  * Ab diesem Moment aendern spaetere Anpassungen an den Einstellungen den
  * Vertragstext nicht mehr.
  */
+/**
+ * Gibt den Vertrag frei: Text einfrieren, Link 30 Tage gueltig, Miete und
+ * Kaution stehen ab jetzt bei den Mieteingaengen. Kein Versand - das
+ * entscheidet der Aufrufer.
+ */
+async function vertragFreigeben(contract: NonNullable<Awaited<ReturnType<typeof loadContract>>>) {
+  const data = await buildContractData(contract);
+  await prisma.$transaction([
+    prisma.contract.update({
+      where: { id: contract.id },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        snapshot: JSON.stringify(data),
+        // Der Link ist 30 Tage gueltig; danach kann er neu erzeugt werden.
+        tokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    }),
+    prisma.tenancy.update({ where: { id: contract.tenancyId }, data: { status: "SENT" } }),
+  ]);
+  // Ab jetzt zaehlt das Mietverhaeltnis: Miete und Kaution stehen sofort
+  // bei den Mieteingaengen und Kautionen, nicht erst nach der Unterschrift.
+  await ensureRentCharges({ tenancyId: contract.tenancyId });
+  return data;
+}
+
+/** Freigabe direkt nach dem Anlegen - der Link soll sofort teilbar sein. */
+export async function vertragNachAnlegenFreigeben(contractId: string): Promise<void> {
+  // Exportiert aus einer "use server"-Datei = von aussen aufrufbar: Rechte pruefen.
+  await requireAdmin();
+  const contract = await loadContract({ id: contractId });
+  if (!contract || contract.status !== "DRAFT") return;
+  await vertragFreigeben(contract);
+}
+
 export async function sendContract(formData: FormData) {
   const t = await uebersetzer();
   const user = await requireAdmin();
@@ -301,27 +336,16 @@ export async function sendContract(formData: FormData) {
     redirect(flash(`/vertraege/${id}`, "fehler", t("Der Vertrag ist bereits unterschrieben.")));
   }
 
-  const data = await buildContractData(contract);
+  const data = await vertragFreigeben(contract);
   const appUrl = await getAppUrl();
   const link = contractLink(appUrl, contract.token);
 
-  await prisma.$transaction([
-    prisma.contract.update({
-      where: { id },
-      data: {
-        status: "SENT",
-        sentAt: new Date(),
-        snapshot: JSON.stringify(data),
-        // Der Link ist 30 Tage gueltig; danach kann er neu erzeugt werden.
-        tokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.tenancy.update({ where: { id: contract.tenancyId }, data: { status: "SENT" } }),
-  ]);
-
-  // Ab jetzt zaehlt das Mietverhaeltnis: Miete und Kaution stehen sofort
-  // bei den Mieteingaengen und Kautionen, nicht erst nach der Unterschrift.
-  await ensureRentCharges({ tenancyId: contract.tenancyId });
+  // Ohne E-Mail-Adresse geht der Link per WhatsApp raus (Vertragsseite).
+  if (!data.tenantEmail) {
+    await audit(user.email, "send", "Contract", id, contract.contractNumber);
+    refresh(id);
+    redirect(flash(`/vertraege/${id}`, "ok", t("Vertrag ist freigegeben. Jetzt den Link per WhatsApp schicken oder kopieren.")));
+  }
 
   const settings = await getSettings();
   const mail = contractInviteMail({

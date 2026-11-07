@@ -38,6 +38,14 @@ export function LogoMark({ className = "" }: { className?: string }) {
   );
 }
 
+/** Schriftzug samt Marke in Originalfarben fuer hellen Grund (Vertrag, Unterschriftsseite). */
+export function LogoHell({ className = "" }: { className?: string }) {
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img src="/logo-hell.svg" alt="Wohnwerk" width={345} height={66} className={className} />
+  );
+}
+
 /** Schriftzug in Weiss - fuer den Vertragskopf und dunkle Flaechen. */
 export function LogoWordmarkWhite({ className = "" }: { className?: string }) {
   return (

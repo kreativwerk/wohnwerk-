@@ -1,20 +1,27 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { finalizeSignedContract } from "@/app/actions/contracts";
 import { ContractView } from "@/components/contract-view";
+import { LogoHell } from "@/components/logo";
 import { SignaturePad } from "@/components/signature-pad";
 import { Alert } from "@/components/ui";
 import { buildContractData, loadContract } from "@/lib/contract";
 import { prisma } from "@/lib/db";
-import { fromDateInput } from "@/lib/dates";
+import { formatDate, fromDateInput } from "@/lib/dates";
+import { formatCents } from "@/lib/money";
 import { flash, optionalStr, str } from "@/lib/form";
-import { oberflaeche, type Uebersetzen, uebersetzer } from "@/lib/i18n";
+import {
+  VERTRAG_SPRACHEN,
+  VERTRAG_SPRACHE_EIGENNAME,
+  istVertragSprache,
+  vertragText,
+  type VertragText,
+} from "@/lib/vertrag-sprache";
 
-/** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
 export async function generateMetadata() {
-  const t = await uebersetzer();
-  return { title: t("Mietvertrag") };
+  return { title: "Mietvertrag · Wohnwerk" };
 }
 export const dynamic = "force-dynamic";
 
@@ -28,73 +35,63 @@ function clientIp(headerList: Headers): string | null {
 async function signContract(formData: FormData) {
   "use server";
 
-  const t = await uebersetzer();
   const token = str(formData, "token");
-  const back = `/vertrag/${token}`;
+  const sprache = istVertragSprache(str(formData, "sprache")) ? str(formData, "sprache") : "de";
+  const v = vertragText(sprache);
+  const back = `/vertrag/${token}?sprache=${sprache}`;
 
   const contract = await loadContract({ token });
-  if (!contract) redirect(flash(back, "fehler", t("Der Vertrag wurde nicht gefunden.")));
+  if (!contract) redirect(flash(back, "fehler", v("nichtGefundenText")));
   if (contract.status === "SIGNED") redirect(back);
-  if (contract.status === "CANCELLED") {
-    redirect(flash(back, "fehler", t("Dieser Vertrag wurde storniert.")));
-  }
+  if (contract.status === "CANCELLED") redirect(flash(back, "fehler", v("storniertText")));
   if (contract.tokenExpiresAt && contract.tokenExpiresAt < new Date()) {
-    redirect(flash(back, "fehler", t("Der Link ist abgelaufen. Bitte fordern Sie einen neuen an.")));
+    redirect(flash(back, "fehler", v("abgelaufenText")));
   }
 
   const signerName = str(formData, "signerName");
   const signature = str(formData, "signature");
   const confirmed = formData.get("confirm") === "on";
 
-  if (!signerName) {
-    redirect(flash(back, "fehler", t("Bitte tragen Sie Ihren vollständigen Namen ein.")));
-  }
-  if (!signature.startsWith("data:image/png;base64,")) {
-    redirect(flash(back, "fehler", t("Bitte unterschreiben Sie im dafür vorgesehenen Feld.")));
-  }
-  if (!confirmed) {
-    redirect(flash(back, "fehler", t("Bitte bestätigen Sie, dass Sie den Vertrag gelesen haben.")));
-  }
-
   // Das Noetigste fuer Vertrag und Meldebescheinigung - mehr fragen wir nicht.
   const vorname = str(formData, "firstName") || contract.tenancy.tenant.firstName;
   const nachname = str(formData, "lastName") || contract.tenancy.tenant.lastName;
   const pflicht: Array<[string, string]> = [
-    [vorname, t("Vorname")],
-    [nachname, t("Nachname")],
-    [str(formData, "birthDate"), t("Geburtsdatum")],
-    [str(formData, "nationality"), t("Staatsangehörigkeit")],
-    [str(formData, "phone"), t("Telefon")],
-    [str(formData, "street"), t("Straße und Hausnummer")],
-    [str(formData, "city"), t("Ort")],
+    [vorname, v("vorname")],
+    [nachname, v("nachname")],
+    [str(formData, "birthDate"), v("geburtsdatum")],
+    [str(formData, "nationality"), v("staatsangehoerigkeit")],
+    [str(formData, "phone"), v("telefon")],
+    [str(formData, "email"), v("email")],
+    [str(formData, "street"), v("strasse")],
+    [str(formData, "city"), v("ort")],
   ];
   const fehlt = pflicht.filter(([wert]) => !wert.trim()).map(([, name]) => name);
-  if (fehlt.length > 0) {
-    redirect(flash(back, "fehler", t("Bitte noch ausfüllen: {felder}", { felder: fehlt.join(", ") })));
-  }
-  const email = (optionalStr(formData, "email") ?? "").toLowerCase();
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    redirect(flash(back, "fehler", t("Bitte eine gültige E-Mail-Adresse angeben.")));
-  }
+  if (fehlt.length > 0) redirect(flash(back, "fehler", v("fehltNoch", { felder: fehlt.join(", ") })));
 
-  // Vom Mieter ergaenzte Stammdaten uebernehmen – sie gehoeren in den Vertrag.
+  const email = (optionalStr(formData, "email") ?? "").toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) redirect(flash(back, "fehler", v("fehlerEmail")));
+  if (!signerName) redirect(flash(back, "fehler", v("fehlerName")));
+  if (!signature.startsWith("data:image/png;base64,")) redirect(flash(back, "fehler", v("fehlerUnterschrift")));
+  if (!confirmed) redirect(flash(back, "fehler", v("fehlerBestaetigung")));
+
+  const tenant = contract.tenancy.tenant;
   await prisma.tenant.update({
-    where: { id: contract.tenancy.tenantId },
+    where: { id: tenant.id },
     data: {
       firstName: vorname,
       lastName: nachname,
-      email: email || contract.tenancy.tenant.email,
-      phone: optionalStr(formData, "phone") ?? contract.tenancy.tenant.phone,
-      birthDate: fromDateInput(str(formData, "birthDate")) ?? contract.tenancy.tenant.birthDate,
-      nationality: optionalStr(formData, "nationality") ?? contract.tenancy.tenant.nationality,
+      email,
+      phone: optionalStr(formData, "phone") ?? tenant.phone,
+      birthDate: fromDateInput(str(formData, "birthDate")) ?? tenant.birthDate,
+      nationality: optionalStr(formData, "nationality") ?? tenant.nationality,
       gender: ["M", "W", "D"].includes(str(formData, "gender").toUpperCase())
         ? str(formData, "gender").toUpperCase()
-        : contract.tenancy.tenant.gender,
-      idNumber: optionalStr(formData, "idNumber") ?? contract.tenancy.tenant.idNumber,
-      street: optionalStr(formData, "street") ?? contract.tenancy.tenant.street,
-      zip: optionalStr(formData, "zip") ?? contract.tenancy.tenant.zip,
-      city: optionalStr(formData, "city") ?? contract.tenancy.tenant.city,
-      country: optionalStr(formData, "country") ?? contract.tenancy.tenant.country,
+        : tenant.gender,
+      idNumber: optionalStr(formData, "idNumber") ?? tenant.idNumber,
+      street: optionalStr(formData, "street") ?? tenant.street,
+      zip: optionalStr(formData, "zip") ?? tenant.zip,
+      city: optionalStr(formData, "city") ?? tenant.city,
+      country: optionalStr(formData, "country") ?? tenant.country,
     },
   });
 
@@ -128,40 +125,33 @@ export default async function PublicContractPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; sprache?: string }>;
 }) {
-  const { t, datum } = await oberflaeche();
   const { token } = await params;
-  const { fehler } = await searchParams;
+  const { fehler, sprache: roh } = await searchParams;
+  const sprache = istVertragSprache(roh) ? roh : "de";
+  const v = vertragText(sprache);
 
   const contract = await loadContract({ token });
 
   if (!contract) {
     return (
-      <Shell t={t}>
-        <Alert tone="danger" title={t("Vertrag nicht gefunden")}>
-          {t("Der Link ist ungültig. Bitte wenden Sie sich an Ihre Hausverwaltung.")}
-        </Alert>
+      <Shell v={v} token={token} sprache={sprache}>
+        <Alert tone="danger" title={v("nichtGefundenTitel")}>{v("nichtGefundenText")}</Alert>
       </Shell>
     );
   }
-
   if (contract.status === "CANCELLED") {
     return (
-      <Shell t={t}>
-        <Alert tone="warning" title={t("Vertrag storniert")}>
-          {t("Dieser Mietvertrag wurde storniert und kann nicht mehr unterschrieben werden.")}
-        </Alert>
+      <Shell v={v} token={token} sprache={sprache}>
+        <Alert tone="warning" title={v("storniertTitel")}>{v("storniertText")}</Alert>
       </Shell>
     );
   }
-
   if (contract.status === "DRAFT") {
     return (
-      <Shell t={t}>
-        <Alert tone="warning" title={t("Noch nicht freigegeben")}>
-          {t("Der Vertrag wird gerade vorbereitet. Bitte versuchen Sie es später erneut.")}
-        </Alert>
+      <Shell v={v} token={token} sprache={sprache}>
+        <Alert tone="warning" title={v("entwurfTitel")}>{v("entwurfText")}</Alert>
       </Shell>
     );
   }
@@ -170,43 +160,48 @@ export default async function PublicContractPage({
   const signed = contract.status === "SIGNED";
 
   if (!signed && !contract.viewedAt) {
-    await prisma.contract.update({
-      where: { id: contract.id },
-      data: { viewedAt: new Date(), status: "VIEWED" },
-    });
+    await prisma.contract.update({ where: { id: contract.id }, data: { viewedAt: new Date(), status: "VIEWED" } });
   }
 
   const data = await buildContractData(contract, { includeSignature: true });
   const tenant = contract.tenancy.tenant;
+  const pflicht = <span className="text-rose-600"> *</span>;
+  const optional = <span className="font-normal text-ink-500"> ({v("optional")})</span>;
 
   return (
-    <Shell t={t}>
+    <Shell v={v} token={token} sprache={sprache}>
       {signed ? (
         <div className="mb-6">
-          <Alert tone="success" title={t("Vertrag unterschrieben")}>
-            {t("Vielen Dank. Ihr Mietvertrag ist gültig abgeschlossen – Sie können ihn hier jederzeit als PDF herunterladen.")}
-          </Alert>
-          <a
-            href={`/api/vertrag/${token}/pdf`}
-            className="btn btn-primary no-print mt-3"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("Vertrag als PDF herunterladen")}
+          <Alert tone="success" title={v("fertigTitel")}>{v("fertigText")}</Alert>
+          <a href={`/api/vertrag/${token}/pdf`} className="btn btn-primary no-print mt-3 w-full sm:w-auto" target="_blank" rel="noreferrer">
+            {v("pdf")}
           </a>
         </div>
       ) : expired ? (
         <div className="mb-6">
-          <Alert tone="warning" title={t("Link abgelaufen")}>
-            {t("Dieser Link ist nicht mehr gültig. Bitte fordern Sie bei der Hausverwaltung einen neuen an.")}
-          </Alert>
+          <Alert tone="warning" title={v("abgelaufenTitel")}>{v("abgelaufenText")}</Alert>
         </div>
       ) : (
         <div className="mb-6">
-          <Alert tone="info" title={`Willkommen, ${tenant.firstName}`}>
-            {t("Bitte prüfen Sie Ihre Angaben, ergänzen Sie fehlende Felder und unterschreiben Sie den Vertrag unten. Mietbeginn ist der {datum}.", { datum: datum(contract.tenancy.startDate) })}
+          <Alert tone="info" title={v("willkommen", { name: tenant.firstName })}>
+            {v("einleitung", { datum: formatDate(contract.tenancy.startDate) })}
           </Alert>
         </div>
+      )}
+
+      {!signed && (
+        <section className="mb-6 rounded-xl border-2 border-accent-500 bg-accent-50 p-4 sm:p-5">
+          <h2 className="text-base font-bold text-accent-700">⚠ {v("hinweisTitel")}</h2>
+          <ul className="mt-2 space-y-1.5 text-sm leading-snug text-ink-900">
+            <li>• <strong>{v("hinweisKuendigung")}</strong></li>
+            <li>• {v("hinweisKuendigungForm")}</li>
+            {contract.tenancy.depositCents > 0 && (
+              <li>• {v("hinweisKaution", { kaution: formatCents(contract.tenancy.depositCents) })}</li>
+            )}
+            <li>• <strong>{v("hinweisPuenktlich")}</strong></li>
+            <li>• {v("hinweisVorschuss")}</li>
+          </ul>
+        </section>
       )}
 
       {fehler && (
@@ -215,131 +210,139 @@ export default async function PublicContractPage({
         </div>
       )}
 
-      <div className="card p-6 sm:p-8">
+      <p className="no-print mb-3 text-xs text-ink-500">{v("fassung")}</p>
+      <div className="card p-5 sm:p-8">
         <ContractView data={data} />
       </div>
-
       {!signed && !expired && (
-        <form action={signContract} className="no-print card mt-6 p-6 sm:p-8">
+        <form action={signContract} className="no-print card mt-6 p-5 sm:p-8">
           <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="sprache" value={sprache} />
 
-          <h2 className="text-base font-semibold text-ink-900">{t("Ihre Angaben vervollständigen")}</h2>
-          <p className="mt-1 text-sm text-ink-500">
-            {t("Nur das Nötigste für den Vertrag und die Anmeldung. Felder mit * sind Pflicht.")}
-          </p>
+          <h2 className="text-lg font-bold text-brand-700">{v("angaben")}</h2>
+          <p className="mt-1 text-sm text-ink-500">{v("angabenHinweis")}</p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="firstName">{t("Vorname")} *</label>
+              <label htmlFor="firstName">{v("vorname")}{pflicht}</label>
               <input id="firstName" name="firstName" required autoComplete="given-name" defaultValue={tenant.firstName} />
             </div>
             <div>
-              <label htmlFor="lastName">{t("Nachname")} *</label>
+              <label htmlFor="lastName">{v("nachname")}{pflicht}</label>
               <input id="lastName" name="lastName" required autoComplete="family-name" defaultValue={tenant.lastName} />
             </div>
             <div>
-              <label htmlFor="birthDate">{t("Geburtsdatum")} *</label>
-              <input
-                id="birthDate"
-                name="birthDate"
-                type="date"
-                required
-                defaultValue={tenant.birthDate ? tenant.birthDate.toISOString().slice(0, 10) : ""}
-              />
+              <label htmlFor="birthDate">{v("geburtsdatum")}{pflicht}</label>
+              <input id="birthDate" name="birthDate" type="date" required defaultValue={tenant.birthDate ? tenant.birthDate.toISOString().slice(0, 10) : ""} />
             </div>
             <div>
-              <label htmlFor="nationality">{t("Staatsangehörigkeit")} *</label>
+              <label htmlFor="nationality">{v("staatsangehoerigkeit")}{pflicht}</label>
               <input id="nationality" name="nationality" required defaultValue={tenant.nationality ?? ""} />
             </div>
             <div>
-              <label htmlFor="gender">{t("Geschlecht")}</label>
+              <label htmlFor="phone">{v("telefon")}{pflicht}</label>
+              <input id="phone" name="phone" type="tel" required autoComplete="tel" defaultValue={tenant.phone ?? ""} />
+            </div>
+            <div>
+              <label htmlFor="email">{v("email")}{pflicht}</label>
+              <input id="email" name="email" type="email" required autoComplete="email" defaultValue={tenant.email ?? ""} />
+            </div>
+            <div>
+              <label htmlFor="gender">{v("geschlecht")}{optional}</label>
               <select id="gender" name="gender" defaultValue={tenant.gender ?? ""}>
-                <option value="">{t("– keine Angabe –")}</option>
-                <option value="M">{t("männlich")}</option>
-                <option value="W">{t("weiblich")}</option>
-                <option value="D">{t("divers")}</option>
+                <option value="">{v("keineAngabe")}</option>
+                <option value="M">{v("maennlich")}</option>
+                <option value="W">{v("weiblich")}</option>
+                <option value="D">{v("divers")}</option>
               </select>
             </div>
             <div>
-              <label htmlFor="idNumber">{t("Ausweis-/Passnummer")} <span className="font-normal text-ink-500">({t("optional")})</span></label>
+              <label htmlFor="idNumber">{v("ausweis")}{optional}</label>
               <input id="idNumber" name="idNumber" defaultValue={tenant.idNumber ?? ""} />
             </div>
-            <div>
-              <label htmlFor="phone">{t("Telefon")} *</label>
-              <input id="phone" name="phone" type="tel" required autoComplete="tel" defaultValue={tenant.phone ?? ""} />
-            </div>
             <div className="sm:col-span-2">
-              <label htmlFor="email">{t("E-Mail")} <span className="font-normal text-ink-500">({t("optional")})</span></label>
-              <input id="email" name="email" type="email" autoComplete="email" defaultValue={tenant.email ?? ""} />
-            </div>
-            <div className="sm:col-span-2">
-              <label htmlFor="street">{t("Meldeanschrift (Heimatadresse)")} *</label>
-              <input id="street" name="street" required placeholder={t("Straße und Hausnummer")} defaultValue={tenant.street ?? ""} />
+              <label htmlFor="street">{v("meldeanschrift")}: {v("strasse")}{pflicht}</label>
+              <input id="street" name="street" required autoComplete="address-line1" defaultValue={tenant.street ?? ""} />
             </div>
             <div>
-              <label htmlFor="zip">PLZ</label>
-              <input id="zip" name="zip" defaultValue={tenant.zip ?? ""} />
+              <label htmlFor="zip">{v("plz")}</label>
+              <input id="zip" name="zip" autoComplete="postal-code" defaultValue={tenant.zip ?? ""} />
             </div>
             <div>
-              <label htmlFor="city">{t("Ort")} *</label>
-              <input id="city" name="city" required defaultValue={tenant.city ?? ""} />
+              <label htmlFor="city">{v("ort")}{pflicht}</label>
+              <input id="city" name="city" required autoComplete="address-level2" defaultValue={tenant.city ?? ""} />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="country">{t("Land")}</label>
-              <input id="country" name="country" defaultValue={tenant.country ?? ""} />
+              <label htmlFor="country">{v("land")}</label>
+              <input id="country" name="country" autoComplete="country-name" defaultValue={tenant.country && tenant.country !== "Deutschland" ? tenant.country : ""} />
             </div>
           </div>
 
-          <h2 className="mt-8 text-base font-semibold text-ink-900">{t("Unterschrift")}</h2>
+          <h2 className="mt-8 border-t border-ink-200 pt-6 text-lg font-bold text-brand-700">{v("unterschrift")}</h2>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="signerName">{t("Vollständiger Name")}</label>
-              <input
-                id="signerName"
-                name="signerName"
-                required
-                defaultValue={`${tenant.firstName} ${tenant.lastName}`.trim()}
-              />
+              <label htmlFor="signerName">{v("vollerName")}{pflicht}</label>
+              <input id="signerName" name="signerName" required defaultValue={`${tenant.firstName} ${tenant.lastName}`.trim()} />
             </div>
             <div>
-              <label htmlFor="signDate">{t("Datum")}</label>
-              <input id="signDate" value={datum(new Date())} disabled />
+              <label htmlFor="signDate">{v("datum")}</label>
+              <input id="signDate" value={formatDate(new Date())} disabled />
             </div>
           </div>
 
           <div className="mt-4">
-            <SignaturePad />
+            <SignaturePad
+              texte={{ feld: v("feld"), hinweis: v("feldHinweis"), erfasst: v("erfasst"), keine: v("keine"), loeschen: v("loeschen") }}
+            />
           </div>
 
           <label className="mt-5 flex items-start gap-2.5 text-sm font-normal text-ink-700">
             <input type="checkbox" name="confirm" className="mt-0.5 h-4 w-4 shrink-0" required />
-            <span>
-              {t("Ich habe den Mietvertrag und die Hausordnung gelesen und erkenne beide an. Mir ist bekannt, dass die elektronische Unterschrift der Textform nach § 126b BGB entspricht.")}
-            </span>
+            <span>{v("bestaetigung")}</span>
           </label>
 
-          <button type="submit" className="btn btn-primary mt-6 w-full sm:w-auto">
-            {t("Vertrag rechtsverbindlich unterschreiben")}
-          </button>
+          <button type="submit" className="btn btn-primary mt-6 w-full sm:w-auto">{v("absenden")}</button>
         </form>
       )}
+
     </Shell>
   );
 }
 
-function Shell({ children, t }: { children: React.ReactNode; t: Uebersetzen }) {
+function Shell({
+  children,
+  v,
+  token,
+  sprache,
+}: {
+  children: React.ReactNode;
+  v: VertragText;
+  token: string;
+  sprache: string;
+}) {
   return (
-    <div className="min-h-screen bg-ink-100 py-8">
-      <div className="mx-auto w-full max-w-3xl px-4">
-        <div className="no-print mb-6 flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-base font-bold text-white">
-            W
-          </span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-ink-900">Wohnwerk</p>
-            <p className="text-[0.7rem] text-ink-500">{t("Ihr Mietvertrag")}</p>
-          </div>
+    <div className="min-h-screen bg-ink-100 pb-10">
+      <header className="no-print border-b-4 border-brand-600 bg-white">
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+          <LogoHell className="h-9 w-auto" />
+          <p className="text-sm font-bold text-brand-700">{v("kopf")}</p>
         </div>
+      </header>
+      <div className="mx-auto w-full max-w-3xl px-4">
+        <nav className="no-print my-4 flex flex-wrap gap-1.5" aria-label="Sprache">
+          {VERTRAG_SPRACHEN.map((s) => (
+            <Link
+              key={s}
+              href={`/vertrag/${token}?sprache=${s}`}
+              aria-current={s === sprache ? "true" : undefined}
+              className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                s === sprache ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-ink-700 ring-ink-200"
+              }`}
+            >
+              {VERTRAG_SPRACHE_EIGENNAME[s]}
+            </Link>
+          ))}
+        </nav>
         {children}
       </div>
     </div>

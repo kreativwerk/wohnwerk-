@@ -1,5 +1,6 @@
 "use server";
 
+import { vertragNachAnlegenFreigeben } from "./contracts";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -64,12 +65,16 @@ export async function createTenant(formData: FormData) {
   const user = await requireAdmin();
   const data = tenantData(formData);
 
-  // E-Mail ist keine Pflicht: viele Monteure haben keine oder nennen sie
-  // erst spaeter. Ohne Adresse wird der Vertragslink zum Kopieren angezeigt
-  // statt versendet. Nachname darf fehlen, solange ein Vorname da ist -
-  // manche stehen nur mit Rufnamen in den Unterlagen.
-  if (!data.firstName) {
-    redirect(flash("/mieter/neu", "fehler", t("Mindestens der Vorname muss angegeben werden.")));
+  // Vorname, Nachname und Handynummer sind Pflicht: der Vertragslink geht
+  // per WhatsApp raus, den Rest (auch die E-Mail) traegt der Mieter selbst ein.
+  if (!data.firstName || !data.lastName) {
+    redirect(flash("/mieter/neu", "fehler", t("Bitte Vor- und Nachnamen angeben.")));
+  }
+  if (data.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) {
+    redirect(flash("/mieter/neu", "fehler", t("Bitte eine gültige E-Mail-Adresse angeben.")));
+  }
+  if (!data.phone || data.phone.replace(/\D/g, "").length < 6) {
+    redirect(flash("/mieter/neu", "fehler", t("Bitte eine Handynummer angeben.")));
   }
 
   const bedId = str(formData, "bedId");
@@ -126,12 +131,14 @@ export async function createTenant(formData: FormData) {
     });
 
     await audit(user.email, "create", "Tenancy", tenancy.id, tenancy.reference);
+    // Gleich freigeben: der Link soll sofort per WhatsApp rausgehen koennen.
+    await vertragNachAnlegenFreigeben(tenancy.contract!.id);
     refresh(tenant.id);
     redirect(
       flash(
         `/vertraege/${tenancy.contract!.id}`,
         "ok",
-        t("Mieter und Vertragsentwurf wurden angelegt. Jetzt den Link an den Mieter senden."),
+        t("Mieter angelegt. Jetzt die Einladung in seiner Sprache per WhatsApp schicken oder kopieren."),
       ),
     );
   }

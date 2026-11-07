@@ -8,13 +8,16 @@ import {
   renewContractToken,
   sendContract,
 } from "@/app/actions/contracts";
-import { ConfirmButton, CopyField, Disclosure } from "@/components/interactive";
+import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { ContractView } from "@/components/contract-view";
 import { ContractBadge } from "@/components/status";
 import { Alert, Card, Flash, PageHeader } from "@/components/ui";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { getAppUrl } from "@/lib/settings";
-import { whatsappLink } from "@/lib/mahnung";
+import { whatsappNummer } from "@/lib/mahnung";
+import { EINLADUNG_SPRACHEN, einladungText, spracheAusNationalitaet } from "@/lib/einladung";
+import { VERTRAG_SPRACHE_EIGENNAME } from "@/lib/vertrag-sprache";
+import { EinladungTeilen } from "@/components/einladung-teilen";
 
 import { requireAdmin } from "@/lib/auth";
 import { oberflaeche } from "@/lib/i18n";
@@ -34,7 +37,7 @@ export default async function ContractDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; fehler?: string }>;
 }) {
-  const { t, datum, datumZeit } = await oberflaeche();
+  const { t, datum, datumZeit, geld } = await oberflaeche();
   await requireAdmin();
   const { id } = await params;
   const flash = await searchParams;
@@ -60,12 +63,24 @@ export default async function ContractDetailPage({
       `Viele Grüße\n${data.landlordName}`,
   );
 
-  // Die meisten Bewohner erreicht man per WhatsApp, nicht per E-Mail.
-  const whatsapp = whatsappLink(
-    tenant.phone,
-    `Hallo ${tenant.firstName}, hier ist dein Mietvertrag für ${data.propertyName}, ${data.roomName}, ${data.bedLabel} ` +
-      `(ab ${datum(contract.tenancy.startDate)}). Bitte Daten prüfen und direkt am Handy unterschreiben:\n${link}\n\n${data.landlordName}`,
+  // Die meisten Bewohner erreicht man per WhatsApp: fertiger Text je Sprache,
+  // der Link oeffnet die Unterschriftsseite gleich in dieser Sprache.
+  const startSprache = spracheAusNationalitaet(tenant.nationality);
+  const einladungen = Object.fromEntries(
+    EINLADUNG_SPRACHEN.map((s) => [
+      s,
+      einladungText(s, {
+        vorname: tenant.firstName,
+        objekt: `${data.propertyName}, ${data.propertyCity}`,
+        lage: data.roomName,
+        einzug: datum(contract.tenancy.startDate),
+        miete: geld(contract.tenancy.monthlyRentCents),
+        link: `${link}?sprache=${s}`,
+        vermieter: data.landlordName,
+      }),
+    ]),
   );
+  const sprachenListe: Array<[string, string]> = EINLADUNG_SPRACHEN.map((s) => [s, VERTRAG_SPRACHE_EIGENNAME[s]]);
 
   return (
     <>
@@ -165,15 +180,14 @@ export default async function ContractDetailPage({
                 </form>
               ) : (
                 <div className="space-y-3">
-                  <CopyField value={link} />
+                  <EinladungTeilen
+                    texte={einladungen}
+                    sprachen={sprachenListe}
+                    start={startSprache}
+                    telefon={whatsappNummer(tenant.phone)}
+                    link={link}
+                  />
                   <div className="flex flex-wrap gap-2">
-                    {whatsapp ? (
-                      <a href={whatsapp} target="_blank" rel="noreferrer" className="btn btn-primary">
-                        {t("Per WhatsApp senden")}
-                      </a>
-                    ) : (
-                      <p className="field-hint w-full">{t("Für WhatsApp beim Mieter eine Handynummer eintragen.")}</p>
-                    )}
                     <a
                       href={`mailto:${tenant.email}?subject=${encodeURIComponent(
                         `Ihr Mietvertrag ${contract.contractNumber}`,

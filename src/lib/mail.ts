@@ -86,7 +86,7 @@ export function contractInviteMail(params: {
     `für Ihre Unterkunft bei ${params.landlordName} liegt der Mietvertrag bereit.`,
     "",
     `Objekt: ${params.propertyName}`,
-    `Zimmer: ${params.roomName}, ${params.bedLabel}`,
+    `Zimmer: ${params.roomName}`,
     `Mietbeginn: ${params.startDate}`,
     "",
     "Bitte öffnen Sie den folgenden Link, prüfen Sie Ihre Daten und unterschreiben Sie den Vertrag direkt im Browser:",
@@ -104,7 +104,7 @@ export function contractInviteMail(params: {
   <p>für Ihre Unterkunft bei <strong>${escapeHtml(params.landlordName)}</strong> liegt der Mietvertrag bereit.</p>
   <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
     <tr><td style="padding:4px 16px 4px 0;color:#64748b">Objekt</td><td>${escapeHtml(params.propertyName)}</td></tr>
-    <tr><td style="padding:4px 16px 4px 0;color:#64748b">Zimmer</td><td>${escapeHtml(params.roomName)}, ${escapeHtml(params.bedLabel)}</td></tr>
+    <tr><td style="padding:4px 16px 4px 0;color:#64748b">Zimmer</td><td>${escapeHtml(params.roomName)}</td></tr>
     <tr><td style="padding:4px 16px 4px 0;color:#64748b">Mietbeginn</td><td>${escapeHtml(params.startDate)}</td></tr>
   </table>
   <p>

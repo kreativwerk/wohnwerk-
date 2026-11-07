@@ -1,10 +1,11 @@
 import type { ContractData } from "@/lib/contract-pdf";
+import { LogoHell } from "./logo";
 import { oberflaeche } from "@/lib/i18n";
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="grid grid-cols-1 gap-0.5 py-1 sm:grid-cols-[11rem_1fr] sm:gap-3">
+    <div className="grid grid-cols-1 gap-0.5 px-3 py-2 odd:bg-ink-50 even:bg-white sm:grid-cols-[11rem_1fr] sm:gap-3">
       <dt className="text-xs font-semibold text-ink-500">{label}</dt>
       <dd className="text-sm text-ink-900">{value}</dd>
     </div>
@@ -14,7 +15,7 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-ink-200 pt-5">
-      <h3 className="mb-2 text-sm font-semibold text-brand-700">{title}</h3>
+      <h3 className="mb-3 text-base font-bold text-brand-700">{title}</h3>
       {children}
     </section>
   );
@@ -34,17 +35,18 @@ export async function ContractView({ data }: { data: ContractData }) {
   return (
     <article className="space-y-5">
       <header>
+        <LogoHell className="mb-4 h-8 w-auto" />
         <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
           {t("Vertrag {nummer}", { nummer: data.contractNumber })}
         </p>
-        <h2 className="mt-1 text-xl font-semibold text-ink-900">{t("Mietvertrag für Wohnraum")}</h2>
+        <h2 className="mt-1 text-xl font-bold text-brand-800">{t("Mietvertrag für Wohnraum")}</h2>
       </header>
 
       <Section title={t("1. Vertragsparteien")}>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">{t("Vermieter")}</p>
-            <dl>
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{t("Vermieter")}</p>
+            <dl className="overflow-hidden rounded-lg ring-1 ring-inset ring-ink-200">
               <Row label={t("Name")} value={data.landlordName} />
               <Row
                 label={t("Anschrift")}
@@ -61,8 +63,8 @@ export async function ContractView({ data }: { data: ContractData }) {
             </dl>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">{t("Mieter")}</p>
-            <dl>
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-brand-600">{t("Mieter")}</p>
+            <dl className="overflow-hidden rounded-lg ring-1 ring-inset ring-ink-200">
               <Row label={t("Name")} value={data.tenantName} />
               <Row label={t("Geburtsdatum")} value={data.tenantBirthDate} />
               <Row label={t("Staatsangehörigkeit")} value={data.tenantNationality} />
@@ -80,20 +82,21 @@ export async function ContractView({ data }: { data: ContractData }) {
       </Section>
 
       <Section title={t("2. Mietgegenstand")}>
-        <dl>
+        <dl className="overflow-hidden rounded-lg ring-1 ring-inset ring-ink-200">
           <Row label={t("Objekt")} value={data.propertyName} />
           <Row
             label={t("Anschrift")}
             value={address(data.propertyStreet, data.propertyZip, data.propertyCity)}
           />
           <Row label={t("Zimmer")} value={data.roomName} />
-          <Row label={t("Schlafplatz")} value={data.bedLabel} />
+          {/* Der Schlafplatz wird vor Ort festgelegt und kann sich aendern. */}
+          <Row label={t("Schlafplatz")} value={t("wird vor Ort zugewiesen")} />
         </dl>
         <p className="mt-3 text-sm leading-relaxed text-ink-700">{data.intro}</p>
       </Section>
 
       <Section title={t("3. Mietzeit und Mietzins")}>
-        <dl>
+        <dl className="overflow-hidden rounded-lg ring-1 ring-inset ring-ink-200">
           <Row label={t("Mietbeginn")} value={datum(data.startDate)} />
           <Row label={t("Mietende")} value={data.endDate ? datum(data.endDate) : t("unbefristet")} />
           <Row
@@ -109,6 +112,7 @@ export async function ContractView({ data }: { data: ContractData }) {
           />
           <Row label={t("Fälligkeit")} value={t("zum {tag}. eines Monats im Voraus", { tag: data.billingDay })} />
           <Row label={t("Verwendungszweck")} value={data.reference} />
+          {data.bankIban && <Row label={t("Empfänger")} value={data.bankHolder || "Wohnwerk GbR"} />}
           {data.bankIban && (
             <Row
               label={t("Zahlung auf")}
@@ -122,15 +126,20 @@ export async function ContractView({ data }: { data: ContractData }) {
       </Section>
 
       <Section title={t("4. Vertragsbedingungen")}>
-        <div className="space-y-2 text-sm leading-relaxed text-ink-700">
-          {data.clauses.split("\n").map((line, index) =>
-            line.trim() ? <p key={index}>{line}</p> : null,
-          )}
+        <div className="overflow-hidden rounded-lg text-sm leading-relaxed text-ink-700 ring-1 ring-inset ring-ink-200">
+          {data.clauses
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line, index) => (
+              <p key={index} className="px-3 py-2 odd:bg-ink-50 even:bg-white">
+                {line}
+              </p>
+            ))}
         </div>
       </Section>
 
       <Section title={t("5. Hausordnung")}>
-        <p className="text-sm leading-relaxed text-ink-700">{data.houseRules}</p>
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-sm leading-relaxed text-ink-700 ring-1 ring-inset ring-ink-200">{data.houseRules}</p>
       </Section>
 
       {data.signature && (

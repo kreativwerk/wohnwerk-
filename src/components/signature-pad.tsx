@@ -13,11 +13,22 @@ import { useOberflaeche } from "./sprache-kontext";
 export function SignaturePad({
   name = "signature",
   required = true,
+  texte,
 }: {
   name?: string;
   required?: boolean;
+  /** Texte in der Sprache des Mieters (oeffentliche Seite); sonst die Oberflaeche. */
+  texte?: { feld: string; hinweis: string; erfasst: string; keine: string; loeschen: string };
 }) {
-  const { t } = useOberflaeche();
+  const { t: oberflaeche } = useOberflaeche();
+  const eigene: Record<string, string | undefined> = {
+    Unterschriftenfeld: texte?.feld,
+    "Hier mit Maus oder Finger unterschreiben": texte?.hinweis,
+    "Unterschrift erfasst.": texte?.erfasst,
+    "Noch keine Unterschrift.": texte?.keine,
+    Löschen: texte?.loeschen,
+  };
+  const t = (text: string) => eigene[text] ?? oberflaeche(text);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);

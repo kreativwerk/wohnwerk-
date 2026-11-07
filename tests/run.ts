@@ -21,6 +21,8 @@ import { mieterPasst, monateAusText, namensAbstand, nenntKaution, zuordnungPlane
 import { adressSchluessel, bankAbschlussKopf, bankAbschlussPosten, istBankAbschluss, istKautionsRueckzahlung, istTelefonAbbuchung, telefonNummern, objektZurMietzahlung } from "../src/lib/eigenbeleg-regeln";
 import { einzugAusText, rechnungsnummerAusText, absenderWoerter, adressenLesen, anhangBehalten, anhangTyp, antwortBetreff, betraegeAusText, datumAusText, istKuendigung, istRechnung, passendeAusgabe } from "../src/lib/postfach-regeln";
 import { naechsteFaelligkeiten, tageBis, berlinMitternacht } from "../src/lib/faelligkeit";
+import { einladungText, spracheAusNationalitaet, EINLADUNG_SPRACHEN } from "../src/lib/einladung";
+import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-sprache";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -1181,6 +1183,26 @@ async function main() {
     const og = { id: "og2", betragCents: 142800, kennung: "1. OG" };
     const geteilt = zahlungVerteilen([eg, og], { amountCents: -285600, purpose: "Miete November Strullendorf" });
     assert.deepEqual(geteilt.map((g) => [g.vertrag.id, g.betragCents]), [["eg", 142800], ["og2", 142800]]);
+  });
+
+  await test("Einladung: Text in jeder Sprache mit Link, ohne Bett", () => {
+    const a = { vorname: "Arben", objekt: "Sankt Michael 27, Erlangen", lage: "Erdgeschoss", einzug: "01.12.2026", miete: "470,00 €", link: "https://x/vertrag/abc?sprache=sq", vermieter: "Wohnwerk" };
+    for (const s of EINLADUNG_SPRACHEN) {
+      const text = einladungText(s, a);
+      assert.ok(text.includes(a.link), s);
+      assert.ok(text.includes("Arben") && text.includes("470,00 €"), s);
+      assert.ok(!/Bett/.test(text), s);
+    }
+    assert.ok(einladungText("sq", a).startsWith("Përshëndetje"));
+    assert.equal(spracheAusNationalitaet("Kosovarisch"), "sq");
+    assert.equal(spracheAusNationalitaet("rumänisch"), "ro");
+    assert.equal(spracheAusNationalitaet(null), "de");
+  });
+
+  await test("Unterschriftsseite: alle Sprachen vollständig", () => {
+    assert.deepEqual(vertragSprachenVollstaendig(), []);
+    assert.equal(vertragText("sq")("fehltNoch", { felder: "Emri" }), "Të lutem plotëso: Emri");
+    assert.equal(vertragText("xx")("vorname"), "Vorname");
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

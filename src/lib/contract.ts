@@ -94,6 +94,7 @@ export async function buildContractData(
     landlordVatId: settings.companyVatId,
     bankName: settings.bankName,
     bankIban: settings.bankIban,
+    bankHolder: settings.bankAccountHolder || "Wohnwerk GbR",
     bankBic: settings.bankBic,
 
     tenantName: `${tenant.firstName} ${tenant.lastName}`.trim(),
