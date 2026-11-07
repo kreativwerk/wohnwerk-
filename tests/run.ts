@@ -23,6 +23,7 @@ import { einzugAusText, rechnungsnummerAusText, absenderWoerter, adressenLesen, 
 import { naechsteFaelligkeiten, tageBis, berlinMitternacht } from "../src/lib/faelligkeit";
 import { einladungText, spracheAusNationalitaet, EINLADUNG_SPRACHEN } from "../src/lib/einladung";
 import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-sprache";
+import { vertragsuebersetzung, vertragsuebersetzungVollstaendig } from "../src/lib/vertrag-uebersetzung";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -1203,6 +1204,18 @@ async function main() {
     assert.deepEqual(vertragSprachenVollstaendig(), []);
     assert.equal(vertragText("sq")("fehltNoch", { felder: "Emri" }), "Të lutem plotëso: Emri");
     assert.equal(vertragText("xx")("vorname"), "Vorname");
+  });
+
+  await test("Vertrag: Übersetzung vollständig, unbekannte Texte bleiben deutsch", () => {
+    const quelle = readFileSync(join(__dirname, "../src/components/contract-view.tsx"), "utf8");
+    const beschriftungen = [...new Set([...quelle.matchAll(/\bt\("([^"]+)"/g)].map((m) => m[1]))].filter((b) => b !== "\\n");
+    assert.deepEqual(vertragsuebersetzungVollstaendig(beschriftungen), []);
+    const sq = vertragsuebersetzung("sq")!;
+    const bedingungen = sq.bedingungen("1. Mietgegenstand: Überlassen wird der oben bezeichnete Schlafplatz im genannten Zimmer zur alleinigen Nutzung. Küche, Bad und Aufenthaltsräume werden gemeinschaftlich mit den übrigen Bewohnern genutzt.\r\n11. Neu: nur deutsch");
+    assert.ok(bedingungen[0].startsWith("1. Objekti i qirasë"));
+    assert.equal(bedingungen[1], "11. Neu: nur deutsch");
+    assert.equal(vertragsuebersetzung("de"), null);
+    assert.equal(sq.beschriftung("zum {tag}. eines Monats im Voraus", { tag: 1 }), "deri më 1 të çdo muaji, paraprakisht");
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

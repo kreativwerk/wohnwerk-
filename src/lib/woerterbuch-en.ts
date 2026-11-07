@@ -1486,4 +1486,5 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Text kopieren": "Copy text",
   "Vertrag ist freigegeben. Jetzt den Link per WhatsApp schicken oder kopieren.": "Contract released. Now send the link via WhatsApp or copy it.",
   "wird vor Ort zugewiesen": "assigned on site",
+  "Bitte den Mietbeginn angeben.": "Please enter the start date.",
 };

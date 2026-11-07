@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { flash, str } from "@/lib/form";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { renderContractPdf } from "@/lib/contract-pdf";
+import { uebersetzungAnhaengen } from "@/lib/vertrag-pdf-uebersetzung";
 import { buildDocumentsFromTemplates } from "@/lib/property-documents";
 import { contractInviteMail, sendMail } from "@/lib/mail";
 import { getAppUrl, getSettings } from "@/lib/settings";
@@ -433,7 +434,7 @@ export async function regenerateContractPdf(formData: FormData) {
   if (!contract) redirect(flash("/vertraege", "fehler", t("Vertrag nicht gefunden.")));
 
   const data = await buildContractData(contract, { includeSignature: true });
-  const pdf = await renderContractPdf(data);
+  const pdf = await uebersetzungAnhaengen(await renderContractPdf(data), data, contract.sprache);
 
   const stored = await uploadFile({
     fileName: `${contract.contractNumber} ${data.tenantName}.pdf`,
@@ -530,6 +531,17 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
             istWohnungsgeberbestaetigung: false,
           },
         ];
+
+  // Hat der Mieter in seiner Sprache gelesen, kommt die Uebersetzung hinten an den Vertrag.
+  for (const dokument of dokumente) {
+    if (dokument.istMietvertrag) {
+      try {
+        dokument.pdf = await uebersetzungAnhaengen(dokument.pdf, data, contract.sprache);
+      } catch (error) {
+        console.error("[vertrag] Übersetzung konnte nicht angehängt werden:", error);
+      }
+    }
+  }
 
   for (const dokument of dokumente) {
     // Die Unterschrift ist zu diesem Zeitpunkt gespeichert; scheitert die

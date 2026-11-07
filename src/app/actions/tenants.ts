@@ -80,6 +80,10 @@ export async function createTenant(formData: FormData) {
   const bedId = str(formData, "bedId");
   const startDate = date(formData, "startDate");
   const endDate = date(formData, "endDate");
+  // Ohne Mietbeginn kein Vertrag und kein Link - deshalb Pflicht.
+  if (!startDate) {
+    redirect(flash("/mieter/neu", "fehler", t("Bitte den Mietbeginn angeben.")));
+  }
 
   if (bedId) {
     if (!startDate) {

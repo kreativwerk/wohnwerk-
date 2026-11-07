@@ -11,6 +11,7 @@ import { buildContractData, loadContract } from "@/lib/contract";
 import { prisma } from "@/lib/db";
 import { formatDate, fromDateInput } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { vertragsuebersetzung } from "@/lib/vertrag-uebersetzung";
 import { flash, optionalStr, str } from "@/lib/form";
 import {
   VERTRAG_SPRACHEN,
@@ -111,6 +112,8 @@ async function signContract(formData: FormData) {
         signerUserAgent: headerList.get("user-agent")?.slice(0, 300) ?? null,
         signatureData: signature.slice(0, 400_000),
         snapshot: JSON.stringify(data),
+        // In dieser Sprache hat der Mieter gelesen - die Uebersetzung kommt ins PDF.
+        sprache,
       },
     }),
     prisma.tenancy.update({ where: { id: contract.tenancyId }, data: { status: "ACTIVE" } }),
@@ -165,6 +168,14 @@ export default async function PublicContractPage({
 
   const data = await buildContractData(contract, { includeSignature: true });
   const tenant = contract.tenancy.tenant;
+  const uebersetzung = vertragsuebersetzung(sprache);
+  // Gibt es fuer das Objekt einen Vordruck, kann der Mieter die
+  // Wohnungsgeberbestaetigung nach der Unterschrift selbst herunterladen.
+  const wgbVordruck =
+    (await prisma.propertyTemplate.count({
+      where: { propertyId: contract.tenancy.bed.room.propertyId, active: true, kind: { in: ["LANDLORD_CONFIRMATION", "COMBINED"] } },
+    })) > 0;
+  const hatWohnungsgeber = signed && wgbVordruck;
   const pflicht = <span className="text-rose-600"> *</span>;
   const optional = <span className="font-normal text-ink-500"> ({v("optional")})</span>;
 
@@ -176,6 +187,11 @@ export default async function PublicContractPage({
           <a href={`/api/vertrag/${token}/pdf`} className="btn btn-primary no-print mt-3 w-full sm:w-auto" target="_blank" rel="noreferrer">
             {v("pdf")}
           </a>
+          {hatWohnungsgeber && (
+            <a href={`/api/vertrag/${token}/wohnungsgeber`} className="btn btn-secondary no-print mt-3 w-full sm:ml-2 sm:w-auto" target="_blank" rel="noreferrer">
+              {v("pdfWgb")}
+            </a>
+          )}
         </div>
       ) : expired ? (
         <div className="mb-6">
@@ -200,6 +216,8 @@ export default async function PublicContractPage({
             )}
             <li>• <strong>{v("hinweisPuenktlich")}</strong></li>
             <li>• {v("hinweisVorschuss")}</li>
+            <li>• {v("hinweisHausregeln")}</li>
+            {wgbVordruck && <li>• {v("hinweisWgb")}</li>}
           </ul>
         </section>
       )}
@@ -210,10 +228,29 @@ export default async function PublicContractPage({
         </div>
       )}
 
-      <p className="no-print mb-3 text-xs text-ink-500">{v("fassung")}</p>
-      <div className="card p-5 sm:p-8">
-        <ContractView data={data} />
-      </div>
+      {uebersetzung ? (
+        <>
+          <p className="no-print mb-3 rounded-lg bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 ring-1 ring-inset ring-brand-200">
+            {uebersetzung.hinweis}
+          </p>
+          <div className="card p-5 sm:p-8">
+            <ContractView data={data} sprache={sprache} />
+          </div>
+          <details className="card mt-4 p-5 sm:p-8">
+            <summary className="cursor-pointer text-sm font-bold text-brand-700">Deutsches Original (maßgeblich)</summary>
+            <div className="mt-4">
+              <ContractView data={data} />
+            </div>
+          </details>
+        </>
+      ) : (
+        <>
+          <p className="no-print mb-3 text-xs text-ink-500">{v("fassung")}</p>
+          <div className="card p-5 sm:p-8">
+            <ContractView data={data} />
+          </div>
+        </>
+      )}
       {!signed && !expired && (
         <form action={signContract} className="no-print card mt-6 p-5 sm:p-8">
           <input type="hidden" name="token" value={token} />

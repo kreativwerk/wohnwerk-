@@ -1,5 +1,6 @@
 import { buildContractData, loadContract } from "@/lib/contract";
 import { renderContractPdf } from "@/lib/contract-pdf";
+import { uebersetzungAnhaengen } from "@/lib/vertrag-pdf-uebersetzung";
 import { buildDocumentsFromTemplates } from "@/lib/property-documents";
 
 /**
@@ -29,9 +30,12 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     console.error("[vertrag] Vorlage konnte nicht gefüllt werden:", error);
   }
 
-  if (!pdf) {
-    const data = await buildContractData(contract, { includeSignature: true });
-    pdf = await renderContractPdf(data);
+  const data = await buildContractData(contract, { includeSignature: true });
+  if (!pdf) pdf = await renderContractPdf(data);
+  try {
+    pdf = await uebersetzungAnhaengen(pdf, data, contract.sprache);
+  } catch (error) {
+    console.error("[vertrag] Übersetzung konnte nicht angehängt werden:", error);
   }
 
   return new Response(new Uint8Array(pdf), {

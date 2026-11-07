@@ -321,6 +321,8 @@ model Contract {
 
   // Snapshot der Vertragsdaten zum Zeitpunkt der Erstellung (rechtssicher)
   snapshot String? // JSON
+  /// Sprache, in der der Mieter den Vertrag gelesen hat (de, sq, bg, ro, hu, en) - Uebersetzung im PDF
+  sprache  String?
 
   pdfFileId String? // Google-Drive-Datei-ID
   pdfUrl    String?

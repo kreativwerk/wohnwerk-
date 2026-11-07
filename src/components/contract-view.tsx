@@ -1,4 +1,5 @@
 import type { ContractData } from "@/lib/contract-pdf";
+import { vertragsuebersetzung } from "@/lib/vertrag-uebersetzung";
 import { LogoHell } from "./logo";
 import { oberflaeche } from "@/lib/i18n";
 
@@ -29,8 +30,12 @@ function address(street?: string | null, zip?: string | null, city?: string | nu
 }
 
 /** Lesbare Fassung des Vertrags – inhaltsgleich zum erzeugten PDF. */
-export async function ContractView({ data }: { data: ContractData }) {
-  const { t, datum, datumZeit, geld } = await oberflaeche();
+export async function ContractView({ data, sprache }: { data: ContractData; sprache?: string }) {
+  const { t: oberflaecheT, datum, datumZeit, geld } = await oberflaeche();
+  // Uebersetzung zum Lesen (sq, bg, ro, hu, en); unbekannte Texte bleiben deutsch.
+  const ue = vertragsuebersetzung(sprache);
+  const t = (text: string, werte?: Record<string, string | number>) =>
+    ue?.beschriftung(text, werte) ?? oberflaecheT(text, werte);
 
   return (
     <article className="space-y-5">
@@ -92,7 +97,7 @@ export async function ContractView({ data }: { data: ContractData }) {
           {/* Der Schlafplatz wird vor Ort festgelegt und kann sich aendern. */}
           <Row label={t("Schlafplatz")} value={t("wird vor Ort zugewiesen")} />
         </dl>
-        <p className="mt-3 text-sm leading-relaxed text-ink-700">{data.intro}</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-700">{ue ? ue.intro(data.intro) : data.intro}</p>
       </Section>
 
       <Section title={t("3. Mietzeit und Mietzins")}>
@@ -122,14 +127,12 @@ export async function ContractView({ data }: { data: ContractData }) {
             />
           )}
         </dl>
-        <p className="mt-3 text-sm leading-relaxed text-ink-700">{data.noticePeriod}</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-700">{ue ? ue.kuendigung(data.noticePeriod) : data.noticePeriod}</p>
       </Section>
 
       <Section title={t("4. Vertragsbedingungen")}>
         <div className="overflow-hidden rounded-lg text-sm leading-relaxed text-ink-700 ring-1 ring-inset ring-ink-200">
-          {data.clauses
-            .split("\n")
-            .filter((line) => line.trim())
+          {(ue ? ue.bedingungen(data.clauses) : data.clauses.split("\n").filter((line) => line.trim()))
             .map((line, index) => (
               <p key={index} className="px-3 py-2 odd:bg-ink-50 even:bg-white">
                 {line}
@@ -139,7 +142,7 @@ export async function ContractView({ data }: { data: ContractData }) {
       </Section>
 
       <Section title={t("5. Hausordnung")}>
-        <p className="rounded-lg bg-ink-50 px-3 py-2 text-sm leading-relaxed text-ink-700 ring-1 ring-inset ring-ink-200">{data.houseRules}</p>
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-sm leading-relaxed text-ink-700 ring-1 ring-inset ring-ink-200">{ue ? ue.hausordnung(data.houseRules) : data.houseRules}</p>
       </Section>
 
       {data.signature && (
@@ -155,7 +158,7 @@ export async function ContractView({ data }: { data: ContractData }) {
             )}
             <p className="mt-2 text-sm font-semibold text-ink-900">{data.signature.name}</p>
             <p className="text-xs text-ink-500">
-              Elektronisch unterschrieben am {datumZeit(data.signature.signedAt)}
+              {ue?.unterschriebenAm ?? "Elektronisch unterschrieben am"} {datumZeit(data.signature.signedAt)}
               {data.signature.ip ? ` · IP ${data.signature.ip}` : ""}
             </p>
           </div>

@@ -165,8 +165,8 @@ export default async function NewTenantPage({
 
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div>
-              <label htmlFor="startDate">{t("Mietbeginn")}</label>
-              <input id="startDate" name="startDate" type="date" defaultValue={toDateInput(new Date())} />
+              <label htmlFor="startDate">{t("Mietbeginn *")}</label>
+              <input id="startDate" name="startDate" type="date" required defaultValue={toDateInput(new Date())} />
             </div>
             <div>
               <label htmlFor="endDate">{t("Mietende")}</label>

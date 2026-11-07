@@ -81,7 +81,10 @@ type Schluessel =
   | "hinweisKuendigungForm"
   | "hinweisKaution"
   | "hinweisPuenktlich"
-  | "hinweisVorschuss";
+  | "hinweisVorschuss"
+  | "hinweisHausregeln"
+  | "hinweisWgb"
+  | "pdfWgb";
 
 type Woerter = Record<Schluessel, string>;
 
@@ -142,6 +145,9 @@ const DE: Woerter = {
   hinweisKaution: "Kaution nur {kaution} – in Deutschland sind sonst bis zu 3 Monatsmieten üblich.",
   hinweisPuenktlich: "Miete bitte immer pünktlich zahlen.",
   hinweisVorschuss: "Ihr Arbeitgeber zahlt Ihnen für die Anfangszeit einen Vorschuss – das ist mit ihm abgesprochen.",
+  hinweisHausregeln: "Müll bitte trennen und die Hausregeln einhalten: Nachtruhe 22–6 Uhr, Rauchen nur draußen, Küche und Bad sauber hinterlassen.",
+  hinweisWgb: "Die Wohnungsgeberbestätigung für die Anmeldung bekommen Sie direkt nach der Unterschrift hier zum Herunterladen.",
+  pdfWgb: "Wohnungsgeberbestätigung herunterladen",
 };
 
 const SQ: Woerter = {
@@ -201,6 +207,9 @@ const SQ: Woerter = {
   hinweisKaution: "Depozita vetëm {kaution} – në Gjermani zakonisht deri në 3 qira mujore.",
   hinweisPuenktlich: "Të lutem paguaj qiranë gjithmonë në kohë.",
   hinweisVorschuss: "Punëdhënësi yt të jep një paradhënie për fillim – kjo është rënë dakord me të.",
+  hinweisHausregeln: "Të lutem ndaj mbeturinat dhe respekto rregullat e shtëpisë: qetësi 22–6, duhani vetëm jashtë, kuzhina dhe banjo të pastra pas përdorimit.",
+  hinweisWgb: "Vërtetimin e strehuesit (Wohnungsgeberbestätigung) për regjistrim e merr këtu menjëherë pas nënshkrimit.",
+  pdfWgb: "Shkarko vërtetimin e strehuesit",
 };
 
 const BG: Woerter = {
@@ -260,6 +269,9 @@ const BG: Woerter = {
   hinweisKaution: "Депозит само {kaution} – в Германия обикновено до 3 месечни наема.",
   hinweisPuenktlich: "Моля, плащай наема винаги навреме.",
   hinweisVorschuss: "Работодателят ти дава аванс за началото – това е уговорено с него.",
+  hinweisHausregeln: "Моля, изхвърляй отпадъците разделно и спазвай правилата: тишина 22–6 ч., пушене само навън, кухнята и банята да остават чисти.",
+  hinweisWgb: "Удостоверението от наемодателя (Wohnungsgeberbestätigung) за регистрацията получаваш тук веднага след подписа.",
+  pdfWgb: "Изтегли удостоверението от наемодателя",
 };
 
 const RO: Woerter = {
@@ -319,6 +331,9 @@ const RO: Woerter = {
   hinweisKaution: "Garanție doar {kaution} – în Germania de obicei până la 3 chirii lunare.",
   hinweisPuenktlich: "Te rog plătește chiria mereu la timp.",
   hinweisVorschuss: "Angajatorul îți dă un avans pentru început – am stabilit asta cu el.",
+  hinweisHausregeln: "Te rog sortează gunoiul și respectă regulile casei: liniște 22–6, fumatul doar afară, bucătăria și baia curate după folosire.",
+  hinweisWgb: "Confirmarea proprietarului (Wohnungsgeberbestätigung) pentru înregistrare o primești aici imediat după semnare.",
+  pdfWgb: "Descarcă confirmarea proprietarului",
 };
 
 const HU: Woerter = {
@@ -378,6 +393,9 @@ const HU: Woerter = {
   hinweisKaution: "Kaució csak {kaution} – Németországban általában akár 3 havi bérleti díj.",
   hinweisPuenktlich: "Kérlek, a bérleti díjat mindig időben fizesd.",
   hinweisVorschuss: "A munkáltatód előleget ad a kezdeti időszakra – ezt megbeszéltük vele.",
+  hinweisHausregeln: "Kérlek, válogasd szét a szemetet és tartsd be a házirendet: csend 22–6 óra között, dohányozni csak kint, a konyhát és a fürdőt tisztán hagyni.",
+  hinweisWgb: "A bejelentkezéshez szükséges szállásadói igazolást (Wohnungsgeberbestätigung) az aláírás után azonnal letöltheted itt.",
+  pdfWgb: "Szállásadói igazolás letöltése",
 };
 
 const EN: Woerter = {
@@ -437,6 +455,9 @@ const EN: Woerter = {
   hinweisKaution: "Deposit only {kaution} – in Germany up to 3 months’ rent is usual.",
   hinweisPuenktlich: "Please always pay the rent on time.",
   hinweisVorschuss: "Your employer pays you an advance for the first weeks – we have agreed this with them.",
+  hinweisHausregeln: "Please separate your waste and follow the house rules: quiet hours 22:00–06:00, smoking outside only, leave kitchen and bathroom clean.",
+  hinweisWgb: "You can download the landlord confirmation (Wohnungsgeberbestätigung) for your registration here right after signing.",
+  pdfWgb: "Download landlord confirmation",
 };
 
 const ALLE: Record<KautionSprache, Woerter> = { de: DE, sq: SQ, bg: BG, ro: RO, hu: HU, en: EN };
