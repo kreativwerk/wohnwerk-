@@ -96,3 +96,6 @@ export function formatPercent(value: number): string {
 
 /** Standardmiete je Bett: 470 € im Monat - gilt beim Anlegen von Zimmern und Betten. */
 export const STANDARD_BETTMIETE_CENTS = 47000;
+
+/** Standardkaution fuer neue Mietverhaeltnisse: eine Monatsmiete, 470 €. */
+export const STANDARD_KAUTION_CENTS = 47000;

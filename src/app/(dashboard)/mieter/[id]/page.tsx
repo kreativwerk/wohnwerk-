@@ -16,7 +16,7 @@ import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { bedOptions } from "@/lib/options";
 import { coversLandlordConfirmation } from "@/lib/pdf-template";
-import { centsToInput } from "@/lib/money";
+import { centsToInput, STANDARD_KAUTION_CENTS } from "@/lib/money";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
 import { guthabenJeMieter } from "@/lib/accounting";
@@ -1081,7 +1081,7 @@ function BettZuweisen({
         </div>
         <div>
           <label htmlFor={id("newDeposit")}>{t("Kaution")}</label>
-          <input id={id("newDeposit")} name="depositCents" inputMode="decimal" defaultValue="200,00" />
+          <input id={id("newDeposit")} name="depositCents" inputMode="decimal" defaultValue={centsToInput(STANDARD_KAUTION_CENTS)} />
           <p className="field-hint">{t("0,00 eintragen = keine Kaution")}</p>
         </div>
       </div>

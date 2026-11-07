@@ -1468,4 +1468,9 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "teilweise": "partly",
   "offen": "open",
   "überfällig": "overdue",
+  "Für WhatsApp beim Mieter eine Handynummer eintragen.": "Add a mobile number to the tenant to use WhatsApp.",
+  "Miete monatlich (pauschal)": "Monthly rent (flat rate)",
+  "Per WhatsApp senden": "Send via WhatsApp",
+  "{betrag} inkl. aller Nebenkosten": "{betrag} incl. all utilities",
+  "{name} auf {bett} gesetzt – Vertragsentwurf ab heute mit {miete} und {kaution} Kaution. Anpassen auf der Mieterseite.": "{name} placed on {bett} – draft contract from today with {miete} and {kaution} deposit. Adjust on the tenant page.",
 };

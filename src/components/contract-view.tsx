@@ -96,7 +96,10 @@ export async function ContractView({ data }: { data: ContractData }) {
         <dl>
           <Row label={t("Mietbeginn")} value={datum(data.startDate)} />
           <Row label={t("Mietende")} value={data.endDate ? datum(data.endDate) : t("unbefristet")} />
-          <Row label={t("Miete monatlich")} value={geld(data.monthlyRentCents)} />
+          <Row
+            label={data.utilitiesCents > 0 ? t("Miete monatlich") : t("Miete monatlich (pauschal)")}
+            value={data.utilitiesCents > 0 ? geld(data.monthlyRentCents) : t("{betrag} inkl. aller Nebenkosten", { betrag: geld(data.monthlyRentCents) })}
+          />
           {data.utilitiesCents > 0 && (
             <Row label={t("davon Nebenkosten")} value={geld(data.utilitiesCents)} />
           )}

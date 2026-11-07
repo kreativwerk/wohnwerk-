@@ -303,7 +303,11 @@ export async function renderContractPdf(data: ContractData): Promise<Buffer> {
   layout.heading("3. Mietzeit und Mietzins");
   layout.row("Mietbeginn", formatDate(data.startDate));
   layout.row("Mietende", data.endDate ? formatDate(data.endDate) : "unbefristet");
-  layout.row("Miete monatlich", formatCents(data.monthlyRentCents));
+  // Ohne gesonderte Nebenkosten ist die Miete pauschal (Klausel 3: alles enthalten).
+  layout.row(
+    data.utilitiesCents > 0 ? "Miete monatlich" : "Miete monatlich (pauschal)",
+    data.utilitiesCents > 0 ? formatCents(data.monthlyRentCents) : `${formatCents(data.monthlyRentCents)} inkl. aller Nebenkosten`,
+  );
   if (data.utilitiesCents > 0) {
     layout.row("davon Nebenkosten", formatCents(data.utilitiesCents));
   }

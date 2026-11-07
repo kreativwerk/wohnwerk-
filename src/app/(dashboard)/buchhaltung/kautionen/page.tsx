@@ -8,7 +8,7 @@ import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th } f
 import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
-import { centsToInput } from "@/lib/money";
+import { centsToInput, STANDARD_KAUTION_CENTS } from "@/lib/money";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
 export async function generateMetadata() {
@@ -33,7 +33,7 @@ type Ansicht = (typeof ANSICHTEN)[number];
 type Lage = "bezahlt" | "offen" | "erlassen" | "ohneForderung" | "ohneKaution" | "keineKaution";
 
 /** Vorschlag beim Nachtragen: die uebliche Kaution im Haus. */
-const UEBLICHE_KAUTION_CENTS = 20000;
+const UEBLICHE_KAUTION_CENTS = STANDARD_KAUTION_CENTS;
 
 /**
  * Kautionszahlungen - einmal je Mietverhaeltnis, deshalb ohne Monatswahl.

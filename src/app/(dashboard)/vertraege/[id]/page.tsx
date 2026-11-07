@@ -14,6 +14,7 @@ import { ContractBadge } from "@/components/status";
 import { Alert, Card, Flash, PageHeader } from "@/components/ui";
 import { buildContractData, contractLink, loadContract } from "@/lib/contract";
 import { getAppUrl } from "@/lib/settings";
+import { whatsappLink } from "@/lib/mahnung";
 
 import { requireAdmin } from "@/lib/auth";
 import { oberflaeche } from "@/lib/i18n";
@@ -57,6 +58,13 @@ export default async function ContractDetailPage({
       `Bitte prüfen Sie Ihre Daten und unterschreiben Sie direkt im Browser:\n\n${link}\n\n` +
       `Mietbeginn: ${datum(contract.tenancy.startDate)}\n\n` +
       `Viele Grüße\n${data.landlordName}`,
+  );
+
+  // Die meisten Bewohner erreicht man per WhatsApp, nicht per E-Mail.
+  const whatsapp = whatsappLink(
+    tenant.phone,
+    `Hallo ${tenant.firstName}, hier ist dein Mietvertrag für ${data.propertyName}, ${data.roomName}, ${data.bedLabel} ` +
+      `(ab ${datum(contract.tenancy.startDate)}). Bitte Daten prüfen und direkt am Handy unterschreiben:\n${link}\n\n${data.landlordName}`,
   );
 
   return (
@@ -159,6 +167,13 @@ export default async function ContractDetailPage({
                 <div className="space-y-3">
                   <CopyField value={link} />
                   <div className="flex flex-wrap gap-2">
+                    {whatsapp ? (
+                      <a href={whatsapp} target="_blank" rel="noreferrer" className="btn btn-primary">
+                        {t("Per WhatsApp senden")}
+                      </a>
+                    ) : (
+                      <p className="field-hint w-full">{t("Für WhatsApp beim Mieter eine Handynummer eintragen.")}</p>
+                    )}
                     <a
                       href={`mailto:${tenant.email}?subject=${encodeURIComponent(
                         `Ihr Mietvertrag ${contract.contractNumber}`,

@@ -7,7 +7,7 @@ import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uebersetzer } from "@/lib/i18n";
-import { formatCents } from "@/lib/money";
+import { formatCents, STANDARD_KAUTION_CENTS } from "@/lib/money";
 import { randomToken } from "@/lib/storage";
 import { findConflictingTenancy, nextContractNumber, nextReference } from "@/lib/tenancy";
 
@@ -165,7 +165,7 @@ export async function planVerschieben(angaben: { tenantId: string; bedId: string
       bedId: bed.id,
       startDate: jetzt,
       monthlyRentCents: bed.monthlyRentCents,
-      depositCents: 20000,
+      depositCents: STANDARD_KAUTION_CENTS,
       reference: await nextReference(jetzt),
       status: "DRAFT",
       contract: { create: { contractNumber: await nextContractNumber(jetzt), token: randomToken(), status: "DRAFT" } },
@@ -176,10 +176,11 @@ export async function planVerschieben(angaben: { tenantId: string; bedId: string
   revalidatePath("/vertraege");
   return {
     ok: true,
-    meldung: t("{name} auf {bett} gesetzt – Vertragsentwurf ab heute mit {miete} und 200,00 € Kaution. Anpassen auf der Mieterseite.", {
+    meldung: t("{name} auf {bett} gesetzt – Vertragsentwurf ab heute mit {miete} und {kaution} Kaution. Anpassen auf der Mieterseite.", {
       name,
       bett: bettName,
       miete: formatCents(bed.monthlyRentCents),
+      kaution: formatCents(STANDARD_KAUTION_CENTS),
     }),
   };
 }

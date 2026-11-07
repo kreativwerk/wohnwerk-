@@ -7,6 +7,7 @@ import { bedOptions } from "@/lib/options";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
+import { centsToInput, STANDARD_KAUTION_CENTS } from "@/lib/money";
 
 /** Der Reiter im Browser gehoert zur Oberflaeche und folgt der Sprache. */
 export async function generateMetadata() {
@@ -184,7 +185,7 @@ export default async function NewTenantPage({
             </div>
             <div>
               <label htmlFor="depositCents">{t("Kaution")}</label>
-              <input id="depositCents" name="depositCents" inputMode="decimal" defaultValue="200,00" />
+              <input id="depositCents" name="depositCents" inputMode="decimal" defaultValue={centsToInput(STANDARD_KAUTION_CENTS)} />
               <p className="field-hint">{t("0,00 eintragen = keine Kaution")}</p>
             </div>
           </div>
