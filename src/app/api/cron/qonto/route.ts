@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { autoMatch } from "@/lib/accounting";
 import { eigenbelegeFuerGebuehren } from "@/lib/eigenbeleg";
 import { qontoAbgleich, qontoBelegeNachholen, qontoZugang } from "@/lib/qonto";
+import { fehlendeVertragsPdfsNachholen } from "@/lib/vertrag-nachholen";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -23,11 +24,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
+  // Unterschriebene Vertraege ohne abgelegtes PDF nachholen.
+  const vertraegeNachgeholt = await fehlendeVertragsPdfsNachholen();
+
   // Ohne Qonto trotzdem zuordnen: Eingaenge aus hochgeladenen Auszuegen.
   if (!(await qontoZugang())) {
     const zuordnung = await autoMatch();
     const eigenbelege = await eigenbelegeFuerGebuehren();
-    return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched, eigenbelege });
+    return NextResponse.json({ ok: true, qonto: "nicht eingerichtet", zugeordnet: zuordnung.matched, eigenbelege, vertraegeNachgeholt });
   }
 
   // Nachholen aller Belege ab einem Tag: /api/cron/qonto?belege_ab=2026-01-01
@@ -50,6 +54,7 @@ export async function GET(request: Request) {
     neu: ergebnis.neu,
     doppelt: ergebnis.doppelt,
     zugeordnet: ergebnis.zugeordnet,
+    vertraegeNachgeholt,
     fehler: ergebnis.fehler ?? null,
   });
 }

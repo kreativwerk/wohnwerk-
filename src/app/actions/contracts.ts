@@ -514,23 +514,27 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
   const year = contract.tenancy.startDate.getUTCFullYear();
   const propertyId = contract.tenancy.bed.room.propertyId;
 
-  // Hat das Objekt Vordrucke, entstehen die Dokumente daraus. Nur wenn keiner
-  // hinterlegt ist, greift der selbst gesetzte Mietvertrag.
+  // Hat das Objekt Vordrucke, entstehen die Dokumente daraus. Deckt keiner
+  // den Mietvertrag ab (z. B. nur ein Vordruck fuer die
+  // Wohnungsgeberbestaetigung), kommt der selbst gesetzte Vertrag dazu - der
+  // Vertrag darf nie fehlen.
   const ausVordruck = await buildDocumentsFromTemplates(contract);
+  const dokumente = [...ausVordruck];
+  if (!dokumente.some((d) => d.istMietvertrag)) {
+    dokumente.unshift({
+      kind: "CONTRACT",
+      title: `Mietvertrag ${contract.contractNumber} – ${data.tenantName}`,
+      fileName: `${contract.contractNumber} ${data.tenantName}.pdf`,
+      pdf: await renderContractPdf(data),
+      istMietvertrag: true,
+      istWohnungsgeberbestaetigung: false,
+    });
+  }
 
-  const dokumente =
-    ausVordruck.length > 0
-      ? ausVordruck
-      : [
-          {
-            kind: "CONTRACT",
-            title: `Mietvertrag ${contract.contractNumber} – ${data.tenantName}`,
-            fileName: `${contract.contractNumber} ${data.tenantName}.pdf`,
-            pdf: await renderContractPdf(data),
-            istMietvertrag: true,
-            istWohnungsgeberbestaetigung: false,
-          },
-        ];
+  // Schon abgelegte Dokumente nicht doppelt ablegen (Nachholen nach Fehlern).
+  const schonAbgelegt = new Set(
+    (await prisma.document.findMany({ where: { contractId }, select: { fileName: true } })).map((d) => d.fileName),
+  );
 
   // Hat der Mieter in seiner Sprache gelesen, kommt die Uebersetzung hinten an den Vertrag.
   for (const dokument of dokumente) {
@@ -544,6 +548,7 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
   }
 
   for (const dokument of dokumente) {
+    if (schonAbgelegt.has(dokument.fileName)) continue;
     // Die Unterschrift ist zu diesem Zeitpunkt gespeichert; scheitert die
     // Ablage, geht nichts verloren - das PDF laesst sich jederzeit aus den
     // Vertragsdaten neu erzeugen. Der Mieter darf keinen Fehler sehen.
