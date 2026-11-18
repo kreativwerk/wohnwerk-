@@ -128,6 +128,9 @@ export default async function ContractsPage({
         description={t("Vom Entwurf über den Versand bis zur Unterschrift.")}
         actions={
           <>
+            <Link href="/vertraege/export" className="btn btn-secondary">
+              {t("Export")}
+            </Link>
             <Link href="/vertraege/ablage" className="btn btn-secondary">
               {t("Ablage")}{inAblage > 0 ? ` (${inAblage})` : ""}
             </Link>
