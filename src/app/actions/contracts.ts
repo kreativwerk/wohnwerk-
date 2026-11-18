@@ -613,7 +613,28 @@ export async function unterschriebenenVertragHochladen(formData: FormData) {
   const tenancyId = str(formData, "tenancyId");
   const zurueck = str(formData, "zurueck") || "/vertraege/export";
 
-  const dateien = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  // Dateien kommen direkt mit - oder, wenn sie gross sind, vorab in Stuecken
+  // (siehe /api/vertraege/upload-teil); dann steht hier nur die Liste.
+  const dateien: Array<{ name: string; type: string; bytes: Uint8Array }> = [];
+  for (const f of formData.getAll("files")) {
+    if (f instanceof File && f.size > 0) dateien.push({ name: f.name, type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  let teile: Array<{ id: string; name: string; typ: string }> = [];
+  try {
+    teile = JSON.parse(str(formData, "teile") || "[]");
+  } catch {
+    teile = [];
+  }
+  for (const teil of teile) {
+    if (!/^[a-zA-Z0-9-]{8,64}$/.test(teil.id)) continue;
+    const stuecke = await prisma.ablageDatei.findMany({
+      where: { pfad: { startsWith: `Zwischenablage/${teil.id}/` } },
+      orderBy: { pfad: "asc" },
+    });
+    if (stuecke.length === 0) continue;
+    dateien.push({ name: teil.name, type: teil.typ, bytes: new Uint8Array(Buffer.concat(stuecke.map((x) => Buffer.from(x.daten)))) });
+    await prisma.ablageDatei.deleteMany({ where: { pfad: { startsWith: `Zwischenablage/${teil.id}/` } } });
+  }
   if (dateien.length === 0) redirect(flash(zurueck, "fehler", t("Bitte eine Datei auswählen.")));
 
   const tenancy = await prisma.tenancy.findUnique({
@@ -630,7 +651,7 @@ export async function unterschriebenenVertragHochladen(formData: FormData) {
   const ziel = await PDFDocument.create();
   try {
     for (const datei of dateien) {
-      const bytes = new Uint8Array(await datei.arrayBuffer());
+      const bytes = datei.bytes;
       const typ = datei.type || (datei.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "");
       if (typ === "application/pdf") {
         const quelle = await PDFDocument.load(bytes, { ignoreEncryption: true });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { VertragHochladen } from "@/components/vertrag-hochladen";
 import { createContractForTenancy, endContract } from "@/app/actions/contracts";
 import {
   Alert,
@@ -262,6 +263,9 @@ export default async function ContractsPage({
                         </span>
                       </Td>
                       <Td align="right">
+                        <div className="mb-1.5">
+                          <VertragHochladen tenancyId={tenancy.id} zurueck="/vertraege" kompakt />
+                        </div>
                         <form action={createContractForTenancy}>
                           <input type="hidden" name="tenancyId" value={tenancy.id} />
                           <input type="hidden" name="back" value="/vertraege" />
@@ -375,6 +379,11 @@ export default async function ContractsPage({
                         </a>
                       ) : (
                         <Badge tone="warning">{t("Kein Dokument")}</Badge>
+                      )}
+                      {!["SIGNED", "ENDED", "CANCELLED"].includes(contract.status) && (
+                        <div className="mt-1.5">
+                          <VertragHochladen tenancyId={contract.tenancyId} zurueck={`/vertraege${status ? `?status=${status}` : ""}`} kompakt />
+                        </div>
                       )}
                       <p className="mt-1 text-xs text-ink-500">
                         {contract.signedAt

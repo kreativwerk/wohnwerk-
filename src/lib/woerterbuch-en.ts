@@ -1528,4 +1528,6 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Unterschriebener Vertrag von {name} ist abgelegt.": "Signed contract of {name} has been filed.",
   "Zusammen zu groß ({mb} MB). Bitte weniger Seiten auf einmal oder ein kleineres PDF.": "Too large in total ({mb} MB). Please upload fewer pages at once or a smaller PDF.",
   "{anzahl} von {gesamt} angezeigt": "{anzahl} of {gesamt} shown",
+  "Hochladen fehlgeschlagen. Bitte erneut versuchen – bei großen PDFs weniger Seiten auf einmal.": "Upload failed. Please try again – for large PDFs, fewer pages at once.",
+  "Unterschrieben hochladen": "Upload signed copy",
 };

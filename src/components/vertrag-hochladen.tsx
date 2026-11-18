@@ -5,8 +5,11 @@ import { useRef, useState } from "react";
 import { unterschriebenenVertragHochladen } from "@/app/actions/contracts";
 import { useOberflaeche } from "./sprache-kontext";
 
-/** Grenze des Servers fuer eine Anfrage - mit etwas Luft. */
-const GRENZE = 4 * 1024 * 1024;
+/** Bis hierhin geht alles in einer Anfrage (Vercel: 4,5 MB) - darueber in Stuecken. */
+const GRENZE = 3.5 * 1024 * 1024;
+const STUECK = 3 * 1024 * 1024;
+/** Obergrenze fuer einen Vertrag insgesamt. */
+const MAXIMAL = 40 * 1024 * 1024;
 
 /** Fotos auf hoechstens 2000 px verkleinern (JPEG) - Handyfotos sind sonst zu gross. */
 async function verkleinern(datei: File): Promise<File> {
@@ -25,9 +28,19 @@ async function verkleinern(datei: File): Promise<File> {
  * Unterschriebenen Papiervertrag hochladen: PDF oder Fotos (mehrere Seiten
  * moeglich). Der Server fuegt alles zu einem PDF zusammen.
  */
-export function VertragHochladen({ tenancyId, zurueck }: { tenancyId: string; zurueck: string }) {
+export function VertragHochladen({
+  tenancyId,
+  zurueck,
+  kompakt = false,
+}: {
+  tenancyId: string;
+  zurueck: string;
+  /** Nur ein Button: Dateien waehlen, sofort hochladen (fuer Tabellenzeilen). */
+  kompakt?: boolean;
+}) {
   const { t } = useOberflaeche();
   const eingabe = useRef<HTMLInputElement>(null);
+  const formular = useRef<HTMLFormElement>(null);
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
@@ -41,14 +54,70 @@ export function VertragHochladen({ tenancyId, zurueck }: { tenancyId: string; zu
     setLaeuft(true);
     const dateien = await Promise.all(original.map(verkleinern));
     const groesse = dateien.reduce((s, d) => s + d.size, 0);
-    if (groesse > GRENZE) {
+    if (groesse > MAXIMAL) {
       setLaeuft(false);
       setFehler(t("Zusammen zu groß ({mb} MB). Bitte weniger Seiten auf einmal oder ein kleineres PDF.", { mb: (groesse / 1024 / 1024).toFixed(1) }));
       return;
     }
     formData.delete("files");
-    for (const d of dateien) formData.append("files", d);
-    await unterschriebenenVertragHochladen(formData);
+    if (groesse <= GRENZE) {
+      for (const d of dateien) formData.append("files", d);
+    } else {
+      // Gross: in Stuecken vorab hochladen, dann nur die Liste mitschicken.
+      try {
+        const teile: Array<{ id: string; name: string; typ: string }> = [];
+        for (const d of dateien) {
+          const id = crypto.randomUUID();
+          for (let nr = 0, start = 0; start < d.size; nr += 1, start += STUECK) {
+            const antwort = await fetch(`/api/vertraege/upload-teil?id=${id}&nr=${nr}`, {
+              method: "POST",
+              body: d.slice(start, start + STUECK),
+              credentials: "same-origin",
+            });
+            if (!antwort.ok) throw new Error(`Teil ${nr}: ${antwort.status}`);
+          }
+          teile.push({ id, name: d.name, typ: d.type });
+        }
+        formData.set("teile", JSON.stringify(teile));
+      } catch (error) {
+        console.error(error);
+        setLaeuft(false);
+        setFehler(t("Hochladen fehlgeschlagen. Bitte erneut versuchen – bei großen PDFs weniger Seiten auf einmal."));
+        return;
+      }
+    }
+    try {
+      await unterschriebenenVertragHochladen(formData);
+    } catch (error) {
+      // Die Weiterleitung nach dem Erfolg ist kein Fehler.
+      if (String((error as { digest?: string })?.digest ?? "").startsWith("NEXT_REDIRECT")) throw error;
+      console.error(error);
+      setFehler(t("Hochladen fehlgeschlagen. Bitte erneut versuchen – bei großen PDFs weniger Seiten auf einmal."));
+    }
+    setLaeuft(false);
+  }
+
+  if (kompakt) {
+    return (
+      <form ref={formular} action={absenden} className="inline-block text-left">
+        <input type="hidden" name="tenancyId" value={tenancyId} />
+        <input type="hidden" name="zurueck" value={zurueck} />
+        <label className={`btn btn-secondary btn-sm cursor-pointer ${laeuft ? "pointer-events-none opacity-60" : ""}`}>
+          {laeuft ? t("Lädt hoch …") : t("Unterschrieben hochladen")}
+          <input
+            name="files"
+            type="file"
+            multiple
+            accept="application/pdf,image/jpeg,image/png"
+            className="sr-only"
+            onChange={(e) => {
+              if (e.currentTarget.files?.length) formular.current?.requestSubmit();
+            }}
+          />
+        </label>
+        {fehler && <p className="mt-1 max-w-56 text-xs text-rose-700">{fehler}</p>}
+      </form>
+    );
   }
 
   return (
