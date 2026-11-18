@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Badge, Card, EmptyState, PageHeader, StatCard, Table, Td, Th, type Tone } from "@/components/ui";
+import { Badge, Card, EmptyState, Flash, PageHeader, StatCard, Table, Td, Th, type Tone } from "@/components/ui";
+import { VertragHochladen } from "@/components/vertrag-hochladen";
 import { VertraegeZip } from "@/components/vertraege-zip";
 import { requireAdmin } from "@/lib/auth";
 import { oberflaeche, uebersetzer } from "@/lib/i18n";
@@ -20,13 +21,31 @@ const STATUS_TON: Record<string, Tone> = { KEIN: "danger", DRAFT: "neutral", SEN
  * Mietverhaeltnissen noch nicht unterschrieben hat - dann alle abgelegten
  * Vertraege als ZIP und die Fehlliste als PDF.
  */
-export default async function VertraegeExportPage() {
+export default async function VertraegeExportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ objekt?: string; status?: string; q?: string; ok?: string; fehler?: string }>;
+}) {
   const { t, datum } = await oberflaeche();
   await requireAdmin();
+  const params = await searchParams;
   const heute = new Date();
   const stand = await vertragsExportStand(heute);
   const megabyte = stand.dateien.reduce((s, d) => s + d.groesse, 0) / 1024 / 1024;
-  const objekte = [...new Set(stand.fehlend.map((f) => f.objekt))];
+
+  // Filter der Fehlliste: Objekt, Status, Name.
+  const filter = { objekt: params.objekt ?? "", status: params.status ?? "", q: (params.q ?? "").trim() };
+  const suche = filter.q.toLowerCase();
+  const gefiltert = stand.fehlend.filter(
+    (f) =>
+      (!filter.objekt || f.objekt === filter.objekt) &&
+      (!filter.status || f.status === filter.status) &&
+      (!suche || f.mieter.toLowerCase().includes(suche)),
+  );
+  const alleObjekte = [...new Set(stand.fehlend.map((f) => f.objekt))];
+  const objekte = [...new Set(gefiltert.map((f) => f.objekt))];
+  const query = new URLSearchParams(Object.entries(filter).filter(([, v]) => v)).toString();
+  const zurueck = `/vertraege/export${query ? `?${query}` : ""}`;
 
   return (
     <>
@@ -39,6 +58,7 @@ export default async function VertraegeExportPage() {
           </Link>
         }
       />
+      <Flash ok={params.ok} fehler={params.fehler} />
 
       <div className="mb-4 grid grid-cols-3 gap-3 sm:gap-4">
         <StatCard label={t("Fehlen noch")} value={String(stand.fehlend.length)} hint={t("laufend, nicht unterschrieben")} tone={stand.fehlend.length > 0 ? "danger" : "success"} href="#fehlt" />
@@ -59,50 +79,86 @@ export default async function VertraegeExportPage() {
         </div>
       </Card>
 
-      <Card id="fehlt" className="mb-4 scroll-mt-4" title={t("Wer noch fehlt")} description={t("Laufende Mietverhältnisse ohne unterschriebenen Vertrag, nach Objekt.")} padded={false}>
-        {stand.fehlend.length === 0 ? (
+      <Card id="fehlt" className="mb-4 scroll-mt-4" title={t("Wer noch fehlt")} description={t("Laufende Mietverhältnisse ohne unterschriebenen Vertrag. Liegt ein unterschriebener Papiervertrag vor: hochladen – dann gilt er als unterschrieben.")} padded={false}>
+        {/* Filter */}
+        <form method="get" action="/vertraege/export#fehlt" className="grid gap-2 border-b border-ink-200 p-4 sm:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-end">
+          <div>
+            <label htmlFor="f-objekt" className="text-xs">{t("Objekt")}</label>
+            <select id="f-objekt" name="objekt" defaultValue={filter.objekt}>
+              <option value="">{t("Alle Objekte")}</option>
+              {alleObjekte.map((o) => (
+                <option key={o} value={o}>{o} ({stand.fehlend.filter((f) => f.objekt === o).length})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="f-status" className="text-xs">{t("Status")}</label>
+            <select id="f-status" name="status" defaultValue={filter.status}>
+              <option value="">{t("Alle")}</option>
+              {["KEIN", "DRAFT", "SENT", "VIEWED"].map((s) => (
+                <option key={s} value={s}>{t(VERTRAGS_STATUS_NAME[s])} ({stand.fehlend.filter((f) => f.status === s).length})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="f-q" className="text-xs">{t("Name")}</label>
+            <input id="f-q" name="q" defaultValue={filter.q} placeholder={t("Name suchen")} />
+          </div>
+          <button type="submit" className="btn btn-secondary">{t("Filtern")}</button>
+          {(filter.objekt || filter.status || filter.q) && (
+            <Link href="/vertraege/export#fehlt" className="btn btn-ghost">{t("Zurücksetzen")}</Link>
+          )}
+        </form>
+        {(filter.objekt || filter.status || filter.q) && (
+          <p className="px-5 pt-3 text-xs text-ink-500">{t("{anzahl} von {gesamt} angezeigt", { anzahl: gefiltert.length, gesamt: stand.fehlend.length })}</p>
+        )}
+
+        {gefiltert.length === 0 ? (
           <div className="p-5">
-            <EmptyState title={t("Alles vollständig")} description={t("Alle laufenden Mietverhältnisse haben einen unterschriebenen Vertrag.")} />
+            <EmptyState
+              title={stand.fehlend.length === 0 ? t("Alles vollständig") : t("Keine Treffer")}
+              description={stand.fehlend.length === 0 ? t("Alle laufenden Mietverhältnisse haben einen unterschriebenen Vertrag.") : t("Für diesen Filter fehlt kein Vertrag.")}
+            />
           </div>
         ) : (
           objekte.map((objekt) => {
-            const zeilen = stand.fehlend.filter((f) => f.objekt === objekt);
+            const zeilen = gefiltert.filter((f) => f.objekt === objekt);
             return (
               <div key={objekt} className="border-t border-ink-200 first:border-t-0">
                 <h3 className="px-5 pb-2 pt-4 text-base font-bold text-brand-700">
                   {objekt} <span className="font-normal text-ink-500">({zeilen.length})</span>
                 </h3>
-                <Table>
-                  <thead>
-                    <tr>
-                      <Th>{t("Mieter")}</Th>
-                      <Th>{t("Zimmer")}</Th>
-                      <Th>{t("Einzug")}</Th>
-                      <Th>{t("Status")}</Th>
-                      <Th>{t("Telefon")}</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {zeilen.map((f) => (
-                      <tr key={f.tenancyId} className="odd:bg-ink-50/60">
-                        <Td className="font-medium">
+                <ul>
+                  {zeilen.map((f) => (
+                    <li key={f.tenancyId} className="border-t border-ink-100 px-5 py-3 odd:bg-ink-50/60">
+                      <div className="grid gap-1 sm:grid-cols-[1.4fr_1fr_1.3fr_1fr] sm:items-center sm:gap-3">
+                        <p className="font-medium text-ink-900">
                           {f.contractId ? (
                             <Link href={`/vertraege/${f.contractId}`} className="text-brand-700 hover:underline">{f.mieter}</Link>
                           ) : (
                             f.mieter
                           )}
-                        </Td>
-                        <Td>{f.zimmer}</Td>
-                        <Td className="whitespace-nowrap">{datum(f.einzug)}</Td>
-                        <Td>
+                        </p>
+                        <p className="text-sm text-ink-700">
+                          {f.zimmer} · {t("Einzug")} {datum(f.einzug)}
+                        </p>
+                        <p className="text-sm">
                           <Badge tone={STATUS_TON[f.status] ?? "neutral"}>{t(VERTRAGS_STATUS_NAME[f.status] ?? f.status)}</Badge>
-                          {f.versendetAm && <span className="block text-xs text-ink-500">{t("seit {datum}", { datum: datum(f.versendetAm) })}</span>}
-                        </Td>
-                        <Td className="whitespace-nowrap">{f.telefon ?? "–"}</Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
+                          {f.versendetAm && <span className="ml-1.5 text-xs text-ink-500">{t("seit {datum}", { datum: datum(f.versendetAm) })}</span>}
+                        </p>
+                        <p className="text-sm text-ink-700">{f.telefon ?? "–"}</p>
+                      </div>
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-sm font-semibold text-brand-700 hover:underline">
+                          {t("Unterschriebenen Vertrag hochladen")}
+                        </summary>
+                        <div className="mt-2 rounded-lg bg-white p-3 ring-1 ring-inset ring-ink-200">
+                          <VertragHochladen tenancyId={f.tenancyId} zurueck={zurueck} />
+                        </div>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
               </div>
             );
           })

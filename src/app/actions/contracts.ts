@@ -600,3 +600,139 @@ export async function finalizeSignedContract(contractId: string): Promise<void> 
 
   await ensureRentCharges({ tenancyId: contract.tenancyId });
 }
+
+/**
+ * Unterschriebener Papiervertrag fuer ein Mietverhaeltnis ohne digitale
+ * Unterschrift: Scan oder Fotos hochladen. Mehrere Dateien (PDF, JPG, PNG)
+ * werden zu einem PDF zusammengefuegt, der Vertrag gilt danach als
+ * unterschrieben. Gibt es noch keinen Vertragsdatensatz, wird er angelegt.
+ */
+export async function unterschriebenenVertragHochladen(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const tenancyId = str(formData, "tenancyId");
+  const zurueck = str(formData, "zurueck") || "/vertraege/export";
+
+  const dateien = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  if (dateien.length === 0) redirect(flash(zurueck, "fehler", t("Bitte eine Datei auswählen.")));
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id: tenancyId },
+    include: { tenant: true, contract: true, bed: { include: { room: true } } },
+  });
+  if (!tenancy) redirect(flash(zurueck, "fehler", t("Mietverhältnis nicht gefunden.")));
+  if (tenancy.contract?.status === "SIGNED") {
+    redirect(flash(zurueck, "fehler", t("Der Vertrag ist bereits unterschrieben.")));
+  }
+
+  // Alles zu einem PDF: PDFs seitenweise, Fotos je eine A4-Seite.
+  const { PDFDocument } = await import("pdf-lib");
+  const ziel = await PDFDocument.create();
+  try {
+    for (const datei of dateien) {
+      const bytes = new Uint8Array(await datei.arrayBuffer());
+      const typ = datei.type || (datei.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "");
+      if (typ === "application/pdf") {
+        const quelle = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        for (const seite of await ziel.copyPages(quelle, quelle.getPageIndices())) ziel.addPage(seite);
+      } else if (typ === "image/jpeg" || typ === "image/png") {
+        const bild = typ === "image/png" ? await ziel.embedPng(bytes) : await ziel.embedJpg(bytes);
+        const quer = bild.width > bild.height;
+        const [b, h] = quer ? [841.89, 595.28] : [595.28, 841.89];
+        const faktor = Math.min((b - 40) / bild.width, (h - 40) / bild.height);
+        const seite = ziel.addPage([b, h]);
+        seite.drawImage(bild, {
+          x: (b - bild.width * faktor) / 2,
+          y: (h - bild.height * faktor) / 2,
+          width: bild.width * faktor,
+          height: bild.height * faktor,
+        });
+      } else {
+        redirect(flash(zurueck, "fehler", t("Nur PDF, JPG oder PNG.")));
+      }
+    }
+  } catch (error) {
+    if ((error as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw error;
+    console.error("[vertrag] Upload konnte nicht gelesen werden:", error);
+    redirect(flash(zurueck, "fehler", t("Die Datei konnte nicht gelesen werden.")));
+  }
+  const pdf = Buffer.from(await ziel.save());
+
+  // Vertragsdatensatz: vorhandenen nehmen, sonst anlegen.
+  const contract =
+    tenancy.contract ??
+    (await prisma.contract.create({
+      data: {
+        tenancyId,
+        contractNumber: await nextContractNumber(tenancy.startDate),
+        token: randomToken(),
+        status: "DRAFT",
+      },
+    }));
+  const name = `${tenancy.tenant.firstName} ${tenancy.tenant.lastName}`.trim();
+  const dateiname = `${contract.contractNumber} ${name} (unterschrieben).pdf`;
+
+  let abgelegt;
+  try {
+    abgelegt = await uploadFile({
+      fileName: dateiname,
+      mimeType: "application/pdf",
+      data: pdf,
+      folderSegments: FOLDER.contracts(tenancy.startDate.getUTCFullYear()),
+    });
+  } catch (error) {
+    console.error("[vertrag] Ablage fehlgeschlagen:", error);
+    redirect(flash(zurueck, "fehler", (error as Error).message));
+  }
+
+  const unterschriebenAm = fromDateInputSicher(str(formData, "signedAt")) ?? new Date();
+  const geladen = await loadContract({ id: contract.id });
+  const snapshot = geladen?.snapshot ?? (geladen ? JSON.stringify(await buildContractData(geladen)) : null);
+
+  await prisma.$transaction([
+    prisma.contract.update({
+      where: { id: contract.id },
+      data: {
+        status: "SIGNED",
+        signedAt: unterschriebenAm,
+        signerName: name,
+        signerIp: null,
+        signerUserAgent: `Papiervertrag hochgeladen durch ${user.email}`,
+        snapshot,
+        pdfFileId: abgelegt.fileId,
+        pdfUrl: abgelegt.url,
+        pdfPath: abgelegt.localPath,
+      },
+    }),
+    prisma.tenancy.update({ where: { id: tenancyId }, data: { status: "ACTIVE" } }),
+    prisma.document.create({
+      data: {
+        kind: "CONTRACT",
+        title: `Mietvertrag ${contract.contractNumber} – ${name} (unterschrieben)`,
+        fileName: dateiname,
+        mimeType: "application/pdf",
+        sizeBytes: pdf.byteLength,
+        driveFileId: abgelegt.fileId,
+        driveUrl: abgelegt.url,
+        driveFolder: abgelegt.folder,
+        localPath: abgelegt.localPath,
+        documentDate: unterschriebenAm,
+        contractId: contract.id,
+        tenantId: tenancy.tenantId,
+        propertyId: tenancy.bed.room.propertyId,
+        category: "Mietvertrag",
+      },
+    }),
+  ]);
+
+  await ensureRentCharges({ tenancyId });
+  await audit(user.email, "upload-signed", "Contract", contract.id, dateiname);
+  refresh(contract.id);
+  revalidatePath("/vertraege/export");
+  redirect(flash(zurueck, "ok", t("Unterschriebener Vertrag von {name} ist abgelegt.", { name })));
+}
+
+function fromDateInputSicher(wert: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(wert.trim());
+  return m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12)) : null;
+}
