@@ -192,6 +192,9 @@ export default async function PublicContractPage({
               {v("pdfWgb")}
             </a>
           )}
+          <a href={`/api/vertrag/${token}/zusatzblaetter?sprache=${sprache}`} className="btn btn-secondary no-print mt-3 w-full sm:ml-2 sm:w-auto" target="_blank" rel="noreferrer">
+            {v("pdfZusatz")}
+          </a>
         </div>
       ) : expired ? (
         <div className="mb-6">
@@ -216,7 +219,12 @@ export default async function PublicContractPage({
             )}
             <li>• <strong>{v("hinweisPuenktlich")}</strong></li>
             <li>• {v("hinweisVorschuss")}</li>
-            <li>• {v("hinweisHausregeln")}</li>
+            <li>
+              • {v("hinweisHausregeln")}{" "}
+              <a href={`/api/vertrag/${token}/zusatzblaetter?sprache=${sprache}`} className="font-semibold text-brand-700 underline" target="_blank" rel="noreferrer">
+                {v("pdfZusatz")}
+              </a>
+            </li>
             {wgbVordruck && <li>• {v("hinweisWgb")}</li>}
           </ul>
         </section>

@@ -84,7 +84,8 @@ type Schluessel =
   | "hinweisVorschuss"
   | "hinweisHausregeln"
   | "hinweisWgb"
-  | "pdfWgb";
+  | "pdfWgb"
+  | "pdfZusatz";
 
 type Woerter = Record<Schluessel, string>;
 
@@ -148,6 +149,7 @@ const DE: Woerter = {
   hinweisHausregeln: "Müll bitte trennen und die Hausregeln einhalten: Nachtruhe 22–6 Uhr, Rauchen nur draußen, Küche und Bad sauber hinterlassen.",
   hinweisWgb: "Die Wohnungsgeberbestätigung für die Anmeldung bekommen Sie direkt nach der Unterschrift hier zum Herunterladen.",
   pdfWgb: "Wohnungsgeberbestätigung herunterladen",
+  pdfZusatz: "Hausregeln & Mülltrennung (PDF)",
 };
 
 const SQ: Woerter = {
@@ -210,6 +212,7 @@ const SQ: Woerter = {
   hinweisHausregeln: "Të lutem ndaj mbeturinat dhe respekto rregullat e shtëpisë: qetësi 22–6, duhani vetëm jashtë, kuzhina dhe banjo të pastra pas përdorimit.",
   hinweisWgb: "Vërtetimin e strehuesit (Wohnungsgeberbestätigung) për regjistrim e merr këtu menjëherë pas nënshkrimit.",
   pdfWgb: "Shkarko vërtetimin e strehuesit",
+  pdfZusatz: "Rregullat e shtëpisë & ndarja e mbeturinave (PDF)",
 };
 
 const BG: Woerter = {
@@ -272,6 +275,7 @@ const BG: Woerter = {
   hinweisHausregeln: "Моля, изхвърляй отпадъците разделно и спазвай правилата: тишина 22–6 ч., пушене само навън, кухнята и банята да остават чисти.",
   hinweisWgb: "Удостоверението от наемодателя (Wohnungsgeberbestätigung) за регистрацията получаваш тук веднага след подписа.",
   pdfWgb: "Изтегли удостоверението от наемодателя",
+  pdfZusatz: "Правила на дома и разделяне на отпадъците (PDF)",
 };
 
 const RO: Woerter = {
@@ -334,6 +338,7 @@ const RO: Woerter = {
   hinweisHausregeln: "Te rog sortează gunoiul și respectă regulile casei: liniște 22–6, fumatul doar afară, bucătăria și baia curate după folosire.",
   hinweisWgb: "Confirmarea proprietarului (Wohnungsgeberbestätigung) pentru înregistrare o primești aici imediat după semnare.",
   pdfWgb: "Descarcă confirmarea proprietarului",
+  pdfZusatz: "Regulile casei și colectarea deșeurilor (PDF)",
 };
 
 const HU: Woerter = {
@@ -396,6 +401,7 @@ const HU: Woerter = {
   hinweisHausregeln: "Kérlek, válogasd szét a szemetet és tartsd be a házirendet: csend 22–6 óra között, dohányozni csak kint, a konyhát és a fürdőt tisztán hagyni.",
   hinweisWgb: "A bejelentkezéshez szükséges szállásadói igazolást (Wohnungsgeberbestätigung) az aláírás után azonnal letöltheted itt.",
   pdfWgb: "Szállásadói igazolás letöltése",
+  pdfZusatz: "Házirend és szelektív gyűjtés (PDF)",
 };
 
 const EN: Woerter = {
@@ -458,6 +464,7 @@ const EN: Woerter = {
   hinweisHausregeln: "Please separate your waste and follow the house rules: quiet hours 22:00–06:00, smoking outside only, leave kitchen and bathroom clean.",
   hinweisWgb: "You can download the landlord confirmation (Wohnungsgeberbestätigung) for your registration here right after signing.",
   pdfWgb: "Download landlord confirmation",
+  pdfZusatz: "House rules & waste separation (PDF)",
 };
 
 const ALLE: Record<KautionSprache, Woerter> = { de: DE, sq: SQ, bg: BG, ro: RO, hu: HU, en: EN };

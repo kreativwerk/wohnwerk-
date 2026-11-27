@@ -493,6 +493,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Kästchen: weiblich": "Checkbox: female",
   "Kästchen: immer angekreuzt": "Checkbox: always ticked",
   "Wohnungsgeberbestätigung (PDF)": "Landlord confirmation (PDF)",
+  "Hausregeln & Mülltrennung (PDF)": "House rules & waste separation (PDF)",
+  "Ein Blatt zum Unterschreiben, Deutsch und in der Sprache des Mieters. Andere Sprache:": "One sheet to sign, in German and the tenant's language. Other language:",
   "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",
   "Kein Vordruck für die Wohnungsgeberbestätigung": "No form for the landlord confirmation",
   "Mietvertrag für Wohnraum": "Residential tenancy agreement",

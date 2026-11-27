@@ -420,6 +420,16 @@ export default async function TenantDetailPage({
                     {t("Kein Vordruck für die Wohnungsgeberbestätigung")}
                   </Link>
                 )}
+                {aktuell.contract && (
+                  <a
+                    href={`/api/vertraege/${aktuell.contract.id}/zusatzblaetter`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-sm"
+                  >
+                    {t("Hausregeln & Mülltrennung (PDF)")}
+                  </a>
+                )}
                 <a href="#mietverhaeltnisse" className="btn btn-ghost btn-sm">
                   {t("Ändern")}
                 </a>

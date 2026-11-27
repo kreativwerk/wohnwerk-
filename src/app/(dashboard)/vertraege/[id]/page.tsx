@@ -228,6 +228,25 @@ export default async function ContractDetailPage({
               >
                 {t("Wohnungsgeberbestätigung (PDF)")}
               </a>
+              <a
+                href={`/api/vertraege/${contract.id}/zusatzblaetter`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary w-full"
+              >
+                {t("Hausregeln & Mülltrennung (PDF)")}
+              </a>
+              <p className="field-hint">
+                {t("Ein Blatt zum Unterschreiben, Deutsch und in der Sprache des Mieters. Andere Sprache:")}{" "}
+                {sprachenListe.map(([s, name], i) => (
+                  <span key={s}>
+                    {i > 0 && " · "}
+                    <a className="underline hover:text-brand-700" href={`/api/vertraege/${contract.id}/zusatzblaetter?sprache=${s}`} target="_blank" rel="noreferrer">
+                      {name}
+                    </a>
+                  </span>
+                ))}
+              </p>
               <form action={regenerateContractPdf}>
                 <input type="hidden" name="id" value={contract.id} />
                 <button type="submit" className="btn btn-secondary w-full">

@@ -25,6 +25,9 @@ import { einladungText, spracheAusNationalitaet, EINLADUNG_SPRACHEN } from "../s
 import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-sprache";
 import { vertragsuebersetzung, vertragsuebersetzungVollstaendig } from "../src/lib/vertrag-uebersetzung";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
+import { renderZusatzblaetter } from "../src/lib/zusatzblaetter-pdf";
+import { zusatzTexte } from "../src/lib/zusatzblaetter-texte";
+import { PDFDocument } from "pdf-lib";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -1216,6 +1219,19 @@ async function main() {
     assert.equal(bedingungen[1], "11. Neu: nur deutsch");
     assert.equal(vertragsuebersetzung("de"), null);
     assert.equal(sq.beschriftung("zum {tag}. eines Monats im Voraus", { tag: 1 }), "deri më 1 të çdo muaji, paraprakisht");
+  });
+
+  await test("Zusatzblatt Hausregeln/Mülltrennung: alle Sprachen vollständig, genau eine Seite", async () => {
+    const de = zusatzTexte("de");
+    for (const sprache of KAUTION_SPRACHEN) {
+      const ue = zusatzTexte(sprache);
+      assert.equal(ue.regeln.length, de.regeln.length, sprache);
+      for (const [art, tonne] of Object.entries(de.tonnen)) {
+        assert.equal(Boolean(ue.tonnen[art as keyof typeof de.tonnen].nicht), Boolean(tonne.nicht), `${sprache} ${art}`);
+      }
+      const pdf = await renderZusatzblaetter({ sprache, mieter: "Idrit Yzeiraj", objekt: "Birkenweg 6, Etzelskirchen", vertragsnummer: "MV-2026-0072" });
+      assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1, sprache);
+    }
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);
