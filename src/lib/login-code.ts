@@ -6,7 +6,8 @@ import { hashPassword, ROLES, verifyPassword, type SessionUser } from "./auth";
 import { prisma } from "./db";
 import { sendMail } from "./mail";
 import { getSettings } from "./settings";
-import { CODE_GUELTIG_MINUTEN, codeMail } from "./login-mails";
+import { CODE_GUELTIG_MINUTEN, codeMail, LOGO_CID } from "./login-mails";
+import { LOGO_HELL_PNG_BASE64 } from "./logo-png";
 
 export { CODE_GUELTIG_MINUTEN, codeMail, einladungMail } from "./login-mails";
 
@@ -33,6 +34,21 @@ export function neuerCode(): string {
 /** "123 456" -> "123456"; alles ausser Ziffern faellt weg. */
 export function codeBereinigen(eingabe: string): string {
   return eingabe.replace(/\D/g, "").slice(0, 6);
+}
+
+/** Das Logo als eingebettetes Bild fuer die HTML-Mails. */
+export async function logoEingebettet() {
+  const settings = await getSettings();
+  const basis = (settings.appUrl || "https://wohnwerk.vercel.app").replace(/\/+$/, "");
+  return [
+    {
+      cid: LOGO_CID,
+      dateiname: "wohnwerk-logo.png",
+      mimeType: "image/png",
+      daten: Buffer.from(LOGO_HELL_PNG_BASE64, "base64"),
+      oeffentlicheUrl: `${basis}/email-logo.png`,
+    },
+  ];
 }
 
 export async function anmeldeLink(email?: string): Promise<string> {
@@ -69,7 +85,7 @@ export async function codeAnfordern(email: string): Promise<CodeAnforderung> {
   });
 
   const mail = codeMail({ name: user.name, code, ...(await mailAbsender()) });
-  const ergebnis = await sendMail({ to: user.email, ...mail });
+  const ergebnis = await sendMail({ to: user.email, ...mail, inline: await logoEingebettet() });
   if (!ergebnis.sent) {
     console.error("[bank-code] Versand fehlgeschlagen:", ergebnis.message);
     return "versand_fehlgeschlagen";

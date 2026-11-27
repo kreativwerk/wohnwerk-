@@ -7,7 +7,7 @@ import { ROLES, requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import { anmeldeLink, einladungMail, mailAbsender } from "@/lib/login-code";
+import { anmeldeLink, einladungMail, logoEingebettet, mailAbsender } from "@/lib/login-code";
 import { sendMail } from "@/lib/mail";
 import crypto from "node:crypto";
 import { flash, str } from "@/lib/form";
@@ -180,7 +180,11 @@ async function einladungVerschicken(userId: string, back: string): Promise<never
     redirect(flash(back, "fehler", t("Nur aktive Bank-Zugänge können eingeladen werden.")));
   }
   const link = await anmeldeLink(user.email);
-  const ergebnis = await sendMail({ to: user.email, ...einladungMail({ name: user.name, link, ...(await mailAbsender()) }) });
+  const ergebnis = await sendMail({
+    to: user.email,
+    ...einladungMail({ name: user.name, link, ...(await mailAbsender()) }),
+    inline: await logoEingebettet(),
+  });
   await audit(actor.email, "invite", "User", user.id, ergebnis.sent ? `Einladung an ${user.email} verschickt` : `Einladung nicht verschickt: ${ergebnis.message}`);
   if (!ergebnis.sent) {
     redirect(

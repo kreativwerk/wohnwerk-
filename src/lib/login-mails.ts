@@ -5,15 +5,18 @@
 
 export const CODE_GUELTIG_MINUTEN = 10;
 
+/** Das Logo geht als eingebettetes Bild mit (Content-ID) - Outlook zeigt es so ohne Nachfrage. */
+export const LOGO_CID = "wohnwerk-logo@wohnwerk";
+
 /** Schlichter, gut lesbarer Rahmen - Tabellen-Layout, damit Outlook mitspielt. */
-function rahmen(inhalt: string, fuss: string): string {
+function rahmen(inhalt: string, fuss: string, logoSrc: string): string {
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f1f3f3">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f3f3;padding:28px 12px">
   <tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #dfe4e3">
-      <tr><td style="background:#2a5654;padding:18px 28px">
-        <span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;letter-spacing:1px;color:#ffffff"><b>WOHN</b>WERK</span>
+      <tr><td style="background:#ffffff;padding:22px 28px 18px;border-bottom:4px solid #2a5654">
+        <img src="${logoSrc}" width="172" height="33" alt="Wohnwerk" style="display:block;border:0;outline:none;width:172px;height:33px">
       </td></tr>
       <tr><td style="padding:28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#16201f">
         ${inhalt}
@@ -27,7 +30,7 @@ function rahmen(inhalt: string, fuss: string): string {
 </body></html>`;
 }
 
-export function codeMail(p: { name: string; code: string; absender: string; fuss: string }) {
+export function codeMail(p: { name: string; code: string; absender: string; fuss: string; logoSrc?: string }) {
   const subject = `Ihr Anmeldecode: ${p.code}`;
   const text = [
     `Guten Tag ${p.name},`,
@@ -52,11 +55,12 @@ export function codeMail(p: { name: string; code: string; absender: string; fuss
      <p style="margin:0 0 14px;font-size:13px;color:#5b6363">Der Code ist ${CODE_GUELTIG_MINUTEN} Minuten gültig und kann nur einmal verwendet werden. Falls Sie keine Anmeldung angefordert haben, können Sie diese E-Mail ignorieren.</p>
      <p style="margin:0">Mit freundlichen Grüßen<br>${escapeHtml(p.absender)}</p>`,
     p.fuss,
+    p.logoSrc ?? `cid:${LOGO_CID}`,
   );
   return { subject, text, html };
 }
 
-export function einladungMail(p: { name: string; link: string; absender: string; fuss: string }) {
+export function einladungMail(p: { name: string; link: string; absender: string; fuss: string; logoSrc?: string }) {
   const subject = `Zugang zu den Mietverträgen – ${p.absender}`;
   const text = [
     `Guten Tag ${p.name},`,
@@ -95,6 +99,7 @@ export function einladungMail(p: { name: string; link: string; absender: string;
      <p style="margin:0">Mit freundlichen Grüßen<br>${escapeHtml(p.absender)}</p>
      <p style="margin:18px 0 0;font-size:12px;color:#6b7473">Falls der Button nicht funktioniert: <span style="word-break:break-all">${p.link}</span></p>`,
     p.fuss,
+    p.logoSrc ?? `cid:${LOGO_CID}`,
   );
   return { subject, text, html };
 }

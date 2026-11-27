@@ -16,6 +16,8 @@ export async function sendMail(params: {
   html: string;
   text: string;
   replyTo?: string;
+  /** Eingebettete Bilder (z. B. das Logo), im HTML als cid:… verwendet */
+  inline?: Array<{ cid: string; dateiname: string; mimeType: string; daten: Buffer; oeffentlicheUrl: string }>;
 }): Promise<MailResult> {
   // Ist das Postfach eingerichtet, geht alles ueber den eigenen Server - die
   // Mail kommt dann von der eigenen Adresse und liegt in "Gesendet".
@@ -26,6 +28,7 @@ export async function sendMail(params: {
       betreff: params.subject,
       text: params.text,
       html: params.html,
+      anhaenge: (params.inline ?? []).map((b) => ({ dateiname: b.dateiname, mimeType: b.mimeType, daten: b.daten, cid: b.cid })),
       ausgeloestVon: "system",
     });
     return ergebnis.ok
@@ -54,7 +57,8 @@ export async function sendMail(params: {
         from,
         to: [params.to],
         subject: params.subject,
-        html: params.html,
+        // Resend ohne eingebettete Bilder: dort zeigt das HTML die oeffentliche Datei.
+        html: (params.inline ?? []).reduce((html, b) => html.split(`cid:${b.cid}`).join(b.oeffentlicheUrl), params.html),
         text: params.text,
         ...(params.replyTo ? { reply_to: params.replyTo } : {}),
       }),

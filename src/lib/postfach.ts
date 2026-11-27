@@ -781,7 +781,7 @@ export async function mailAlsPdf(kopf: Pick<NachrichtKopf, "vonAdresse" | "vonNa
 
 // --- Senden --------------------------------------------------------------------------
 
-export type SendeAnhang = { dateiname: string; mimeType: string; daten: Buffer };
+export type SendeAnhang = { dateiname: string; mimeType: string; daten: Buffer; /** Content-ID fuer eingebettete Bilder im HTML */ cid?: string };
 
 /**
  * Sendet ueber den SMTP-Server des Postfachs, legt eine Kopie in "Gesendet"
@@ -820,7 +820,7 @@ export async function postfachSenden(params: {
     messageId: nachrichtId,
     date: new Date(),
     ...(original && !original.messageId.includes("@postfach>") ? { inReplyTo: original.messageId, references: [original.messageId] } : {}),
-    attachments: (params.anhaenge ?? []).map((a) => ({ filename: a.dateiname, content: a.daten, contentType: a.mimeType })),
+    attachments: (params.anhaenge ?? []).map((a) => ({ filename: a.dateiname, content: a.daten, contentType: a.mimeType, ...(a.cid ? { cid: a.cid } : {}) })),
   })
     .compile()
     .build();
