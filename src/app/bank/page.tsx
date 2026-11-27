@@ -34,7 +34,6 @@ export default async function BankPage() {
       })
     ).map((t) => [t.id, t.monthlyRentCents]),
   );
-  const objekte = [...new Set(vertraege.map((v) => v.objekt))];
   const summe = vertraege.reduce((s, v) => s + (mieten.get(v.tenancyId) ?? 0), 0);
   const datum = heute.toISOString().slice(0, 10);
 
@@ -58,14 +57,10 @@ export default async function BankPage() {
           Wohnwerk Immobilien A² eGbR · Stand {formatDate(heute)}
         </p>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="card p-4">
             <p className="text-xs text-ink-500">Verträge</p>
             <p className="text-2xl font-bold text-ink-900">{vertraege.length}</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-xs text-ink-500">Objekte</p>
-            <p className="text-2xl font-bold text-ink-900">{objekte.length}</p>
           </div>
           <div className="card p-4">
             <p className="text-xs text-ink-500">Monatsmieten zusammen</p>
@@ -81,7 +76,7 @@ export default async function BankPage() {
           <VertraegeZip
             dateien={vertraege.map((v) => ({
               url: `/api/bank/vertrag/${v.contractId}`,
-              zipPfad: `Mietvertraege/${`${v.mieter} – ${v.objekt}`.replace(/[\\/:*?"<>|]+/g, "-")}.pdf`,
+              zipPfad: `Mietvertraege/${v.mieter.replace(/[\\/:*?"<>|]+/g, "-")}${vertraege.filter((x) => x.mieter === v.mieter).length > 1 ? ` (${v.contractId!.slice(-4)})` : ""}.pdf`,
             }))}
             dateiname={`Wohnwerk-Mietvertraege-${datum}.zip`}
           />
@@ -95,8 +90,6 @@ export default async function BankPage() {
             <thead>
               <tr>
                 <Th>Mieter</Th>
-                <Th>Objekt</Th>
-                <Th>Zimmer</Th>
                 <Th>Mietbeginn</Th>
                 <Th align="right">Miete / Monat</Th>
                 <Th align="right">Vertrag</Th>
@@ -106,8 +99,6 @@ export default async function BankPage() {
               {vertraege.map((v) => (
                 <tr key={v.tenancyId} className="odd:bg-ink-50/60">
                   <Td className="font-medium">{v.mieter}</Td>
-                  <Td>{v.objekt}</Td>
-                  <Td>{v.zimmer}</Td>
                   <Td className="whitespace-nowrap">{formatDate(v.einzug)}</Td>
                   <Td align="right" className="tabular-nums">{formatCents(mieten.get(v.tenancyId) ?? 0)}</Td>
                   <Td align="right">
