@@ -21,7 +21,9 @@ export default async function BankPage() {
   const user = await requireBankUser();
   const heute = new Date();
   const stand = await vertragsExportStand(heute);
-  const vertraege = stand.aktiv.filter((z) => z.contractId && z.pdf);
+  const vertraege = stand.aktiv
+    .filter((z) => z.contractId && z.pdf)
+    .sort((a, b) => a.mieter.localeCompare(b.mieter, "de"));
 
   // Monatsmiete je Vertrag fuer die Uebersicht
   const mieten = new Map(
@@ -74,53 +76,50 @@ export default async function BankPage() {
         <section className="card mt-5 p-5">
           <h2 className="text-base font-bold text-brand-700">Alle herunterladen</h2>
           <p className="mb-3 mt-1 text-sm text-ink-600">
-            Alle {vertraege.length} Verträge als eine ZIP-Datei, nach Objekt sortiert.
+            Alle {vertraege.length} Verträge als eine ZIP-Datei.
           </p>
           <VertraegeZip
             dateien={vertraege.map((v) => ({
               url: `/api/bank/vertrag/${v.contractId}`,
-              zipPfad: `Mietvertraege/${v.objekt.replace(/[\\/:*?"<>|]+/g, "-")}/${v.mieter.replace(/[\\/:*?"<>|]+/g, "-")} (${v.zimmer.replace(/[\\/:*?"<>|]+/g, "-")}).pdf`,
+              zipPfad: `Mietvertraege/${`${v.mieter} – ${v.objekt}`.replace(/[\\/:*?"<>|]+/g, "-")}.pdf`,
             }))}
             dateiname={`Wohnwerk-Mietvertraege-${datum}.zip`}
           />
         </section>
 
-        {objekte.map((objekt) => {
-          const zeilen = vertraege.filter((v) => v.objekt === objekt);
-          return (
-            <section key={objekt} className="card mt-5 overflow-hidden">
-              <h2 className="px-5 pb-2 pt-4 text-base font-bold text-brand-700">
-                {objekt} <span className="font-normal text-ink-500">({zeilen.length})</span>
-              </h2>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Mieter</Th>
-                    <Th>Zimmer</Th>
-                    <Th>Mietbeginn</Th>
-                    <Th align="right">Miete / Monat</Th>
-                    <Th align="right">Vertrag</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {zeilen.map((v) => (
-                    <tr key={v.tenancyId} className="odd:bg-ink-50/60">
-                      <Td className="font-medium">{v.mieter}</Td>
-                      <Td>{v.zimmer}</Td>
-                      <Td className="whitespace-nowrap">{formatDate(v.einzug)}</Td>
-                      <Td align="right" className="tabular-nums">{formatCents(mieten.get(v.tenancyId) ?? 0)}</Td>
-                      <Td align="right">
-                        <a href={`/api/bank/vertrag/${v.contractId}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-                          PDF
-                        </a>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </section>
-          );
-        })}
+        <section className="card mt-5 overflow-hidden">
+          <h2 className="px-5 pb-2 pt-4 text-base font-bold text-brand-700">
+            Alle Verträge <span className="font-normal text-ink-500">({vertraege.length})</span>
+          </h2>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Mieter</Th>
+                <Th>Objekt</Th>
+                <Th>Zimmer</Th>
+                <Th>Mietbeginn</Th>
+                <Th align="right">Miete / Monat</Th>
+                <Th align="right">Vertrag</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {vertraege.map((v) => (
+                <tr key={v.tenancyId} className="odd:bg-ink-50/60">
+                  <Td className="font-medium">{v.mieter}</Td>
+                  <Td>{v.objekt}</Td>
+                  <Td>{v.zimmer}</Td>
+                  <Td className="whitespace-nowrap">{formatDate(v.einzug)}</Td>
+                  <Td align="right" className="tabular-nums">{formatCents(mieten.get(v.tenancyId) ?? 0)}</Td>
+                  <Td align="right">
+                    <a href={`/api/bank/vertrag/${v.contractId}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                      PDF
+                    </a>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </section>
 
         <p className="mt-6 text-xs text-ink-500">
           Vertraulich – nur zur Prüfung durch die finanzierende Bank. Abrufe werden protokolliert.
