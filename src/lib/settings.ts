@@ -52,7 +52,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     "1. Mietgegenstand: Überlassen wird der oben bezeichnete Schlafplatz im genannten Zimmer zur alleinigen Nutzung. Küche, Bad und Aufenthaltsräume werden gemeinschaftlich mit den übrigen Bewohnern genutzt.",
     "2. Mietzweck: Die Überlassung erfolgt zu Wohnzwecken im Rahmen einer auswärtigen Tätigkeit des Mieters.",
     "3. Miete: Die Miete ist im Voraus bis zum vereinbarten Fälligkeitstag auf das Konto des Vermieters zu zahlen. Betriebs- und Nebenkosten sowie Strom, Wasser, Heizung und Internet sind in der Miete enthalten, sofern nicht abweichend vereinbart.",
-    "4. Kaution: Eine vereinbarte Kaution ist vor Bezug zu hinterlegen und wird nach ordnungsgemäßer Rückgabe des Schlafplatzes und Ausgleich aller Forderungen zurückgezahlt.",
+    "4. Kaution: Die Kaution beträgt 470,00 € und ist vor Bezug zu hinterlegen. Bleibt eine Miete ganz oder teilweise aus, wird die Kaution ausdrücklich mit der offenen Miete verrechnet; der Mieter muss die Kaution danach wieder auf den vollen Betrag auffüllen. Nach ordnungsgemäßer Rückgabe des Schlafplatzes und Ausgleich aller Forderungen wird die restliche Kaution zurückgezahlt.",
     "5. Nutzung: Die Unterkunft darf nur von der im Vertrag genannten Person genutzt werden. Die Aufnahme weiterer Personen sowie eine Untervermietung sind nicht gestattet.",
     "6. Hausordnung: Die Hausordnung ist Bestandteil dieses Vertrages. Rauchen ist in allen Innenräumen untersagt. Von 22:00 bis 06:00 Uhr ist Nachtruhe einzuhalten.",
     "7. Rückgabe: Der Schlafplatz ist zum Vertragsende besenrein und geräumt zurückzugeben. Schlüssel sind vollständig auszuhändigen. Für nicht zurückgegebene Schlüssel wird der Aufwand für den Austausch der Schließanlage berechnet.",
