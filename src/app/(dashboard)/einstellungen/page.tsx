@@ -1,5 +1,5 @@
 import { qontoBelegeNachholenAktion, qontoJetztAbgleichen, qontoZugangLoeschen, qontoZugangSichern } from "@/app/actions/qonto";
-import { changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
+import { bankEinladungErneut, bankberaterEinladen, changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { requireUser, requireAdmin } from "@/lib/auth";
@@ -534,6 +534,30 @@ export default async function SettingsPage({
                         <Badge tone="warning">{t("Bank")}</Badge>
                       </span>
                     )}
+                    {user.role === "bank" && user.active && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <a
+                          href={`/api/einstellungen/bank-einladung/${user.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary btn-sm"
+                        >
+                          {t("E-Mail-Vorschau")}
+                        </a>
+                        <form action={bankEinladungErneut}>
+                          <input type="hidden" name="id" value={user.id} />
+                          <ConfirmButton
+                            className="btn btn-primary btn-sm"
+                            message={t("Einladung jetzt an {email} senden?", { email: user.email })}
+                          >
+                            {t("Einladung senden")}
+                          </ConfirmButton>
+                        </form>
+                        {!postfach.eingerichtet && (
+                          <span className="text-xs text-amber-700">{t("Zum Versenden erst unten das Postfach verbinden.")}</span>
+                        )}
+                      </div>
+                    )}
                   </Td>
                   <Td className="text-ink-600">
                     {user.lastLoginAt ? datumZeit(user.lastLoginAt) : "nie"}
@@ -563,6 +587,26 @@ export default async function SettingsPage({
           </Table>
 
           <div className="space-y-4 border-t border-ink-200 p-5">
+            <Disclosure summary={t("Bankberater einladen (Anmeldung mit Code per E-Mail)")}>
+              <form action={bankberaterEinladen} className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="bank-name">{t("Name")}</label>
+                  <input id="bank-name" name="name" required />
+                </div>
+                <div>
+                  <label htmlFor="bank-email">{t("E-Mail")}</label>
+                  <input id="bank-email" name="email" type="email" required />
+                </div>
+                <div className="flex items-end">
+                  <button type="submit" className="btn btn-primary w-full">
+                    {t("Anlegen und einladen")}
+                  </button>
+                </div>
+                <p className="field-hint sm:col-span-3">
+                  {t("Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden, unterschriebenen Mietverträge.")}
+                </p>
+              </form>
+            </Disclosure>
             <Disclosure summary={t("Weiteren Zugang anlegen")}>
               <form action={createUser} className="grid gap-3 sm:grid-cols-3">
                 <div className="sm:col-span-3">

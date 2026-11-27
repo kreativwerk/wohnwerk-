@@ -142,7 +142,7 @@ export async function getInternerUser(): Promise<SessionUser | null> {
 /** Fuer /bank: Bank-Zugang oder Verwaltung. */
 export async function requireBankUser(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) redirect("/login?weiter=/bank");
+  if (!user) redirect("/bank/anmelden");
   if (!istBank(user) && !isAdmin(user)) redirect("/");
   return user;
 }
@@ -205,6 +205,8 @@ export async function login(email: string, password: string): Promise<SessionUse
 
   const user = await prisma.user.findUnique({ where: { email: normalized } });
   if (!user || !user.active) return null;
+  // Der Bank-Zugang meldet sich nur per E-Mail-Code an (/bank/anmelden).
+  if (user.role === ROLES.BANK) return null;
   if (!verifyPassword(password, user.passwordHash)) return null;
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });

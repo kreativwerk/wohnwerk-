@@ -792,6 +792,8 @@ export async function postfachSenden(params: {
   cc?: string[];
   betreff: string;
   text: string;
+  /** Optional: HTML-Fassung, die Textfassung bleibt als Alternative dabei. */
+  html?: string;
   antwortAufId?: string | null;
   tenantId?: string | null;
   anhaenge?: SendeAnhang[];
@@ -814,6 +816,7 @@ export async function postfachSenden(params: {
     cc: params.cc && params.cc.length > 0 ? params.cc : undefined,
     subject: params.betreff,
     text: params.text,
+    ...(params.html ? { html: params.html } : {}),
     messageId: nachrichtId,
     date: new Date(),
     ...(original && !original.messageId.includes("@postfach>") ? { inReplyTo: original.messageId, references: [original.messageId] } : {}),

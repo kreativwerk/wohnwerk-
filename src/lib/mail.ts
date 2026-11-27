@@ -25,6 +25,7 @@ export async function sendMail(params: {
       an: [params.to],
       betreff: params.subject,
       text: params.text,
+      html: params.html,
       ausgeloestVon: "system",
     });
     return ergebnis.ok

@@ -7,6 +7,9 @@ import { ROLES, requireAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { anmeldeLink, einladungMail, mailAbsender } from "@/lib/login-code";
+import { sendMail } from "@/lib/mail";
+import crypto from "node:crypto";
 import { flash, str } from "@/lib/form";
 import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from "@/lib/settings";
 import { unterschriftFreistellen } from "@/lib/unterschrift-bild";
@@ -132,4 +135,65 @@ export async function deactivateUser(formData: FormData) {
   await audit(actor.email, "deactivate", "User", id);
   revalidatePath(back);
   redirect(flash(back, "ok", t("Zugang wurde deaktiviert.")));
+}
+
+/**
+ * Bankberater einladen: Zugang ohne Passwort anlegen und die Einladung per
+ * E-Mail schicken. Angemeldet wird spaeter mit einem Code per E-Mail.
+ */
+export async function bankberaterEinladen(formData: FormData) {
+  const t = await uebersetzer();
+  const actor = await requireAdmin();
+  const back = "/einstellungen";
+  const email = str(formData, "email").toLowerCase();
+  const name = str(formData, "name");
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    redirect(flash(back, "fehler", t("Bitte Name und eine gültige E-Mail-Adresse angeben.")));
+  }
+
+  const vorhanden = await prisma.user.findUnique({ where: { email } });
+  if (vorhanden && vorhanden.role !== ROLES.BANK) {
+    redirect(flash(back, "fehler", t("Diese E-Mail-Adresse wird bereits verwendet.")));
+  }
+  const user = vorhanden
+    ? await prisma.user.update({ where: { id: vorhanden.id }, data: { name, active: true } })
+    : await prisma.user.create({
+        // Kein Passwort: ein zufaelliger Wert, den niemand kennt - die
+        // Anmeldung laeuft ausschliesslich ueber den E-Mail-Code.
+        data: { email, name, role: ROLES.BANK, passwordHash: hashPassword(crypto.randomBytes(32).toString("base64url")) },
+      });
+  await audit(actor.email, vorhanden ? "update" : "create", "User", user.id, `Bank-Zugang ${email}`);
+  revalidatePath(back);
+  await einladungVerschicken(user.id, back);
+}
+
+export async function bankEinladungErneut(formData: FormData) {
+  await requireAdmin();
+  await einladungVerschicken(str(formData, "id"), "/einstellungen");
+}
+
+async function einladungVerschicken(userId: string, back: string): Promise<never> {
+  const t = await uebersetzer();
+  const actor = await requireAdmin();
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.role !== ROLES.BANK || !user.active) {
+    redirect(flash(back, "fehler", t("Nur aktive Bank-Zugänge können eingeladen werden.")));
+  }
+  const link = await anmeldeLink(user.email);
+  const ergebnis = await sendMail({ to: user.email, ...einladungMail({ name: user.name, link, ...(await mailAbsender()) }) });
+  await audit(actor.email, "invite", "User", user.id, ergebnis.sent ? `Einladung an ${user.email} verschickt` : `Einladung nicht verschickt: ${ergebnis.message}`);
+  if (!ergebnis.sent) {
+    redirect(
+      flash(
+        back,
+        "fehler",
+        t("Zugang für {name} ist angelegt, aber die E-Mail ging nicht raus: {grund} Bitte das Postfach unten verbinden und „Einladung erneut senden“ drücken – oder diesen Link selbst schicken: {link}", {
+          name: user.name,
+          grund: ergebnis.message,
+          link,
+        }),
+      ),
+    );
+  }
+  redirect(flash(back, "ok", t("Einladung an {email} verschickt. Die Anmeldung läuft über einen Code per E-Mail.", { email: user.email })));
 }

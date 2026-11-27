@@ -26,6 +26,7 @@ import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-spr
 import { vertragsuebersetzung, vertragsuebersetzungVollstaendig } from "../src/lib/vertrag-uebersetzung";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
 import { renderWohnungsgeberbestaetigung } from "../src/lib/wohnungsgeber-pdf";
+import { codeMail, einladungMail } from "../src/lib/login-mails";
 import { renderZusatzblaetter } from "../src/lib/zusatzblaetter-pdf";
 import { zusatzTexte } from "../src/lib/zusatzblaetter-texte";
 import { PDFDocument } from "pdf-lib";
@@ -1250,6 +1251,14 @@ async function main() {
       });
       assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1);
     }
+  });
+
+  await test("Bank-Zugang: Einladungs- und Code-Mail", () => {
+    const e = einladungMail({ name: "A <B>", link: "https://x.test/bank/anmelden", absender: "Wohnwerk", fuss: "Fuss" });
+    assert.ok(e.html.includes("https://x.test/bank/anmelden") && e.text.includes("https://x.test/bank/anmelden"));
+    assert.ok(e.html.includes("A &lt;B&gt;") && !e.html.includes("<B>"));
+    const c = codeMail({ name: "A", code: "012345", absender: "Wohnwerk", fuss: "Fuss" });
+    assert.ok(c.subject.includes("012345") && c.text.includes("012345") && c.html.includes("012345"));
   });
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen\n`);

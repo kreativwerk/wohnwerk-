@@ -109,6 +109,12 @@ export default async function LoginPage({
         <p className="mt-6 text-center text-xs text-ink-500">
           {t("Mieter benötigen keinen Zugang – sie erhalten einen persönlichen Vertragslink.")}
         </p>
+        <p className="mt-2 text-center text-xs text-ink-500">
+          {t("Bankzugang?")}{" "}
+          <a href="/bank/anmelden" className="font-semibold text-brand-300 underline">
+            {t("Anmeldung mit Code per E-Mail")}
+          </a>
+        </p>
       </div>
     </div>
   );
