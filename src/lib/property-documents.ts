@@ -251,7 +251,8 @@ export async function wohnungsgeberAngaben(contract: ContractWithRelations): Pro
     },
     meldebehoerde: meldeOrt(property.city),
     art: "EINZUG",
-    datum: formatDate(tenancy.startDate),
+    // Nach einem internen Umzug zaehlt der Tag des Umzugs, nicht der Mietbeginn.
+    datum: formatDate(tenancy.bettSeit ?? tenancy.startDate),
     personen: [
       {
         familienname: tenant.lastName,

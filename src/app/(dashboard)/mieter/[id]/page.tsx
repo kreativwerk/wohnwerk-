@@ -630,6 +630,11 @@ export default async function TenantDetailPage({
                             {t("Umzug in ein anderes Bett, auch in eine andere Wohnung. Beginn, Miete, Kaution, Vertrag und Forderungen bleiben unverändert.")}
                           </p>
                           <BedPicker beds={beds} required rentFieldId="" idPrefix={`wechsel-${tenancy.id}-`} />
+                          <div className="w-48">
+                            <label htmlFor={`umzug-${tenancy.id}`}>{t("Umzug zum")}</label>
+                            <input id={`umzug-${tenancy.id}`} name="bettSeit" type="date" defaultValue={toDateInput(new Date())} />
+                            <p className="field-hint">{t("Steht als Einzug in der Wohnungsgeberbestätigung.")}</p>
+                          </div>
                           <button type="submit" className="btn btn-secondary">
                             {t("Umziehen")}
                           </button>

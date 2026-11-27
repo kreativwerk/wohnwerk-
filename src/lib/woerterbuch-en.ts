@@ -513,6 +513,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Frau": "Ms",
   "Herr": "Mr",
   "ohne Anrede": "no salutation",
+  "Umzug zum": "Move on",
+  "Steht als Einzug in der Wohnungsgeberbestätigung.": "Used as the move-in date on the landlord confirmation.",
   "Hausregeln & Mülltrennung (PDF)": "House rules & waste separation (PDF)",
   "Ein Blatt zum Unterschreiben, Deutsch und in der Sprache des Mieters. Andere Sprache:": "One sheet to sign, in German and the tenant's language. Other language:",
   "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",

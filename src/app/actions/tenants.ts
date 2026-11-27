@@ -505,10 +505,13 @@ export async function moveTenancy(formData: FormData) {
     );
   }
 
+  // Umzugsdatum: ab dann gilt die neue Anschrift - die Wohnungsgeberbestaetigung
+  // nennt es als Einzug. Ohne Angabe: heute.
+  const umzug = date(formData, "bettSeit") ?? new Date();
   const vorher = `${tenancy.bed.room.name} · ${tenancy.bed.label}`;
   const nachher = `${bed.room.name} · ${bed.label}`;
-  await prisma.tenancy.update({ where: { id }, data: { bedId } });
-  await audit(user.email, "move", "Tenancy", id, `${vorher} → ${nachher}`);
+  await prisma.tenancy.update({ where: { id }, data: { bedId, bettSeit: umzug < tenancy.startDate ? tenancy.startDate : umzug } });
+  await audit(user.email, "move", "Tenancy", id, `${vorher} → ${nachher} ab ${umzug.toISOString().slice(0, 10)}`);
   refresh(tenancy.tenantId);
   redirect(flash(back, "ok", t("Umgezogen: {vorher} → {nachher}. Vertrag und Forderungen bleiben unverändert.", { vorher, nachher })));
 }
