@@ -504,7 +504,7 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Einladung an {email} verschickt. Die Anmeldung läuft über einen Code per E-Mail.": "Invitation sent to {email}. Sign-in works with a code sent by email.",
   "Einladung jetzt an {email} senden?": "Send the invitation to {email} now?",
   "Einladung senden": "Send invitation",
-  "Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden, unterschriebenen Mietverträge.": "No password needed: the bank advisor receives an invitation and signs in each time with a code sent to their email address. They only see the current, signed tenancy agreements.",
+  "Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden aktiven Mietverträge.": "No password needed: the bank advisor receives an invitation and signs in each time with a code sent to their email address. They only see the current active tenancy agreements.",
   "Nur aktive Bank-Zugänge können eingeladen werden.": "Only active bank accounts can be invited.",
   "Zugang für {name} ist angelegt, aber die E-Mail ging nicht raus: {grund} Bitte das Postfach unten verbinden und „Einladung erneut senden“ drücken – oder diesen Link selbst schicken: {link}": "Access for {name} was created, but the email was not sent: {grund} Please connect the mailbox below and press “Send invitation” again – or send this link yourself: {link}",
   "Zum Versenden erst unten das Postfach verbinden.": "Connect the mailbox below before sending.",

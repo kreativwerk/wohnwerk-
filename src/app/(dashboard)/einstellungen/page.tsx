@@ -603,7 +603,7 @@ export default async function SettingsPage({
                   </button>
                 </div>
                 <p className="field-hint sm:col-span-3">
-                  {t("Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden, unterschriebenen Mietverträge.")}
+                  {t("Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden aktiven Mietverträge.")}
                 </p>
               </form>
             </Disclosure>

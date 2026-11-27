@@ -65,7 +65,7 @@ export function einladungMail(p: { name: string; link: string; absender: string;
   const text = [
     `Guten Tag ${p.name},`,
     "",
-    "wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle laufenden, unterschriebenen Mietverträge einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.",
+    "wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle laufenden aktiven Mietverträge einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.",
     "",
     "So melden Sie sich an:",
     `1. Diesen Link öffnen: ${p.link}`,
@@ -86,7 +86,7 @@ export function einladungMail(p: { name: string; link: string; absender: string;
     `<tr><td valign="top" style="padding:0 12px 10px 0"><span style="display:inline-block;width:24px;height:24px;border-radius:12px;background:#e8efee;color:#2a5654;font-weight:700;font-size:13px;line-height:24px;text-align:center">${nr}</span></td><td style="padding:2px 0 10px;font-size:14px">${inhalt}</td></tr>`;
   const html = rahmen(
     `<p style="margin:0 0 14px">Guten Tag ${escapeHtml(p.name)},</p>
-     <p style="margin:0 0 18px">wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle <b>laufenden, unterschriebenen Mietverträge</b> einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.</p>
+     <p style="margin:0 0 18px">wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle <b>laufenden aktiven Mietverträge</b> einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.</p>
      <p style="margin:0 0 22px"><a href="${p.link}" style="display:inline-block;background:#2a5654;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Zur Anmeldung</a></p>
      <p style="margin:0 0 10px;font-weight:700">So melden Sie sich an</p>
      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 14px">
