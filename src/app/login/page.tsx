@@ -21,23 +21,31 @@ async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
+  const weiter = sicheresZiel(String(formData.get("weiter") ?? ""));
   const user = await login(email, password);
-  if (!user) redirect("/login?fehler=1");
+  if (!user) redirect(`/login?fehler=1${weiter ? `&weiter=${encodeURIComponent(weiter)}` : ""}`);
 
   await createSession(user);
-  // Der Bank-Zugang landet direkt bei seinen Vertraegen.
-  redirect(user.role === "bank" ? "/bank" : "/");
+  // Der Bank-Zugang landet immer bei seinen Vertraegen, alle anderen dort,
+  // wo sie hinwollten.
+  redirect(user.role === "bank" ? "/bank" : weiter || "/");
+}
+
+/** Nur Pfade innerhalb der App - keine fremden Adressen als Weiterleitung. */
+function sicheresZiel(ziel: string | undefined): string {
+  return ziel && /^\/(?!\/)[\w\-/?=&.%]*$/.test(ziel) ? ziel : "";
 }
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; weiter?: string }>;
 }) {
-  const angemeldet = await getSessionUser();
-  if (angemeldet) redirect(angemeldet.role === "bank" ? "/bank" : "/");
-
   const params = await searchParams;
+  const weiter = sicheresZiel(params.weiter);
+  const angemeldet = await getSessionUser();
+  if (angemeldet) redirect(angemeldet.role === "bank" ? "/bank" : weiter || "/");
+
   const [userCount, t] = await Promise.all([
     prisma.user.count().catch(() => -1),
     uebersetzer(),
@@ -86,6 +94,7 @@ export default async function LoginPage({
           )}
 
           <form action={signIn} className="mt-5 space-y-4">
+            {weiter && <input type="hidden" name="weiter" value={weiter} />}
             <div>
               <label htmlFor="email">{t("E-Mail")}</label>
               <input id="email" name="email" type="email" required autoComplete="username" autoFocus />

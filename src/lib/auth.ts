@@ -142,7 +142,7 @@ export async function getInternerUser(): Promise<SessionUser | null> {
 /** Fuer /bank: Bank-Zugang oder Verwaltung. */
 export async function requireBankUser(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?weiter=/bank");
   if (!istBank(user) && !isAdmin(user)) redirect("/");
   return user;
 }

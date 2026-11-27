@@ -129,6 +129,9 @@ export default async function ContractsPage({
         description={t("Vom Entwurf über den Versand bis zur Unterschrift.")}
         actions={
           <>
+            <Link href="/bank" className="btn btn-secondary">
+              {t("Bank-Ansicht")}
+            </Link>
             <Link href="/vertraege/export" className="btn btn-secondary">
               {t("Export")}
             </Link>

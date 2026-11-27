@@ -1539,4 +1539,5 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Dieses Mietverhältnis ist nicht beendet.": "This tenancy has not ended.",
   "{name} hat schon ein laufendes Mietverhältnis ab {datum} ({bett}). Entweder dieses behalten – oder es zuerst löschen und dann den Auszug zurücknehmen.": "{name} already has a running tenancy from {datum} ({bett}). Either keep that one – or delete it first and then undo the move-out.",
   "Bank – nur aktive Mietverträge ansehen und herunterladen": "Bank – view and download active leases only",
+  "Bank-Ansicht": "Bank view",
 };
