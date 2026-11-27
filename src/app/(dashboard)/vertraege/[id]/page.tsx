@@ -220,6 +220,14 @@ export default async function ContractDetailPage({
           {/* --- Weitere Schritte ------------------------------------------ */}
           <Card title={t("Weitere Schritte")}>
             <div className="space-y-3">
+              <a
+                href={`/api/vertraege/${contract.id}/wohnungsgeber`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary w-full"
+              >
+                {t("Wohnungsgeberbestätigung (PDF)")}
+              </a>
               <form action={regenerateContractPdf}>
                 <input type="hidden" name="id" value={contract.id} />
                 <button type="submit" className="btn btn-secondary w-full">
