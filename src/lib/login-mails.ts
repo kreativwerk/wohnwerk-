@@ -5,6 +5,16 @@
 
 export const CODE_GUELTIG_MINUTEN = 10;
 
+/**
+ * Briefanrede: "Guten Tag Herr Geier," - nur der Nachname. Ohne Herr/Frau
+ * bleibt es beim vollen Namen, damit niemand falsch angesprochen wird.
+ */
+export function anredeZeile(name: string, anrede?: string | null): string {
+  const teile = name.trim().split(/\s+/);
+  const nachname = teile[teile.length - 1] ?? name;
+  return anrede === "Herr" || anrede === "Frau" ? `Guten Tag ${anrede} ${nachname},` : `Guten Tag ${name.trim()},`;
+}
+
 /** Das Logo geht als eingebettetes Bild mit (Content-ID) - Outlook zeigt es so ohne Nachfrage. */
 export const LOGO_CID = "wohnwerk-logo@wohnwerk";
 
@@ -30,10 +40,10 @@ function rahmen(inhalt: string, fuss: string, logoSrc: string): string {
 </body></html>`;
 }
 
-export function codeMail(p: { name: string; code: string; absender: string; fuss: string; logoSrc?: string }) {
+export function codeMail(p: { name: string; anrede?: string | null; code: string; absender: string; fuss: string; logoSrc?: string }) {
   const subject = `Ihr Anmeldecode: ${p.code}`;
   const text = [
-    `Guten Tag ${p.name},`,
+    anredeZeile(p.name, p.anrede),
     "",
     `Ihr Code für die Anmeldung bei ${p.absender} lautet:`,
     "",
@@ -49,7 +59,7 @@ export function codeMail(p: { name: string; code: string; absender: string; fuss
     p.fuss,
   ].join("\n");
   const html = rahmen(
-    `<p style="margin:0 0 14px">Guten Tag ${escapeHtml(p.name)},</p>
+    `<p style="margin:0 0 14px">${escapeHtml(anredeZeile(p.name, p.anrede))}</p>
      <p style="margin:0 0 6px">Ihr Code für die Anmeldung lautet:</p>
      <p style="margin:0 0 18px;font-size:34px;font-weight:700;letter-spacing:8px;color:#2a5654">${p.code}</p>
      <p style="margin:0 0 14px;font-size:13px;color:#5b6363">Der Code ist ${CODE_GUELTIG_MINUTEN} Minuten gültig und kann nur einmal verwendet werden. Falls Sie keine Anmeldung angefordert haben, können Sie diese E-Mail ignorieren.</p>
@@ -60,10 +70,10 @@ export function codeMail(p: { name: string; code: string; absender: string; fuss
   return { subject, text, html };
 }
 
-export function einladungMail(p: { name: string; link: string; absender: string; fuss: string; logoSrc?: string }) {
+export function einladungMail(p: { name: string; anrede?: string | null; link: string; absender: string; fuss: string; logoSrc?: string }) {
   const subject = `Zugang zu den Mietverträgen – ${p.absender}`;
   const text = [
-    `Guten Tag ${p.name},`,
+    anredeZeile(p.name, p.anrede),
     "",
     "wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle laufenden aktiven Mietverträge einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.",
     "",
@@ -85,7 +95,7 @@ export function einladungMail(p: { name: string; link: string; absender: string;
   const schritt = (nr: number, inhalt: string) =>
     `<tr><td valign="top" style="padding:0 12px 10px 0"><span style="display:inline-block;width:24px;height:24px;border-radius:12px;background:#e8efee;color:#2a5654;font-weight:700;font-size:13px;line-height:24px;text-align:center">${nr}</span></td><td style="padding:2px 0 10px;font-size:14px">${inhalt}</td></tr>`;
   const html = rahmen(
-    `<p style="margin:0 0 14px">Guten Tag ${escapeHtml(p.name)},</p>
+    `<p style="margin:0 0 14px">${escapeHtml(anredeZeile(p.name, p.anrede))}</p>
      <p style="margin:0 0 18px">wie besprochen haben wir Ihnen einen Zugang eingerichtet, über den Sie alle <b>laufenden aktiven Mietverträge</b> einsehen und herunterladen können – einzeln oder alle auf einmal als ZIP-Datei.</p>
      <p style="margin:0 0 22px"><a href="${p.link}" style="display:inline-block;background:#2a5654;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Zur Anmeldung</a></p>
      <p style="margin:0 0 10px;font-weight:700">So melden Sie sich an</p>

@@ -84,7 +84,7 @@ export async function codeAnfordern(email: string): Promise<CodeAnforderung> {
     },
   });
 
-  const mail = codeMail({ name: user.name, code, ...(await mailAbsender()) });
+  const mail = codeMail({ name: user.name, anrede: user.anrede, code, ...(await mailAbsender()) });
   const ergebnis = await sendMail({ to: user.email, ...mail, inline: await logoEingebettet() });
   if (!ergebnis.sent) {
     console.error("[bank-code] Versand fehlgeschlagen:", ergebnis.message);

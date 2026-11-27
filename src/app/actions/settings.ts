@@ -147,6 +147,8 @@ export async function bankberaterEinladen(formData: FormData) {
   const back = "/einstellungen";
   const email = str(formData, "email").toLowerCase();
   const name = str(formData, "name");
+  const anredeRoh = str(formData, "anrede");
+  const anrede = anredeRoh === "Herr" || anredeRoh === "Frau" ? anredeRoh : null;
   if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     redirect(flash(back, "fehler", t("Bitte Name und eine gültige E-Mail-Adresse angeben.")));
   }
@@ -156,11 +158,11 @@ export async function bankberaterEinladen(formData: FormData) {
     redirect(flash(back, "fehler", t("Diese E-Mail-Adresse wird bereits verwendet.")));
   }
   const user = vorhanden
-    ? await prisma.user.update({ where: { id: vorhanden.id }, data: { name, active: true } })
+    ? await prisma.user.update({ where: { id: vorhanden.id }, data: { name, anrede, active: true } })
     : await prisma.user.create({
         // Kein Passwort: ein zufaelliger Wert, den niemand kennt - die
         // Anmeldung laeuft ausschliesslich ueber den E-Mail-Code.
-        data: { email, name, role: ROLES.BANK, passwordHash: hashPassword(crypto.randomBytes(32).toString("base64url")) },
+        data: { email, name, anrede, role: ROLES.BANK, passwordHash: hashPassword(crypto.randomBytes(32).toString("base64url")) },
       });
   await audit(actor.email, vorhanden ? "update" : "create", "User", user.id, `Bank-Zugang ${email}`);
   revalidatePath(back);
@@ -182,7 +184,7 @@ async function einladungVerschicken(userId: string, back: string): Promise<never
   const link = await anmeldeLink(user.email);
   const ergebnis = await sendMail({
     to: user.email,
-    ...einladungMail({ name: user.name, link, ...(await mailAbsender()) }),
+    ...einladungMail({ name: user.name, anrede: user.anrede, link, ...(await mailAbsender()) }),
     inline: await logoEingebettet(),
   });
   await audit(actor.email, "invite", "User", user.id, ergebnis.sent ? `Einladung an ${user.email} verschickt` : `Einladung nicht verschickt: ${ergebnis.message}`);
@@ -200,4 +202,17 @@ async function einladungVerschicken(userId: string, back: string): Promise<never
     );
   }
   redirect(flash(back, "ok", t("Einladung an {email} verschickt. Die Anmeldung läuft über einen Code per E-Mail.", { email: user.email })));
+}
+
+/** Anrede eines Zugangs aendern (Herr/Frau/neutral) - fuer die E-Mails. */
+export async function anredeSetzen(formData: FormData) {
+  const t = await uebersetzer();
+  const actor = await requireAdmin();
+  const id = str(formData, "id");
+  const roh = str(formData, "anrede");
+  const anrede = roh === "Herr" || roh === "Frau" ? roh : null;
+  await prisma.user.update({ where: { id }, data: { anrede } });
+  await audit(actor.email, "update", "User", id, `Anrede: ${anrede ?? "neutral"}`);
+  revalidatePath("/einstellungen");
+  redirect(flash("/einstellungen", "ok", t("Anrede gespeichert.")));
 }

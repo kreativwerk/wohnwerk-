@@ -1,5 +1,5 @@
 import { qontoBelegeNachholenAktion, qontoJetztAbgleichen, qontoZugangLoeschen, qontoZugangSichern } from "@/app/actions/qonto";
-import { bankEinladungErneut, bankberaterEinladen, changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
+import { anredeSetzen, bankEinladungErneut, bankberaterEinladen, changePassword, createUser, deactivateUser, removeLandlordSignature, updateSettings, uploadLandlordSignature } from "@/app/actions/settings";
 import { ConfirmButton, Disclosure } from "@/components/interactive";
 import { Alert, Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { requireUser, requireAdmin } from "@/lib/auth";
@@ -536,6 +536,15 @@ export default async function SettingsPage({
                     )}
                     {user.role === "bank" && user.active && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <form action={anredeSetzen} className="flex items-center gap-1">
+                          <input type="hidden" name="id" value={user.id} />
+                          <select name="anrede" defaultValue={user.anrede ?? ""} aria-label={t("Anrede")} className="!w-auto !py-1 text-sm">
+                            <option value="">{t("ohne Anrede")}</option>
+                            <option value="Herr">{t("Herr")}</option>
+                            <option value="Frau">{t("Frau")}</option>
+                          </select>
+                          <button type="submit" className="btn btn-ghost btn-sm">{t("Speichern")}</button>
+                        </form>
                         <a
                           href={`/api/einstellungen/bank-einladung/${user.id}`}
                           target="_blank"
@@ -588,7 +597,15 @@ export default async function SettingsPage({
 
           <div className="space-y-4 border-t border-ink-200 p-5">
             <Disclosure summary={t("Bankberater einladen (Anmeldung mit Code per E-Mail)")}>
-              <form action={bankberaterEinladen} className="grid gap-3 sm:grid-cols-3">
+              <form action={bankberaterEinladen} className="grid gap-3 sm:grid-cols-4">
+                <div>
+                  <label htmlFor="bank-anrede">{t("Anrede")}</label>
+                  <select id="bank-anrede" name="anrede" defaultValue="Herr">
+                    <option value="Herr">{t("Herr")}</option>
+                    <option value="Frau">{t("Frau")}</option>
+                    <option value="">{t("ohne Anrede")}</option>
+                  </select>
+                </div>
                 <div>
                   <label htmlFor="bank-name">{t("Name")}</label>
                   <input id="bank-name" name="name" required />
@@ -602,7 +619,7 @@ export default async function SettingsPage({
                     {t("Anlegen und einladen")}
                   </button>
                 </div>
-                <p className="field-hint sm:col-span-3">
+                <p className="field-hint sm:col-span-4">
                   {t("Kein Passwort nötig: Der Bankberater bekommt eine Einladung und meldet sich jedes Mal mit einem Code an, der an seine E-Mail-Adresse geht. Er sieht nur die laufenden aktiven Mietverträge.")}
                 </p>
               </form>

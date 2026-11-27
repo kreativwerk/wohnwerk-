@@ -26,7 +26,7 @@ import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-spr
 import { vertragsuebersetzung, vertragsuebersetzungVollstaendig } from "../src/lib/vertrag-uebersetzung";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
 import { renderWohnungsgeberbestaetigung } from "../src/lib/wohnungsgeber-pdf";
-import { codeMail, einladungMail } from "../src/lib/login-mails";
+import { anredeZeile, codeMail, einladungMail } from "../src/lib/login-mails";
 import { renderZusatzblaetter } from "../src/lib/zusatzblaetter-pdf";
 import { zusatzTexte } from "../src/lib/zusatzblaetter-texte";
 import { PDFDocument } from "pdf-lib";
@@ -1257,6 +1257,10 @@ async function main() {
     const e = einladungMail({ name: "A <B>", link: "https://x.test/bank/anmelden", absender: "Wohnwerk", fuss: "Fuss" });
     assert.ok(e.html.includes("https://x.test/bank/anmelden") && e.text.includes("https://x.test/bank/anmelden"));
     assert.ok(e.html.includes("A &lt;B&gt;") && !e.html.includes("<B>"));
+    assert.equal(anredeZeile("Axel Geier", "Herr"), "Guten Tag Herr Geier,");
+    assert.equal(anredeZeile("Anna Maria Schmitt", "Frau"), "Guten Tag Frau Schmitt,");
+    assert.equal(anredeZeile("Axel Geier", null), "Guten Tag Axel Geier,");
+    assert.ok(einladungMail({ name: "Axel Geier", anrede: "Herr", link: "l", absender: "W", fuss: "F" }).text.startsWith("Guten Tag Herr Geier,"));
     const c = codeMail({ name: "A", code: "012345", absender: "Wohnwerk", fuss: "Fuss" });
     assert.ok(c.subject.includes("012345") && c.text.includes("012345") && c.html.includes("012345"));
   });

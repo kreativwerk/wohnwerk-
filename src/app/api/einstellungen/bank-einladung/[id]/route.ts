@@ -9,7 +9,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.role !== ROLES.BANK) return new Response("Kein Bank-Zugang", { status: 404 });
 
-  const mail = einladungMail({ name: user.name, link: await anmeldeLink(user.email), ...(await mailAbsender()), logoSrc: "/email-logo.png" });
+  const mail = einladungMail({ name: user.name, anrede: user.anrede, link: await anmeldeLink(user.email), ...(await mailAbsender()), logoSrc: "/email-logo.png" });
   const kopf = `<div style="font-family:Arial,sans-serif;font-size:13px;background:#fff8e6;border-bottom:1px solid #e8d8a8;padding:10px 16px;color:#5b4a1a">
 <b>Vorschau – nichts verschickt.</b> An: ${user.email} · Betreff: ${mail.subject.replace(/</g, "&lt;")}</div>`;
   return new Response(mail.html.replace(/<body([^>]*)>/, `<body$1>${kopf}`), {

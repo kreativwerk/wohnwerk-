@@ -629,6 +629,8 @@ model User {
   name         String
   passwordHash String
   role         String    @default("admin")
+  /// "Herr" oder "Frau" - fuer die Anrede in E-Mails; leer = neutral
+  anrede       String?
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
