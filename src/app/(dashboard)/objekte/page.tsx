@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { Badge, Card, EmptyState, Flash, Meter, PageHeader, Table, Td, Th } from "@/components/ui";
-import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { monthlyCostCents } from "@/components/cost-card";
 import { ListenFilter } from "@/components/listenfilter";
 import { prisma } from "@/lib/db";
@@ -109,12 +108,6 @@ export default async function PropertiesPage({
                       {property.shortCode && (
                         <p className="text-xs text-ink-500">{t("Kürzel {code}", { code: property.shortCode })}</p>
                       )}
-                      {property.active &&
-                        !property.templates.some((t) => coversLandlordConfirmation(t.kind)) && (
-                          <p className="mt-1">
-                            <Badge tone="warning">{t("Wohnungsgeberbestätigung fehlt")}</Badge>
-                          </p>
-                        )}
                     </Td>
                     <Td className="text-ink-600">
                       {property.street}

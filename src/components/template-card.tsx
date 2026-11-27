@@ -49,9 +49,9 @@ export async function PropertyTemplates({
     >
       {!hatBestaetigung && (
         <div className="mb-5 rounded-xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-[0.875rem] leading-relaxed text-amber-900">
-          <p className="font-semibold">{t("Wohnungsgeberbestätigung fehlt")}</p>
+          <p className="font-semibold">{t("Kein Vordruck der Gemeinde")}</p>
           <p className="mt-0.5">
-            {t("Ohne sie kann sich ein Mieter nicht anmelden. Der Vordruck unterscheidet sich je Kommune, deshalb gehört hier die Datei des zuständigen Meldeamts hinterlegt.")}
+            {t("Die Wohnungsgeberbestätigung entsteht als neutrales Formular nach § 19 BMG mit allen Pflichtangaben und Unterschrift. Verlangt das Meldeamt einen eigenen Vordruck, hier hochladen.")}
           </p>
         </div>
       )}

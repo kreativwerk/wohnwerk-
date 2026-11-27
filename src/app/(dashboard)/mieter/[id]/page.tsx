@@ -15,7 +15,6 @@ import { ChargeBadge, ContractBadge, TenancyBadge } from "@/components/status";
 import { Badge, Card, Flash, PageHeader, Table, Td, Th } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { bedOptions } from "@/lib/options";
-import { coversLandlordConfirmation } from "@/lib/pdf-template";
 import { centsToInput, STANDARD_KAUTION_CENTS } from "@/lib/money";
 import { toDateInput } from "@/lib/dates";
 import { requireAdmin } from "@/lib/auth";
@@ -402,7 +401,7 @@ export default async function TenantDetailPage({
                 <TenancyBadge status={aktuell.status} />
                 {/* Die Bestaetigung fuer die Meldebehoerde - direkt hier, wo
                     man sie sucht, wenn der Mieter vor der Tuer steht. */}
-                {aktuell.contract && aktuell.bed.room.property.templates.some((v) => coversLandlordConfirmation(v.kind)) ? (
+                {aktuell.contract && (
                   <a
                     href={`/api/vertraege/${aktuell.contract.id}/wohnungsgeber`}
                     target="_blank"
@@ -411,14 +410,6 @@ export default async function TenantDetailPage({
                   >
                     {t("Wohnungsgeberbestätigung (PDF)")}
                   </a>
-                ) : (
-                  <Link
-                    href={`/objekte/${aktuell.bed.room.propertyId}`}
-                    className="text-xs text-ink-500 hover:text-brand-700"
-                    title={t("Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen")}
-                  >
-                    {t("Kein Vordruck für die Wohnungsgeberbestätigung")}
-                  </Link>
                 )}
                 {aktuell.contract && (
                   <a
@@ -501,16 +492,14 @@ export default async function TenantDetailPage({
                       {tenancy.contract ? (
                         <>
                           <ContractBadge status={tenancy.contract.status} />
-                          {tenancy.bed.room.property.templates.some((v) => coversLandlordConfirmation(v.kind)) && (
-                            <a
-                              href={`/api/vertraege/${tenancy.contract.id}/wohnungsgeber`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-ghost btn-sm"
-                            >
-                              {t("Wohnungsgeberbestätigung")}
-                            </a>
-                          )}
+                          <a
+                            href={`/api/vertraege/${tenancy.contract.id}/wohnungsgeber`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-ghost btn-sm"
+                          >
+                            {t("Wohnungsgeberbestätigung")}
+                          </a>
                           <Link
                             href={`/vertraege/${tenancy.contract.id}`}
                             className="btn btn-secondary"

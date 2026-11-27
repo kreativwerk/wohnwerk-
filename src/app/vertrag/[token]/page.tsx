@@ -169,13 +169,9 @@ export default async function PublicContractPage({
   const data = await buildContractData(contract, { includeSignature: true });
   const tenant = contract.tenancy.tenant;
   const uebersetzung = vertragsuebersetzung(sprache);
-  // Gibt es fuer das Objekt einen Vordruck, kann der Mieter die
-  // Wohnungsgeberbestaetigung nach der Unterschrift selbst herunterladen.
-  const wgbVordruck =
-    (await prisma.propertyTemplate.count({
-      where: { propertyId: contract.tenancy.bed.room.propertyId, active: true, kind: { in: ["LANDLORD_CONFIRMATION", "COMBINED"] } },
-    })) > 0;
-  const hatWohnungsgeber = signed && wgbVordruck;
+  // Die Wohnungsgeberbestaetigung gibt es fuer jedes Objekt - aus dem
+  // Vordruck der Gemeinde oder als neutrales Formular nach § 19 BMG.
+  const hatWohnungsgeber = signed;
   const pflicht = <span className="text-rose-600"> *</span>;
   const optional = <span className="font-normal text-ink-500"> ({v("optional")})</span>;
 
@@ -225,7 +221,7 @@ export default async function PublicContractPage({
                 {v("pdfZusatz")}
               </a>
             </li>
-            {wgbVordruck && <li>• {v("hinweisWgb")}</li>}
+            <li>• {v("hinweisWgb")}</li>
           </ul>
         </section>
       )}

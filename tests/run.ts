@@ -25,6 +25,7 @@ import { einladungText, spracheAusNationalitaet, EINLADUNG_SPRACHEN } from "../s
 import { vertragSprachenVollstaendig, vertragText } from "../src/lib/vertrag-sprache";
 import { vertragsuebersetzung, vertragsuebersetzungVollstaendig } from "../src/lib/vertrag-uebersetzung";
 import { faelligAm, feiertageBayern, monateMitZahlungen, nterWerktag, ostersonntag, passtZumVertrag, vertragsMonate, zahlungVerteilen } from "../src/lib/objektmiete";
+import { renderWohnungsgeberbestaetigung } from "../src/lib/wohnungsgeber-pdf";
 import { renderZusatzblaetter } from "../src/lib/zusatzblaetter-pdf";
 import { zusatzTexte } from "../src/lib/zusatzblaetter-texte";
 import { PDFDocument } from "pdf-lib";
@@ -1231,6 +1232,23 @@ async function main() {
       }
       const pdf = await renderZusatzblaetter({ sprache, mieter: "Idrit Yzeiraj", objekt: "Birkenweg 6, Etzelskirchen", vertragsnummer: "MV-2026-0072" });
       assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1, sprache);
+    }
+  });
+
+  await test("Wohnungsgeberbestätigung: eine Seite, auch mit fremdem Eigentümer", async () => {
+    for (const istEigentuemer of [true, false]) {
+      const pdf = await renderWohnungsgeberbestaetigung({
+        wohnungsgeber: { name: "Wohnwerk Immobilien A² eGbR", anschrift: "Noetherstr. 61, 91058 Erlangen" },
+        istEigentuemer,
+        eigentuemer: istEigentuemer ? null : { name: "Max Müller", anschrift: "Hauptstr. 1, 91054 Erlangen" },
+        wohnung: { anschrift: "Birkenweg 6, 91315 Höchstadt a.d. Aisch", lage: "Erdgeschoss" },
+        meldebehoerde: "Höchstadt a.d. Aisch",
+        art: "EINZUG",
+        datum: "29.11.2026",
+        personen: [{ familienname: "Guri", vornamen: "Esljan", geburtsdatum: "18.02.1996" }],
+        ortDatum: "Erlangen, 27.11.2026",
+      });
+      assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1);
     }
   });
 

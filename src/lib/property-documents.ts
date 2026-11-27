@@ -14,6 +14,7 @@ import {
   parseFieldMap,
 } from "./pdf-template";
 import type { ContractWithRelations } from "./contract";
+import { renderWohnungsgeberbestaetigung, type WohnungsgeberAngaben } from "./wohnungsgeber-pdf";
 
 /**
  * Erzeugt Mietvertrag und Wohnungsgeberbestaetigung aus den Vordrucken des
@@ -128,11 +129,24 @@ export async function buildDocumentsFromTemplates(
   const templates = await prisma.propertyTemplate.findMany({
     where: { propertyId, active: true },
   });
-  if (templates.length === 0) return [];
-
-  const werte = await buildTemplateValues(contract);
   const mieterName = `${contract.tenancy.tenant.firstName} ${contract.tenancy.tenant.lastName}`;
   const ergebnis: GeneratedDocument[] = [];
+
+  // Ohne Vordruck der Gemeinde: die Bestaetigung im eigenen Layout - die
+  // Meldepflicht haengt nicht am Formular, nur an den Angaben nach § 19 BMG.
+  if (!templates.some((t) => coversLandlordConfirmation(t.kind))) {
+    ergebnis.push({
+      kind: "LANDLORD_CONFIRMATION",
+      title: `Wohnungsgeberbestätigung ${contract.contractNumber} – ${mieterName}`,
+      fileName: `Wohnungsgeberbestaetigung ${contract.contractNumber} ${mieterName}.pdf`,
+      pdf: await renderWohnungsgeberbestaetigung(await wohnungsgeberAngaben(contract)),
+      istMietvertrag: false,
+      istWohnungsgeberbestaetigung: true,
+    });
+  }
+  if (templates.length === 0) return ergebnis;
+
+  const werte = await buildTemplateValues(contract);
 
   for (const template of templates) {
     const map = parseFieldMap(template.fieldMap);
@@ -185,4 +199,68 @@ export async function buildDocumentsFromTemplates(
   }
 
   return ergebnis;
+}
+
+const STOCKWERK: Record<string, string> = {
+  KG: "Kellergeschoss",
+  UG: "Untergeschoss",
+  EG: "Erdgeschoss",
+  OG: "Obergeschoss",
+  DG: "Dachgeschoss",
+};
+
+/** "EG" -> "Erdgeschoss", "1. OG" -> "1. Obergeschoss"; Unbekanntes bleibt. */
+export function stockwerkAusgeschrieben(kurz: string | null | undefined): string {
+  const roh = (kurz ?? "").trim();
+  if (!roh) return "";
+  return roh.replace(/\b(KG|UG|EG|OG|DG)\b/g, (k) => STOCKWERK[k] ?? k);
+}
+
+/** Lage fuer die Meldebehoerde: Stockwerk und Zimmer, ohne Doppelungen und ohne Bettnummer. */
+export function lageImHaus(stockwerk: string | null | undefined, zimmer: string | null | undefined): string {
+  const s = stockwerkAusgeschrieben(stockwerk);
+  const z = (zimmer ?? "").trim();
+  if (!z || z.toLowerCase() === s.toLowerCase() || z.toLowerCase() === (stockwerk ?? "").trim().toLowerCase()) return s || z;
+  return s ? `${s}, ${z}` : z;
+}
+
+/** Ort der Meldebehoerde aus dem Ort des Objekts - ohne Ortsteil in Klammern. */
+export function meldeOrt(ort: string): string {
+  return ort.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Angaben fuer die selbst gesetzte Wohnungsgeberbestaetigung. */
+export async function wohnungsgeberAngaben(contract: ContractWithRelations): Promise<WohnungsgeberAngaben> {
+  const settings = await getSettings();
+  const { tenancy } = contract;
+  const { tenant, bed } = tenancy;
+  const property = bed.room.property;
+  const heute = formatDate(new Date());
+  const istEigentuemer = property.tenure === "EIGENTUM";
+  return {
+    wohnungsgeber: {
+      name: settings.companyName,
+      anschrift: `${settings.companyStreet}, ${settings.companyZip} ${settings.companyCity}`,
+      kontakt: [settings.companyPhone, settings.companyEmail].filter(Boolean).join(" · ") || null,
+    },
+    istEigentuemer,
+    eigentuemer: istEigentuemer ? null : { name: property.ownerName ?? "", anschrift: property.ownerAddress ?? "" },
+    wohnung: {
+      anschrift: `${property.street}, ${property.zip} ${property.city}`,
+      lage: lageImHaus(bed.room.floor, bed.room.name),
+    },
+    meldebehoerde: meldeOrt(property.city),
+    art: "EINZUG",
+    datum: formatDate(tenancy.startDate),
+    personen: [
+      {
+        familienname: tenant.lastName,
+        vornamen: tenant.firstName,
+        geburtsdatum: tenant.birthDate ? formatDate(tenant.birthDate) : null,
+      },
+    ],
+    ortDatum: settings.companyCity ? `${settings.companyCity}, ${heute}` : heute,
+    unterschrift: settings.landlordSignature.startsWith("data:image/png;base64,") ? settings.landlordSignature : null,
+    referenz: `Mietvertrag ${contract.contractNumber}`,
+  };
 }

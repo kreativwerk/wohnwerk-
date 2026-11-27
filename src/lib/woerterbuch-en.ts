@@ -493,6 +493,8 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Kästchen: weiblich": "Checkbox: female",
   "Kästchen: immer angekreuzt": "Checkbox: always ticked",
   "Wohnungsgeberbestätigung (PDF)": "Landlord confirmation (PDF)",
+  "Kein Vordruck der Gemeinde": "No municipal form",
+  "Die Wohnungsgeberbestätigung entsteht als neutrales Formular nach § 19 BMG mit allen Pflichtangaben und Unterschrift. Verlangt das Meldeamt einen eigenen Vordruck, hier hochladen.": "The landlord confirmation is generated as a neutral form under § 19 BMG with all required details and signature. If the registration office requires its own form, upload it here.",
   "Hausregeln & Mülltrennung (PDF)": "House rules & waste separation (PDF)",
   "Ein Blatt zum Unterschreiben, Deutsch und in der Sprache des Mieters. Andere Sprache:": "One sheet to sign, in German and the tenant's language. Other language:",
   "Auf der Objektseite unter „Vordrucke“ den Vordruck der Gemeinde hochladen": "Upload the municipality's form under 'Forms' on the property page",
