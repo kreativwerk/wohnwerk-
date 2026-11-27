@@ -13,6 +13,7 @@ import { findConflictingTenancy, nextContractNumber, nextReference } from "@/lib
 import { ensureRentCharges, forderungenAbgleichen } from "@/lib/accounting";
 import { formatDate } from "@/lib/dates";
 import { formatCents, STANDARD_BETTMIETE_CENTS } from "@/lib/money";
+import { anteilNotiz, monatsanteil } from "@/lib/mietanteil";
 import { uebersetzer } from "@/lib/i18n";
 
 function refresh(tenantId?: string) {
@@ -606,4 +607,101 @@ function auszugMeldung(
     teile.push(t("{anzahl} offene Forderung(en) nach dem Auszug entfernt.", { anzahl: anpassung.entfernt }));
   }
   return teile.join(" ");
+}
+
+/**
+ * Auszug zuruecknehmen - der Mieter bleibt doch. Das Mietverhaeltnis laeuft
+ * unbefristet weiter, Vertrag und Mieter werden wieder aktiv. Der zum Auszug
+ * gekuerzte letzte Monat bekommt wieder den vollen Betrag, die Monate danach
+ * werden angelegt. Geht nicht, wenn das Bett inzwischen belegt ist oder der
+ * Mieter schon ein neues laufendes Mietverhaeltnis hat.
+ */
+export async function auszugZuruecknehmen(formData: FormData) {
+  const t = await uebersetzer();
+  const user = await requireAdmin();
+  const id = str(formData, "id");
+
+  const tenancy = await prisma.tenancy.findUnique({
+    where: { id },
+    include: { contract: true, tenant: true, charges: { include: { allocations: true } } },
+  });
+  if (!tenancy) redirect(flash("/mieter", "fehler", t("Mietverhältnis nicht gefunden.")));
+  const back = `/mieter/${tenancy.tenantId}`;
+  if (tenancy.status !== "ENDED" && !tenancy.endDate) {
+    redirect(flash(back, "fehler", t("Dieses Mietverhältnis ist nicht beendet.")));
+  }
+
+  // Inzwischen jemand anderes im Bett?
+  const belegt = await findConflictingTenancy({ bedId: tenancy.bedId, startDate: tenancy.startDate, endDate: null, excludeTenancyId: id });
+  if (belegt && belegt.tenantId !== tenancy.tenantId) {
+    redirect(flash(back, "fehler", t("Das Bett ist inzwischen an {name} vergeben (ab {datum}). Erst dort ändern oder den Mieter in ein anderes Bett setzen.", {
+      name: `${belegt.tenant.firstName} ${belegt.tenant.lastName}`.trim(),
+      datum: formatDate(belegt.startDate),
+    })));
+  }
+  // Schon neu eingezogen (z. B. in ein anderes Bett)? Dann nicht doppelt.
+  const neu = await prisma.tenancy.findFirst({
+    where: {
+      tenantId: tenancy.tenantId,
+      id: { not: id },
+      status: { in: ["DRAFT", "SENT", "ACTIVE"] },
+      OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
+    },
+    include: { bed: { include: { room: true } } },
+  });
+  if (neu) {
+    redirect(flash(back, "fehler", t("{name} hat schon ein laufendes Mietverhältnis ab {datum} ({bett}). Entweder dieses behalten – oder es zuerst löschen und dann den Auszug zurücknehmen.", {
+      name: tenancy.tenant.firstName,
+      datum: formatDate(neu.startDate),
+      bett: `${neu.bed.room.name}, ${neu.bed.label}`,
+    })));
+  }
+
+  const altesEnde = tenancy.endDate;
+  const vertragStatus = tenancy.contract
+    ? tenancy.contract.status === "ENDED"
+      ? tenancy.contract.signedAt ? "SIGNED" : "SENT"
+      : tenancy.contract.status
+    : null;
+  await prisma.$transaction([
+    prisma.tenancy.update({
+      where: { id },
+      data: { endDate: null, status: vertragStatus === "SIGNED" || !tenancy.contract ? "ACTIVE" : "SENT" },
+    }),
+    ...(tenancy.contract && vertragStatus !== tenancy.contract.status
+      ? [prisma.contract.update({ where: { id: tenancy.contract.id }, data: { status: vertragStatus! } })]
+      : []),
+    prisma.tenant.update({ where: { id: tenancy.tenantId }, data: { status: "AKTIV" } }),
+  ]);
+
+  // Der zum Auszug gekuerzte Monat: wieder voller Monat.
+  if (altesEnde) {
+    const monat = tenancy.charges.find(
+      (c) => c.kind === "RENT" && c.periodYear === altesEnde.getUTCFullYear() && c.periodMonth === altesEnde.getUTCMonth() + 1,
+    );
+    if (monat && monat.status !== "WAIVED") {
+      const voll = monatsanteil({ startDate: tenancy.startDate, endDate: null, monthlyRentCents: tenancy.monthlyRentCents }, monat.periodYear, monat.periodMonth);
+      if (voll.amountCents > monat.amountCents) {
+        const bezahlt = monat.allocations.reduce((s, a) => s + a.amountCents, 0);
+        const vorher = monat.status === "PAID" && bezahlt === 0 ? monat.amountCents : bezahlt;
+        await prisma.rentCharge.update({
+          where: { id: monat.id },
+          data: {
+            amountCents: voll.amountCents,
+            status: vorher <= 0 ? "OPEN" : vorher + 100 >= voll.amountCents ? "PAID" : "PARTIAL",
+            notes: [anteilNotiz(voll), `Auszug zurückgenommen – vorher ${formatCents(monat.amountCents)}${vorher > 0 ? `, davon ${formatCents(vorher)} bezahlt` : ""}`]
+              .filter(Boolean)
+              .join(" · "),
+          },
+        });
+      }
+    }
+  }
+  await ensureRentCharges({ tenancyId: id });
+
+  await audit(user.email, "undo-end", "Tenancy", id, altesEnde ? formatDate(altesEnde) : null);
+  refresh(tenancy.tenantId);
+  revalidatePath("/vertraege");
+  revalidatePath("/buchhaltung/mieteingaenge");
+  redirect(flash(back, "ok", t("Auszug zurückgenommen – {name} bleibt. Das Mietverhältnis läuft unbefristet weiter, offene Monate sind angelegt.", { name: tenancy.tenant.firstName })));
 }

@@ -1530,4 +1530,12 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "{anzahl} von {gesamt} angezeigt": "{anzahl} of {gesamt} shown",
   "Hochladen fehlgeschlagen. Bitte erneut versuchen – bei großen PDFs weniger Seiten auf einmal.": "Upload failed. Please try again – for large PDFs, fewer pages at once.",
   "Unterschrieben hochladen": "Upload signed copy",
+  "Auszug von {name} zurücknehmen? Das Mietverhältnis läuft dann unbefristet weiter.": "Undo move-out of {name}? The tenancy then continues open-ended.",
+  "Auszug zurückgenommen – {name} bleibt. Das Mietverhältnis läuft unbefristet weiter, offene Monate sind angelegt.": "Move-out undone – {name} stays. The tenancy continues open-ended, open months have been created.",
+  "Auszug zurücknehmen": "Undo move-out",
+  "Auszug zurücknehmen – bleibt doch": "Undo move-out – stays after all",
+  "Das Bett ist inzwischen an {name} vergeben (ab {datum}). Erst dort ändern oder den Mieter in ein anderes Bett setzen.": "The bed is now assigned to {name} (from {datum}). Change that first or move the tenant to another bed.",
+  "Das Mietverhältnis läuft unbefristet weiter, Vertrag und Mieter werden wieder aktiv. Der gekürzte letzte Monat wird wieder voll berechnet, die Monate danach werden angelegt.": "The tenancy continues open-ended, contract and tenant become active again. The shortened last month is charged in full again and the following months are created.",
+  "Dieses Mietverhältnis ist nicht beendet.": "This tenancy has not ended.",
+  "{name} hat schon ein laufendes Mietverhältnis ab {datum} ({bett}). Entweder dieses behalten – oder es zuerst löschen und dann den Auszug zurücknehmen.": "{name} already has a running tenancy from {datum} ({bett}). Either keep that one – or delete it first and then undo the move-out.",
 };

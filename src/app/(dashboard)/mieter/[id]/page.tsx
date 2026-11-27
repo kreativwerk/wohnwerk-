@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
+import { auszugZuruecknehmen, createTenancy, deleteTenancy, deleteTenant, endTenancy, moveTenancy, updateTenancy, updateTenant } from "@/app/actions/tenants";
 import { markChargePaid, reopenCharge } from "@/app/actions/accounting";
 import { createContractForTenancy, toggleTenantFormer } from "@/app/actions/contracts";
 import { addTenantNote, deleteTenantNote, kautionRueckzahlungZuruecknehmen, kautionZurueckgezahlt, toggleTenantNoteDone } from "@/app/actions/notizen";
@@ -662,6 +662,24 @@ export default async function TenantDetailPage({
                                 : null
                             }
                           />
+                        </form>
+                      </Disclosure>
+                    )}
+
+                    {/* Doch nicht ausgezogen: alles wieder auf laufend. */}
+                    {(tenancy.status === "ENDED" || tenancy.endDate) && tenancy.status !== "CANCELLED" && (
+                      <Disclosure summary={t("Auszug zurücknehmen – bleibt doch")}>
+                        <form action={auszugZuruecknehmen} className="space-y-3">
+                          <input type="hidden" name="id" value={tenancy.id} />
+                          <p className="text-sm text-ink-600">
+                            {t("Das Mietverhältnis läuft unbefristet weiter, Vertrag und Mieter werden wieder aktiv. Der gekürzte letzte Monat wird wieder voll berechnet, die Monate danach werden angelegt.")}
+                          </p>
+                          <ConfirmButton
+                            className="btn btn-primary"
+                            message={t("Auszug von {name} zurücknehmen? Das Mietverhältnis läuft dann unbefristet weiter.", { name: `${tenant.firstName} ${tenant.lastName}`.trim() })}
+                          >
+                            {t("Auszug zurücknehmen")}
+                          </ConfirmButton>
                         </form>
                       </Disclosure>
                     )}
