@@ -529,6 +529,11 @@ export default async function SettingsPage({
                         <Badge tone="info">{t("Steuerberater")}</Badge>
                       </span>
                     )}
+                    {user.role === "bank" && (
+                      <span className="ml-2">
+                        <Badge tone="warning">{t("Bank")}</Badge>
+                      </span>
+                    )}
                   </Td>
                   <Td className="text-ink-600">
                     {user.lastLoginAt ? datumZeit(user.lastLoginAt) : "nie"}
@@ -567,6 +572,7 @@ export default async function SettingsPage({
                     <option value="steuerberater">
                       {t("Steuerberater – nur Buchhaltung, nur lesend")}
                     </option>
+                    <option value="bank">{t("Bank – nur aktive Mietverträge ansehen und herunterladen")}</option>
                   </select>
                   <p className="field-hint">
                     {t("Ein Steuerberater-Konto sieht Buchungen, Belege, Kontoauszüge und die Exporte. Ändern kann es nichts.")}

@@ -1,4 +1,4 @@
-import { getSessionUser } from "@/lib/auth";
+import { getInternerUser } from "@/lib/auth";
 import { readLocalFile } from "@/lib/storage";
 
 const MIME: Record<string, string> = {
@@ -17,7 +17,7 @@ const MIME: Record<string, string> = {
  * Drive nicht konfiguriert ist). Nur fuer angemeldete Benutzer.
  */
 export async function GET(_request: Request, context: { params: Promise<{ path: string[] }> }) {
-  if (!(await getSessionUser())) {
+  if (!(await getInternerUser())) {
     return new Response("Nicht angemeldet", { status: 401 });
   }
 

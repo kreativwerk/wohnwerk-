@@ -1,10 +1,10 @@
-import { getSessionUser } from "@/lib/auth";
+import { getInternerUser } from "@/lib/auth";
 import { buildDocumentCsv, buildRentCsv, buildTransactionCsv } from "@/lib/export";
 import { buildDatevCsv } from "@/lib/datev";
 
 /** Direkter CSV-Download fuer den Steuerberater-Export. */
 export async function GET(request: Request, context: { params: Promise<{ type: string }> }) {
-  if (!(await getSessionUser())) {
+  if (!(await getInternerUser())) {
     return new Response("Nicht angemeldet", { status: 401 });
   }
 

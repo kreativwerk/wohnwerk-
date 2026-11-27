@@ -1538,4 +1538,5 @@ export const WOERTERBUCH_EN: Record<string, string> = {
   "Das Mietverhältnis läuft unbefristet weiter, Vertrag und Mieter werden wieder aktiv. Der gekürzte letzte Monat wird wieder voll berechnet, die Monate danach werden angelegt.": "The tenancy continues open-ended, contract and tenant become active again. The shortened last month is charged in full again and the following months are created.",
   "Dieses Mietverhältnis ist nicht beendet.": "This tenancy has not ended.",
   "{name} hat schon ein laufendes Mietverhältnis ab {datum} ({bett}). Entweder dieses behalten – oder es zuerst löschen und dann den Auszug zurücknehmen.": "{name} already has a running tenancy from {datum} ({bett}). Either keep that one – or delete it first and then undo the move-out.",
+  "Bank – nur aktive Mietverträge ansehen und herunterladen": "Bank – view and download active leases only",
 };

@@ -1,4 +1,4 @@
-import { getSessionUser } from "@/lib/auth";
+import { getInternerUser } from "@/lib/auth";
 import { loadContract } from "@/lib/contract";
 import { buildDocumentsFromTemplates } from "@/lib/property-documents";
 
@@ -9,7 +9,7 @@ import { buildDocumentsFromTemplates } from "@/lib/property-documents";
  * des Objekts; ohne Vordruck gibt es einen Hinweis statt einer Datei.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!(await getSessionUser())) {
+  if (!(await getInternerUser())) {
     return new Response("Nicht angemeldet", { status: 401 });
   }
 

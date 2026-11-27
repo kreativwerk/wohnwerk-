@@ -25,7 +25,8 @@ async function signIn(formData: FormData) {
   if (!user) redirect("/login?fehler=1");
 
   await createSession(user);
-  redirect("/");
+  // Der Bank-Zugang landet direkt bei seinen Vertraegen.
+  redirect(user.role === "bank" ? "/bank" : "/");
 }
 
 export default async function LoginPage({
@@ -33,7 +34,8 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  if (await getSessionUser()) redirect("/");
+  const angemeldet = await getSessionUser();
+  if (angemeldet) redirect(angemeldet.role === "bank" ? "/bank" : "/");
 
   const params = await searchParams;
   const [userCount, t] = await Promise.all([

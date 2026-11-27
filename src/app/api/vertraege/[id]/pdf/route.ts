@@ -1,4 +1,4 @@
-import { getSessionUser } from "@/lib/auth";
+import { getInternerUser } from "@/lib/auth";
 import { buildContractData, loadContract } from "@/lib/contract";
 import { renderContractPdf } from "@/lib/contract-pdf";
 import { buildDocumentsFromTemplates } from "@/lib/property-documents";
@@ -12,7 +12,7 @@ import { buildDocumentsFromTemplates } from "@/lib/property-documents";
  * Anwendung gesetzte Vertrag.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!(await getSessionUser())) {
+  if (!(await getInternerUser())) {
     return new Response("Nicht angemeldet", { status: 401 });
   }
 

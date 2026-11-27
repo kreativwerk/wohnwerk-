@@ -12,7 +12,7 @@ type Datei = { url: string; zipPfad: string };
  * Browser zu einer ZIP-Datei - so gibt es keine Groessengrenze am Server.
  * Optional kommt die Fehlliste als PDF mit hinein.
  */
-export function VertraegeZip({ dateien, fehllisteUrl, dateiname }: { dateien: Datei[]; fehllisteUrl: string; dateiname: string }) {
+export function VertraegeZip({ dateien, fehllisteUrl, dateiname }: { dateien: Datei[]; fehllisteUrl?: string; dateiname: string }) {
   const { t } = useOberflaeche();
   const [fortschritt, setFortschritt] = useState<{ fertig: number; gesamt: number } | null>(null);
   const [fehler, setFehler] = useState<string[]>([]);
@@ -21,7 +21,7 @@ export function VertraegeZip({ dateien, fehllisteUrl, dateiname }: { dateien: Da
     setFehler([]);
     const inhalt: Record<string, Uint8Array> = {};
     const fehlgeschlagen: string[] = [];
-    const gesamt = dateien.length + 1;
+    const gesamt = dateien.length + (fehllisteUrl ? 1 : 0);
     let fertig = 0;
     setFortschritt({ fertig, gesamt });
 
@@ -43,6 +43,7 @@ export function VertraegeZip({ dateien, fehllisteUrl, dateiname }: { dateien: Da
     await Promise.all([arbeiter(), arbeiter(), arbeiter(), arbeiter()]);
 
     try {
+      if (!fehllisteUrl) throw new Error("ohne Fehlliste");
       const liste = await fetch(fehllisteUrl, { credentials: "same-origin" });
       if (liste.ok) inhalt["Fehlende Mietverträge.pdf"] = new Uint8Array(await liste.arrayBuffer());
     } catch {

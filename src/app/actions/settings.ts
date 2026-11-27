@@ -77,7 +77,8 @@ export async function createUser(formData: FormData) {
   const password = str(formData, "password");
   const roleRaw = str(formData, "role");
   // Nur bekannte Rollen; alles Unerwartete wird zur Verwaltungsrolle.
-  const role = roleRaw === ROLES.STEUERBERATER ? ROLES.STEUERBERATER : ROLES.ADMIN;
+  const role =
+    roleRaw === ROLES.STEUERBERATER ? ROLES.STEUERBERATER : roleRaw === ROLES.BANK ? ROLES.BANK : ROLES.ADMIN;
   const back = "/einstellungen";
 
   if (!email || !name || password.length < 10) {

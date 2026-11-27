@@ -24,12 +24,20 @@ export type SessionUser = {
 export const ROLES = {
   ADMIN: "admin",
   STEUERBERATER: "steuerberater",
+  /** Bankberater: sieht ausschliesslich die aktiven, unterschriebenen
+   *  Mietvertraege unter /bank und kann sie herunterladen - sonst nichts. */
+  BANK: "bank",
 } as const;
 
 export const ROLE_LABEL: Record<string, string> = {
   admin: "Verwaltung",
   steuerberater: "Steuerberater (nur Buchhaltung, nur lesend)",
+  bank: "Bank (nur aktive Mietverträge, nur lesend)",
 };
+
+export function istBank(user: SessionUser | null): boolean {
+  return user?.role === ROLES.BANK;
+}
 
 export function isAdmin(user: SessionUser | null): boolean {
   return user?.role === ROLES.ADMIN;
@@ -120,6 +128,22 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  // Der Bank-Zugang hat in der App nichts verloren - nur /bank.
+  if (istBank(user)) redirect("/bank");
+  return user;
+}
+
+/** Angemeldet, aber nicht der Bank-Zugang - fuer interne Downloads. */
+export async function getInternerUser(): Promise<SessionUser | null> {
+  const user = await getSessionUser();
+  return user && !istBank(user) ? user : null;
+}
+
+/** Fuer /bank: Bank-Zugang oder Verwaltung. */
+export async function requireBankUser(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+  if (!istBank(user) && !isAdmin(user)) redirect("/");
   return user;
 }
 
@@ -140,6 +164,13 @@ export async function requireApiUser(): Promise<SessionUser> {
   if (!user) {
     throw new Response(JSON.stringify({ error: "Nicht angemeldet" }), {
       status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  // Bank-Zugang: nur ueber /api/bank/…
+  if (istBank(user)) {
+    throw new Response(JSON.stringify({ error: "Keine Berechtigung" }), {
+      status: 403,
       headers: { "content-type": "application/json" },
     });
   }
