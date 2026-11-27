@@ -53,9 +53,9 @@ export default async function BankPage() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl px-4">
-        <h1 className="mt-6 text-2xl font-bold text-brand-800">Aktive Mietverträge</h1>
+        <h1 className="mt-6 text-2xl font-bold text-brand-800">Laufende aktive Mietverträge</h1>
         <p className="mt-1 text-sm text-ink-600">
-          Wohnwerk Immobilien A² eGbR · Stand {formatDate(heute)} · nur laufende, unterschriebene Verträge
+          Wohnwerk Immobilien A² eGbR · Stand {formatDate(heute)}
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
